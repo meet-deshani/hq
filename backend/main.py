@@ -475,14 +475,31 @@ def serve_login(request: Request):
     # Check if user already logged in via cookie
     token = request.cookies.get("access_token")
     if token:
-        return RedirectResponse(url="/home")
+        return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
         
     with open(LOGIN_FILE, "r", encoding="utf-8") as f:
         html_content = f.read()
     return HTMLResponse(content=html_content)
 
 @app.get("/home", response_class=HTMLResponse)
-def serve_home(request: Request):
+@app.get("/", response_class=HTMLResponse)
+def serve_home_redirect(request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        return RedirectResponse(url="/login")
+    return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
+
+@app.get("/{org}/{product}/{workspace}/{module}/{tab}", response_class=HTMLResponse)
+@app.get("/{org}/{product}/{workspace}/{module}", response_class=HTMLResponse)
+@app.get("/{org}/{product}/{workspace}", response_class=HTMLResponse)
+def serve_portal_route(
+    request: Request,
+    org: str,
+    product: str,
+    workspace: str,
+    module: Optional[str] = None,
+    tab: Optional[str] = None
+):
     # Enforce login redirect
     token = request.cookies.get("access_token")
     if not token:
@@ -491,10 +508,3 @@ def serve_home(request: Request):
     with open(HOME_FILE, "r", encoding="utf-8") as f:
         html_content = f.read()
     return HTMLResponse(content=html_content)
-
-@app.get("/", response_class=HTMLResponse)
-def serve_root(request: Request):
-    token = request.cookies.get("access_token")
-    if token:
-        return RedirectResponse(url="/home")
-    return RedirectResponse(url="/login")

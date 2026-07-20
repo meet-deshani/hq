@@ -163,7 +163,13 @@ class Component extends DCLogic {
 
     if (kind === 'table') {
       let endpoint = '';
-      if (tabName === 'Users' || tabName === 'All Users') {
+      if (tabName === 'Organisations') {
+        endpoint = '/api/organisations';
+      } else if (tabName === 'Products') {
+        endpoint = '/api/products';
+      } else if (tabName === 'Workspaces') {
+        endpoint = '/api/workspaces';
+      } else if (tabName === 'Users' || tabName === 'All Users') {
         endpoint = '/api/users';
       } else if (tabName === 'Product Admin') {
         endpoint = '/api/users?role=Product Admin';
@@ -187,7 +193,22 @@ class Component extends DCLogic {
             let cols = [];
             let rows = [];
             
-            if (tabName === 'Users' || tabName === 'All Users' || tabName === 'Product Admin') {
+            if (tabName === 'Organisations') {
+              cols = ['ID', 'Name', 'Slug', 'Industry', 'Color', 'Created At'];
+              rows = data.map(o => ({
+                cells: [o.id, o.name, o.slug, o.industry || '—', o.color || '—', new Date(o.created_at).toLocaleDateString()]
+              }));
+            } else if (tabName === 'Products') {
+              cols = ['ID', 'Name', 'Code', 'Org ID', 'Status', 'Created At'];
+              rows = data.map(p => ({
+                cells: [p.id, p.name, p.code, p.organisation_id || '—', p.status || 'Active', new Date(p.created_at).toLocaleDateString()]
+              }));
+            } else if (tabName === 'Workspaces') {
+              cols = ['ID', 'Name', 'Slug', 'Icon', 'Org ID', 'Product ID', 'Status'];
+              rows = data.map(w => ({
+                cells: [w.id, w.name, w.slug || '—', w.icon || 'grid', w.organisation_id || '—', w.product_id || '—', w.status || 'Active']
+              }));
+            } else if (tabName === 'Users' || tabName === 'All Users' || tabName === 'Product Admin') {
               cols = ['Name', 'Email', 'Role', 'Status'];
               rows = data.map(u => ({
                 cells: [u.name, u.email, u.role ? u.role.name : 'None', u.status]

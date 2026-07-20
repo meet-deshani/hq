@@ -159,6 +159,69 @@ class Component extends DCLogic {
     };
     const fields = FIELDS[tabName] || [{label:'Reference',ph:'Auto-generated'},{label:'Recorded by',ph:'Select user'},{label:'Notes',ph:'Add a note…'}];
 
+    let endpoint = '';
+      if (tabName === 'Organisations') {
+        endpoint = '/api/organisations';
+      } else if (tabName === 'Products') {
+        endpoint = '/api/products';
+      } else if (tabName === 'Workspaces') {
+        endpoint = '/api/workspaces';
+      } else if (tabName === 'Users' || tabName === 'All Users') {
+        endpoint = '/api/users';
+      } else if (tabName === 'Product Admin') {
+        endpoint = '/api/users?role=Product Admin';
+      } else if (tabName === 'Roles' || tabName === 'Role List') {
+        endpoint = '/api/roles';
+      } else if (tabName === 'Permissions') {
+        endpoint = '/api/permissions';
+      }
+
+      if (endpoint) {
+        this.setState({ loading: true });
+        fetch(endpoint)
+          .then(res => {
+            if (res.status === 401) {
+              window.location.href = '/login';
+              return [];
+            }
+            return res.json();
+          })
+          .then(data => {
+            let cols = [];
+            let rows = [];
+            
+            if (tabName === 'Organisations') {
+              cols = ['ID', 'Name', 'Slug', 'Industry', 'Color', 'Created At'];
+              rows = data.map(o => ({
+                cells: [o.id, o.name, o.slug, o.industry || '—', o.color || '—', new Date(o.created_at).toLocaleDateString()]
+              }));
+            } else if (tabName === 'Products') {
+              cols = ['ID', 'Name', 'Code', 'Org ID', 'Status', 'Created At'];
+              rows = data.map(p => ({
+                cells: [p.id, p.name, p.code, p.organisation_id || '—', p.status || 'Active', new Date(p.created_at).toLocaleDateString()]
+              }));
+            } else if (tabName === 'Workspaces') {
+              cols = ['ID', 'Name', 'Slug', 'Icon', 'Org ID', 'Product ID', 'Status'];
+              rows = data.map(w => ({
+                cells: [w.id, w.name, w.slug || '—', w.icon || 'grid', w.organisation_id || '—', w.product_id || '—', w.status || 'Active']
+              }));
+            } else if (tabName === 'Users' || tabName === 'All Users' || tabName === 'Product Admin') {
+              cols = ['Name', 'Email', 'Role', 'Status'];
+              rows = data.map(u => ({
+                cells: [u.name, u.email, u.role ? u.role.name : 'None', u.status]
+              }));
+            } else if (tabName === 'Roles' || tabName === 'Role List') {
+              cols = ['Role', 'Description', 'Created At'];
+              rows = data.map(r => ({
+                cells: [r.name, r.description || '', new Date(r.created_at).toLocaleDateString()]
+              }));
+            } else if (tabName === 'Permissions') {
+              cols = ['Name', 'Code', 'Description'];
+              rows = data.map(p => ({
+                cells: [p.name, p.code, p.description || '']
+              }));
+            }
+
     const TABLES = {
       'Stock Register':     {cols:['Chemical','Batch','Qty (kg)','Status'], rows:[['Poly-Aluminium Chloride','PAC-2291','1,240','In stock'],['Sodium Hypochlorite','SHY-1104','380','Low'],['Antiscalant AS-40','AS-4420','910','In stock'],['Chlorine Dioxide','CLD-0071','56','Reorder']]},
       'Standard Pack Sizes':{cols:['SKU','Pack','Unit','List price'], rows:[['PAC-25','25 kg','Bag','₹1,850'],['SHY-50','50 L','Carboy','₹3,400'],['AS-20','20 kg','Drum','₹5,120'],['CLD-05','5 kg','Kit','₹2,760']]},

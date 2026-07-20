@@ -1513,8 +1513,12 @@ const PRODUCT_WS_TABS = {
       { tab: 'Dashboard', kind: 'dashboard' }
     ],
     Config: [
+      { tab: 'Organisations', kind: 'table' },
+      { tab: 'Products', kind: 'table' },
+      { tab: 'Workspaces', kind: 'table' },
       { tab: 'Users', kind: 'table' },
-      { tab: 'Roles', kind: 'table' }
+      { tab: 'Roles', kind: 'table' },
+      { tab: 'Permissions', kind: 'table' }
     ],
     Users: [
       { module: 'User', tab: 'All Users', kind: 'table' },
@@ -1568,6 +1572,7 @@ const ICON_BY_NAME = {
   'Dosage Design':'sliders','Water Analysis Report':'file','Stock Register':'list','Standard Pack Sizes':'package',
   'Corrosion Report':'file','Reports':'file','Trends':'trend','Alerts':'bell','Roles':'shield','Access':'key',
   'Rep Performance':'bar','Visit ROI':'trend','Plan Visit':'calendar','Dosage':'sliders',
+  'Organisations':'grid','Products':'package','Workspaces':'sliders',
   'Cx List':'list','Customers':'users','Add Customer':'plus','Catalog':'package','Services':'package','Add Service':'plus','Products':'package','Add Product':'plus','Projects':'clipboard','Add Project':'plus','Timelines':'calendar','Billings':'list','Team':'users','Tickets':'bell','Add Ticket':'plus','Job Types':'sliders','Inbox':'message','Customer':'message','Channels':'sliders','Contract':'file','Contracts':'file','Add Contract':'plus','Billing Schedule':'list','Invoice':'file','Invoices':'file','Add Invoice':'plus','To Raise':'list','GST Returns':'bar',
 };
 const ICON_BY_KIND = { dashboard:'grid', form:'edit', table:'list', report:'file', design:'sliders' };
@@ -1632,6 +1637,23 @@ function navItemsFor(productKey, workspaceName, roleId){
     ? { type:'tab', tab:it.tabs[0].tab, kind:it.tabs[0].kind, module:workspaceName }
     : it);
 }
+
+function slugify(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function updateBrowserUrl(org, product, workspace, module, tab) {
+  const oSlug = slugify(org);
+  const pSlug = slugify(product);
+  const wSlug = slugify(workspace);
+  const mSlug = slugify(module || workspace);
+  const tSlug = slugify(tab);
+  const path = `/${oSlug}/${pSlug}/${wSlug}/${mSlug}/${tSlug}`;
+  if (window.location.pathname !== path) {
+    window.history.pushState({ org, product, workspace, module, tab }, '', path);
+  }
+}
+
 function firstTabOf(productKey, workspaceName, roleId){
   const items = navItemsFor(productKey, workspaceName, roleId); const it = items[0];
   if(!it) return { module:workspaceName, tab:'Dashboard', kind:'dashboard' };
@@ -1698,8 +1720,61 @@ class Component extends DCLogic {
       else if (e.key==='Escape' && !this.state.fbBusy){ this.set({ searchOpen:false, notifOpen:false, navOpen:null, notifCatOpen:false, fbOpen:false }); }
     };
     document.addEventListener('keydown', this._key);
+    this.syncFromUrl();
+    window.onpopstate = () => this.syncFromUrl();
   }
   componentWillUnmount(){ document.removeEventListener('keydown', this._key); }
+
+  syncFromUrl() {
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    if (parts.length >= 3) {
+      const orgSlug = parts[0];
+      const prodCode = parts[1];
+      const wsSlug = parts[2];
+      const modSlug = parts[3];
+      const tabSlug = parts[4];
+
+      const org = ORGS.find(o => o.id === orgSlug || slugify(o.name) === orgSlug) || ORGS[0];
+      const pk = org.products.includes(prodCode) ? prodCode : org.products[0];
+      const wsl = workspacesFor(org.id, pk);
+      const wsObj = wsl.find(w => slugify(w.name) === wsSlug);
+      const ws = wsObj ? wsObj.name : wsl[0].name;
+      const role = firstRoleId(pk);
+
+      const items = navItemsFor(pk, ws, role);
+      let matchedTab = null;
+      if (tabSlug) {
+        for (const it of items) {
+          if (it.type === 'tab' && slugify(it.tab) === tabSlug) {
+            matchedTab = { module: it.module, tab: it.tab, kind: it.kind };
+            break;
+          } else if (it.type === 'module') {
+            for (const t of it.tabs) {
+              if (slugify(t.tab) === tabSlug) {
+                matchedTab = { module: it.name, tab: t.tab, kind: t.kind };
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!matchedTab) {
+        matchedTab = firstTabOf(pk, ws, role);
+      }
+
+      this.set(s => ({
+        org: org.id,
+        product: pk,
+        role,
+        workspace: ws,
+        tab: matchedTab,
+        open: { ...s.open, [matchedTab.module]: true }
+      }));
+    } else {
+      updateBrowserUrl(this.state.org, this.state.product, this.state.workspace, this.state.tab.module, this.state.tab.tab);
+    }
+  }
 
   // ── AI assistant ───────────────────────────────────────────
   openAI(){ this.set(s=>{ let pos=s.aiPos; if(!pos){ pos={ x: Math.max(20, (window.innerWidth||1200)-s.aiSize.w-28), y: Math.max(20, (window.innerHeight||800)-s.aiSize.h-26) }; } return { aiOpen:true, aiMin:false, aiPos:pos, navOpen:null, searchOpen:false, notifOpen:false }; }); }
@@ -1855,7 +1930,10 @@ class Component extends DCLogic {
     cancelB.onclick=()=>{ cleanup(); this.set({ fbOpen:true, fbBusy:false }); };
   }
   toggleModule(name){ this.set(s=>({ open:{...s.open,[name]:!s.open[name]} })); }
-  selectTab(module,tab,kind){ this.set(s=>({ tab:{module,tab,kind}, open:{...s.open,[module]:true}, profileOpen:false, navOpen:null, searchOpen:false })); }
+  selectTab(module,tab,kind){
+    this.set(s=>({ tab:{module,tab,kind}, open:{...s.open,[module]:true}, profileOpen:false, navOpen:null, searchOpen:false }));
+    updateBrowserUrl(this.state.org, this.state.product, this.state.workspace, module, tab);
+  }
   tileClick(name){ this.set(s=>({ collapsed:false, open:{...s.open,[name]:true} })); }
   toggleCollapse(){ this.set(s=>({ collapsed:!s.collapsed, profileOpen:false, width:(s.collapsed && s.width < 208) ? 248 : s.width })); }
   startResize(e){
@@ -1891,19 +1969,28 @@ class Component extends DCLogic {
   selectWorkspace(name){
     const items = navItemsFor(this.state.product, name, this.state.role); const cur = this.state.tab;
     const exists = items.some(it => it.type==='tab' ? (it.module===cur.module && it.tab===cur.tab) : (it.name===cur.module && it.tabs.some(t=>t.tab===cur.tab)));
-    if(exists){ this.set({ workspace:name }); }
-    else { const ft=firstTabOf(this.state.product,name,this.state.role); this.set({ workspace:name, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind} }); }
+    if(exists){
+      this.set({ workspace:name });
+      updateBrowserUrl(this.state.org, this.state.product, name, cur.module, cur.tab);
+    }
+    else {
+      const ft=firstTabOf(this.state.product,name,this.state.role);
+      this.set({ workspace:name, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind} });
+      updateBrowserUrl(this.state.org, this.state.product, name, ft.module, ft.tab);
+    }
   }
   selectOrg(id){
     const org = ORGS.find(o=>o.id===id); const pk = org.products[0];
     const ws = workspacesFor(id, pk)[0].name; const role = firstRoleId(pk); const ft = firstTabOf(pk, ws, role);
     this.set({ org:id, product:pk, role, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind}, workspace:ws, dismissed:{}, navOpen:null, searchOpen:false, searchQuery:'', notifRead:{} });
+    updateBrowserUrl(id, pk, ws, ft.module, ft.tab);
   }
   selectProduct(key){
     const wsl = workspacesFor(this.state.org, key);
     const ws = wsl.some(w=>w.name===this.state.workspace) ? this.state.workspace : wsl[0].name;
     const role = firstRoleId(key); const ft = firstTabOf(key, ws, role);
     this.set({ product:key, role, workspace:ws, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind}, profileOpen:false, navOpen:null, searchOpen:false });
+    updateBrowserUrl(this.state.org, key, ws, ft.module, ft.tab);
   }
   selectRole(id){
     const ws = this.state.workspace; const ft = firstTabOf(this.state.product, ws, id);
