@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/styles.css">
   <script src="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/_ds_bundle.js"></script>
 </helmet>
-<div style="height:100%;display:flex;flex-direction:column;background:#FDFCFA;font-family:'Satoshi',sans-serif;color:#191924;overflow:hidden">
+<div style="height:100%;width:100%;display:flex;flex-direction:column;background:#FDFCFA;font-family:'Satoshi',sans-serif;color:#191924;overflow:hidden">
 
   <sc-if value="{{ showCrumb }}" hint-placeholder-val="{{ true }}">
   <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 26px;height:56px;border-bottom:1px solid #E8E6E0;background:rgba(253,252,250,.86)">
@@ -21,7 +21,8 @@
   </div>
   </sc-if>
 
-  <div style="flex:1;overflow:auto;padding:30px 34px 40px;width:100%;box-sizing:border-box">
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;width:100%;box-sizing:border-box">
+    <div style="padding:30px 34px 40px;width:100%;box-sizing:border-box">
     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#918D82;margin-bottom:9px">{{ moduleName }}</div>
     <h1 style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:33px;line-height:1.04;letter-spacing:-0.02em;margin:0;color:#191924">{{ tabName }}</h1>
     <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 26px;width:100%">{{ sub }}</p>
@@ -123,7 +124,7 @@
         </div>
       </div>
     </sc-if>
-
+    </div>
   </div>
 </div>
 </x-dc>
