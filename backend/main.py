@@ -13,7 +13,8 @@ from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
     RoleResponse, RoleCreate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, ProductResponse, ProductCreate,
-    WorkspaceResponse, WorkspaceCreate, ApiCatalogResponse, ApiCatalogItem
+    WorkspaceResponse, WorkspaceCreate, ApiCatalogResponse, ApiCatalogItem,
+    CliCatalogResponse, CliCommandItem
 )
 from backend.auth import (
     verify_password, get_password_hash, create_access_token, get_current_user
@@ -590,6 +591,115 @@ def get_api_catalog(request: Request):
         for e in API_CATALOG
     ]
     return {"base_url": base, "count": len(endpoints), "endpoints": endpoints}
+
+# ── CLI CATALOG ──
+# A reference for the bundled hq-cli tool (cli/hq-cli.py) — every command with
+# a copy-paste invocation and example output. Public, like /api/catalog, so
+# agents can discover the CLI surface too. hq-cli targets the host in the
+# HQ_API_URL env var (defaults to http://localhost:8000).
+CLI_CATALOG = [
+    {
+        "group": "auth", "command": "hq-cli login",
+        "usage": "hq-cli login --email meet@dotsai.in --password meetdeshani123",
+        "description": "Authenticate with the HQ backend and cache the JWT at ~/.hq_token.",
+        "output": "Successfully logged in! Token saved to ~/.hq_token",
+    },
+    {
+        "group": "auth", "command": "hq-cli logout",
+        "usage": "hq-cli logout",
+        "description": "Clear the locally cached authentication token.",
+        "output": "Logged out successfully.",
+    },
+    {
+        "group": "system", "command": "hq-cli status",
+        "usage": "hq-cli status",
+        "description": "Fetch and display the current HQ dashboard metrics.",
+        "output": "=== HQ Dashboard Status ===\nMetric      | Value | Trend / Info\n------------------------------------\nTotal Users | 1     | ↗ Active: 1",
+    },
+    {
+        "group": "users", "command": "hq-cli users list",
+        "usage": "hq-cli users list --role Admin",
+        "description": "List all registered users. Optional --role filter.",
+        "output": "--- Registered Users ---\nID | Name         | Email          | Role  | Status\n1  | Meet Deshani | meet@dotsai.in | Admin | Active",
+    },
+    {
+        "group": "users", "command": "hq-cli users create",
+        "usage": "hq-cli users create --email jane@acme.com --name \"Jane\" --role Operator",
+        "description": "Create a new user (a default password is assigned).",
+        "output": "User Jane (jane@acme.com) created successfully with role Operator!",
+    },
+    {
+        "group": "users", "command": "hq-cli users delete",
+        "usage": "hq-cli users delete 2",
+        "description": "Delete a user by numeric ID.",
+        "output": "User ID 2 deleted successfully.",
+    },
+    {
+        "group": "roles", "command": "hq-cli roles list",
+        "usage": "hq-cli roles list",
+        "description": "List all configured roles.",
+        "output": "--- Configured Roles ---\nID | Role Name | Description\n1  | Admin     | Administrator with full permissions",
+    },
+    {
+        "group": "roles", "command": "hq-cli roles create",
+        "usage": "hq-cli roles create --name Analyst --description \"Read-only analytics\"",
+        "description": "Create a new role.",
+        "output": "Role 'Analyst' created successfully!",
+    },
+    {
+        "group": "roles", "command": "hq-cli roles permissions",
+        "usage": "hq-cli roles permissions",
+        "description": "List all available permission policies.",
+        "output": "--- Available Permissions ---\nID | Permission Name | Code Tag   | Description\n1  | Read Users      | users:read | List and view users",
+    },
+    {
+        "group": "roles", "command": "hq-cli roles grant",
+        "usage": "hq-cli roles grant --role-id 1 --permissions users:read,users:write",
+        "description": "Grant a comma-separated list of permission codes to a role.",
+        "output": "Permissions updated successfully for Role ID 1.",
+    },
+    {
+        "group": "orgs", "command": "hq-cli orgs list",
+        "usage": "hq-cli orgs list",
+        "description": "List all registered organisations.",
+        "output": "--- Registered Organisations ---\nID | Name   | Slug   | Industry          | Initials | Color\n1  | Z9S-AI | z9s-ai | AI Implementation | Z        | #C8B6FF",
+    },
+    {
+        "group": "orgs", "command": "hq-cli orgs create",
+        "usage": "hq-cli orgs create --name Acme --slug acme --industry SaaS",
+        "description": "Create a new organisation.",
+        "output": "Organisation 'Acme' (acme) created successfully!",
+    },
+    {
+        "group": "products", "command": "hq-cli products list",
+        "usage": "hq-cli products list --org-id 1",
+        "description": "List all configured products. Optional --org-id filter.",
+        "output": "--- Configured Products ---\nID | Name      | Code | Org ID | Status\n1  | HQ Portal | hq   | 1      | Active",
+    },
+    {
+        "group": "products", "command": "hq-cli products create",
+        "usage": "hq-cli products create --name CRM --code crm --org-id 1",
+        "description": "Create a new product.",
+        "output": "Product 'CRM' (crm) created successfully!",
+    },
+    {
+        "group": "workspaces", "command": "hq-cli workspaces list",
+        "usage": "hq-cli workspaces list --product-id 1",
+        "description": "List all active workspaces. Optional --org-id / --product-id filters.",
+        "output": "--- Active Workspaces ---\nID | Name | Slug | Icon | Org ID | Product ID | Status\n1  | HQ   | hq   | grid | 1      | 1          | Active",
+    },
+    {
+        "group": "workspaces", "command": "hq-cli workspaces create",
+        "usage": "hq-cli workspaces create --name Document --slug document --icon document --org-id 1 --product-id 1",
+        "description": "Create a new workspace.",
+        "output": "Workspace 'Document' created successfully!",
+    },
+]
+
+@app.get("/api/cli", response_model=CliCatalogResponse)
+def get_cli_catalog():
+    commands = [CliCommandItem(**c) for c in CLI_CATALOG]
+    return {"base_command": "hq-cli", "count": len(commands), "commands": commands}
 
 # ── SERVING FRONTEND PAGES ──
 

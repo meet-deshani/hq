@@ -154,3 +154,16 @@ class ApiCatalogResponse(BaseModel):
     count: int
     endpoints: List[ApiCatalogItem]
 
+# CLI Catalog Schemas (self-documenting hq-cli command reference)
+class CliCommandItem(BaseModel):
+    group: str           # Command group (auth, users, roles, ...)
+    command: str         # Command name, e.g. hq-cli users create
+    usage: str           # Copy-paste invocation example
+    description: str     # What the command does
+    output: str          # Example terminal output
+
+class CliCatalogResponse(BaseModel):
+    base_command: str
+    count: int
+    commands: List[CliCommandItem]
+
