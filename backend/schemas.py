@@ -140,3 +140,30 @@ class StatItem(BaseModel):
 class DashboardStatsResponse(BaseModel):
     stats: List[StatItem]
 
+# API Catalog Schemas (self-documenting endpoint reference)
+class ApiCatalogItem(BaseModel):
+    method: str          # HTTP verb (GET, POST, DELETE, ...)
+    path: str            # Route path, e.g. /api/users
+    auth: str            # "Public" or "Bearer / Cookie"
+    summary: str         # What the endpoint does
+    usage: str           # Copy-paste curl example
+    response: str        # Example response body
+
+class ApiCatalogResponse(BaseModel):
+    base_url: str
+    count: int
+    endpoints: List[ApiCatalogItem]
+
+# CLI Catalog Schemas (self-documenting hq-cli command reference)
+class CliCommandItem(BaseModel):
+    group: str           # Command group (auth, users, roles, ...)
+    command: str         # Command name, e.g. hq-cli users create
+    usage: str           # Copy-paste invocation example
+    description: str     # What the command does
+    output: str          # Example terminal output
+
+class CliCatalogResponse(BaseModel):
+    base_command: str
+    count: int
+    commands: List[CliCommandItem]
+

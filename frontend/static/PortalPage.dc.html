@@ -133,6 +133,57 @@
         </div>
       </div>
     </sc-if>
+
+    <sc-if value="{{ isApi }}" hint-placeholder-val="{{ true }}">
+      <div style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
+        <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
+          <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ apiCount }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.4fr;gap:16px;padding:11px 18px;border-bottom:1px solid #EEEDE8">
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">Endpoint</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">How to Use</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">Response</div>
+        </div>
+        <sc-for list="{{ apis }}" as="a" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.4fr;gap:16px;padding:15px 18px;border-bottom:1px solid #F3F2EE;align-items:start">
+            <div style="min-width:0">
+              <span style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.5px;color:#191924;background:{{ a.mcolor }};padding:3px 9px;border-radius:6px">{{ a.method }}</span>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#191924;margin-top:9px;word-break:break-all">{{ a.path }}</div>
+              <div style="font-family:'Satoshi',sans-serif;font-size:12px;line-height:1.45;color:#6E6B62;margin-top:7px">{{ a.summary }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:#918D82;margin-top:8px">Auth · {{ a.auth }}</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.5;color:#2A2A32;background:#F8F7F4;border:1px solid #EEEDE8;border-radius:10px;padding:11px 13px;white-space:pre-wrap;word-break:break-word;overflow-x:auto">{{ a.usage }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.5;color:#1a5c42;background:#FAFBF9;border:1px solid #EAEFE9;border-radius:10px;padding:11px 13px;white-space:pre-wrap;word-break:break-word;overflow-x:auto">{{ a.response }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCli }}" hint-placeholder-val="{{ true }}">
+      <div style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
+        <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
+          <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ cliCount }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.4fr;gap:16px;padding:11px 18px;border-bottom:1px solid #EEEDE8">
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">Command</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">How to Use</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">Example Output</div>
+        </div>
+        <sc-for list="{{ cmds }}" as="c" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.4fr;gap:16px;padding:15px 18px;border-bottom:1px solid #F3F2EE;align-items:start">
+            <div style="min-width:0">
+              <span style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.5px;color:#191924;background:{{ c.gcolor }};padding:3px 9px;border-radius:6px">{{ c.group }}</span>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#191924;margin-top:9px;word-break:break-all">{{ c.command }}</div>
+              <div style="font-family:'Satoshi',sans-serif;font-size:12px;line-height:1.45;color:#6E6B62;margin-top:7px">{{ c.description }}</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.5;color:#2A2A32;background:#F8F7F4;border:1px solid #EEEDE8;border-radius:10px;padding:11px 13px;white-space:pre-wrap;word-break:break-word;overflow-x:auto">{{ c.usage }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.5;background:#1B1B24;border:1px solid #2A2A34;border-radius:10px;padding:11px 13px;white-space:pre-wrap;word-break:break-word;overflow-x:auto;color:#C7E7D8">{{ c.output }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
     </div>
   </div>
 </div>
@@ -144,6 +195,8 @@ class Component extends DCLogic {
     rows: [],
     columns: [],
     stats: [],
+    apis: [],
+    cmds: [],
     previewValue: '—',
     previewLabel: 'Computed output'
   };
@@ -172,8 +225,6 @@ class Component extends DCLogic {
         endpoint = '/api/workspaces';
       } else if (tabName === 'Users' || tabName === 'All Users') {
         endpoint = '/api/users';
-      } else if (tabName === 'Product Admin') {
-        endpoint = '/api/users?role=Product Admin';
       } else if (tabName === 'Roles' || tabName === 'Role List') {
         endpoint = '/api/roles';
       } else if (tabName === 'Permissions') {
@@ -209,7 +260,7 @@ class Component extends DCLogic {
               rows = data.map(w => ({
                 cells: [w.id, w.name, w.slug || '—', w.icon || 'grid', w.organisation_id || '—', w.product_id || '—', w.status || 'Active']
               }));
-            } else if (tabName === 'Users' || tabName === 'All Users' || tabName === 'Product Admin') {
+            } else if (tabName === 'Users' || tabName === 'All Users') {
               cols = ['Name', 'Email', 'Role', 'Status'];
               rows = data.map(u => ({
                 cells: [u.name, u.email, u.role ? u.role.name : 'None', u.status]
@@ -250,6 +301,48 @@ class Component extends DCLogic {
           console.error('Error fetching stats:', err);
           this.setState({ loading: false });
         });
+    } else if (kind === 'api') {
+      this.setState({ loading: true });
+      const MC = { GET: '#A2D2FF', POST: '#B8E0D2', DELETE: '#FFB5C2', PUT: '#FFCDB2', PATCH: '#C8B6FF' };
+      fetch('/api/catalog')
+        .then(res => res.json())
+        .then(data => {
+          const apis = (data.endpoints || []).map(e => ({
+            method: e.method,
+            mcolor: MC[e.method] || '#C8B6FF',
+            path: e.path,
+            auth: e.auth,
+            isPublic: e.auth === 'Public',
+            summary: e.summary,
+            usage: e.usage,
+            response: e.response
+          }));
+          this.setState({ apis: apis, apiCount: (data.count || apis.length) + ' endpoints', loading: false });
+        })
+        .catch(err => {
+          console.error('Error fetching catalog:', err);
+          this.setState({ loading: false });
+        });
+    } else if (kind === 'cli') {
+      this.setState({ loading: true });
+      const GC = { auth: '#C8B6FF', system: '#A2D2FF', users: '#FFB5C2', roles: '#B8E0D2', orgs: '#FFCDB2', products: '#FFCDB2', workspaces: '#A2D2FF' };
+      fetch('/api/cli')
+        .then(res => res.json())
+        .then(data => {
+          const cmds = (data.commands || []).map(c => ({
+            group: c.group,
+            gcolor: GC[c.group] || '#C8B6FF',
+            command: c.command,
+            usage: c.usage,
+            description: c.description,
+            output: c.output
+          }));
+          this.setState({ cmds: cmds, cliCount: (data.count || cmds.length) + ' commands', loading: false });
+        })
+        .catch(err => {
+          console.error('Error fetching CLI catalog:', err);
+          this.setState({ loading: false });
+        });
     }
   }
 
@@ -286,15 +379,23 @@ class Component extends DCLogic {
       dashboard: 'Live snapshot for this workspace, refreshed as new data lands.',
       report: 'Auto-generated from the latest readings on your own infrastructure.',
       design: 'Tune the inputs on the left; the preview updates on the right.',
+      api: 'Every REST endpoint on the platform — with a copy-paste example and response for each. Built for AI agents and CLIs.',
+      cli: 'Every hq-cli command — with a copy-paste invocation and example output. Point it at any host with the HQ_API_URL env var.',
     };
     const sub = SUBS[kind] || SUBS.report;
+
+    const apis = this.state.apis || [];
+    const apiCount = this.state.apiCount || (apis.length + ' endpoints');
+    const cmds = this.state.cmds || [];
+    const cliCount = this.state.cliCount || (cmds.length + ' commands');
 
     return {
       crumb, moduleName, tabName, sub, accent, accentSoft: tint(accent, 0.16),
       showCrumb: this.props.hideCrumb !== true,
       isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
-      isReport: kind === 'report', isDesign: kind === 'design',
+      isReport: kind === 'report', isDesign: kind === 'design', isApi: kind === 'api', isCli: kind === 'cli',
       fields: [], columns, rows, gridCols, tableCount, stats, reportLines: [],
+      apis, apiCount, cmds, cliCount,
       previewValue: this.state.previewValue, previewLabel: this.state.previewLabel,
     };
   }
