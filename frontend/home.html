@@ -1468,15 +1468,15 @@ const PRODUCTS = {
     {name:'Config', tabs:[{t:'Users',k:'table'},{t:'Roles',k:'table'}]},
     {name:'Users', tabs:[
       {module:'User', t:'All Users', k:'table'},
-      {module:'User', t:'Product Admin', k:'table'},
       {module:'Role', t:'Role List', k:'table'},
       {module:'Role', t:'Permissions', k:'table'}
-    ]}
+    ]},
+    {name:'Document', tabs:[{t:'API',k:'api'}]}
   ]}
 };
 
 const ORGS = [
-  {id:'z9s-ai', name:'Z9S-AI', industry:'AI Implementation', initials:'Z', color:'#C8B6FF', workspace:'HQ', products:['hq'], note:'Z9S-AI operating system.', workspaces:[{name:'HQ',icon:'grid'},{name:'Config',icon:'sliders'},{name:'Users',icon:'users'}]},
+  {id:'z9s-ai', name:'Z9S-AI', industry:'AI Implementation', initials:'Z', color:'#C8B6FF', workspace:'HQ', products:['hq'], note:'Z9S-AI operating system.', workspaces:[{name:'HQ',icon:'grid'},{name:'Config',icon:'sliders'},{name:'Users',icon:'users'},{name:'Document',icon:'file'}]},
 ];
 
 const USER = { name:'Meet Deshani', email:'meet@dotsai.in', initials:'MD', color:'#B8E0D2', role:'Admin' };
@@ -1506,7 +1506,8 @@ function workspacesFor(orgId, productKey) {
   return [
     { name: 'HQ', icon: 'hq' },
     { name: 'Config', icon: 'config' },
-    { name: 'Users', icon: 'admin' }
+    { name: 'Users', icon: 'admin' },
+    { name: 'Document', icon: 'document' }
   ];
 }
 
@@ -1526,9 +1527,11 @@ const PRODUCT_WS_TABS = {
     ],
     Users: [
       { module: 'User', tab: 'All Users', kind: 'table' },
-      { module: 'User', tab: 'Product Admin', kind: 'table' },
       { module: 'Role', tab: 'Role List', kind: 'table' },
       { module: 'Role', tab: 'Permissions', kind: 'table' }
+    ],
+    Document: [
+      { tab: 'API', kind: 'api' }
     ]
   }
 };
@@ -1536,7 +1539,7 @@ const PRODUCT_WS_TABS = {
 function navColor(name, kind){
   const M = { Client:'#A2D2FF', Clients:'#A2D2FF', Visits:'#B8E0D2', Planning:'#FFCDB2', Feedback:'#FFB5C2', Dashboard:'#A2D2FF', Users:'#FFB5C2', Config:'#FFCDB2', 'My Trips':'#A2D2FF', 'My Requests':'#B8E0D2', 'All Visits':'#B8E0D2', 'Request a new BM Trip':'#FFCDB2', 'User guide':'#FFF3B0', Operations:'#B8E0D2', Analytics:'#C8B6FF', 'Chemical Stock':'#FFCDB2', 'Performance Mgmt':'#A2D2FF', 'User Management':'#FFB5C2', Quotation:'#FFCDB2', 'Cx List':'#A2D2FF', Customers:'#A2D2FF', 'Add Customer':'#A2D2FF', Catalog:'#FFCDB2', Services:'#FFCDB2', 'Add Service':'#FFCDB2', Products:'#FFCDB2', 'Add Product':'#FFCDB2', Projects:'#B8E0D2', 'Add Project':'#B8E0D2', Timelines:'#B8E0D2', Billings:'#B8E0D2', Team:'#B8E0D2', Tickets:'#FFB5C2', 'Add Ticket':'#FFB5C2', 'Job Types':'#FFB5C2', Inbox:'#B8E0D2', Customer:'#B8E0D2', Channels:'#B8E0D2', Contract:'#C8B6FF', Contracts:'#C8B6FF', 'Add Contract':'#C8B6FF', 'Billing Schedule':'#C8B6FF', Invoice:'#C8B6FF', Invoices:'#C8B6FF', 'Add Invoice':'#C8B6FF', 'To Raise':'#C8B6FF', 'GST Returns':'#A2D2FF' };
   if(M[name]) return M[name];
-  const K = { dashboard:'#A2D2FF', report:'#C8B6FF', table:'#B8E0D2', form:'#B8E0D2', design:'#FFCDB2' };
+  const K = { dashboard:'#A2D2FF', report:'#C8B6FF', table:'#B8E0D2', form:'#B8E0D2', design:'#FFCDB2', api:'#A2D2FF' };
   return K[kind] || '#C8B6FF';
 }
 // ── Nav icons (Lucide-style) — every module & tab carries one ────────────
@@ -1564,6 +1567,7 @@ const ICON = {
   key:'<path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 0-7.8 7.8 5.5 5.5 0 0 0 7.8-7.8zm0 0L15 8m0 0l3 3 3-3-3-3"/>',
   gauge:'<path d="M12 15l3.5-3.5"/><path d="M20.3 18a9 9 0 1 0-16.6 0"/>',
   package:'<path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  code:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
 };
 const ICON_BY_NAME = {
   'Dashboard':'grid','Client':'users','Clients':'users','Users':'users','User Management':'users',
@@ -1576,7 +1580,7 @@ const ICON_BY_NAME = {
   'Dosage Design':'sliders','Water Analysis Report':'file','Stock Register':'list','Standard Pack Sizes':'package',
   'Corrosion Report':'file','Reports':'file','Trends':'trend','Alerts':'bell','Roles':'shield','Access':'key',
   'Rep Performance':'bar','Visit ROI':'trend','Plan Visit':'calendar','Dosage':'sliders',
-  'Organisations':'grid','Products':'package','Workspaces':'sliders',
+  'Organisations':'grid','Products':'package','Workspaces':'sliders','API':'code',
   'Cx List':'list','Customers':'users','Add Customer':'plus','Catalog':'package','Services':'package','Add Service':'plus','Products':'package','Add Product':'plus','Projects':'clipboard','Add Project':'plus','Timelines':'calendar','Billings':'list','Team':'users','Tickets':'bell','Add Ticket':'plus','Job Types':'sliders','Inbox':'message','Customer':'message','Channels':'sliders','Contract':'file','Contracts':'file','Add Contract':'plus','Billing Schedule':'list','Invoice':'file','Invoices':'file','Add Invoice':'plus','To Raise':'list','GST Returns':'bar',
 };
 const ICON_BY_KIND = { dashboard:'grid', form:'edit', table:'list', report:'file', design:'sliders' };

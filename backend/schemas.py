@@ -140,3 +140,17 @@ class StatItem(BaseModel):
 class DashboardStatsResponse(BaseModel):
     stats: List[StatItem]
 
+# API Catalog Schemas (self-documenting endpoint reference)
+class ApiCatalogItem(BaseModel):
+    method: str          # HTTP verb (GET, POST, DELETE, ...)
+    path: str            # Route path, e.g. /api/users
+    auth: str            # "Public" or "Bearer / Cookie"
+    summary: str         # What the endpoint does
+    usage: str           # Copy-paste curl example
+    response: str        # Example response body
+
+class ApiCatalogResponse(BaseModel):
+    base_url: str
+    count: int
+    endpoints: List[ApiCatalogItem]
+
