@@ -1,0 +1,27 @@
+name: Deploy Z9S-AI HQ Portal
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Hostinger VPS
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 72.62.229.16 >> ~/.ssh/known_hosts
+
+      - name: Trigger VPS Deploy Script
+        run: |
+          ssh -i ~/.ssh/id_rsa root@72.62.229.16 'deploy hq'
+

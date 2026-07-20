@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/colors_and_type.css">
+  <link rel="stylesheet" href="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/styles.css">
+  <style>
+    @keyframes lp-spin { to { transform: rotate(360deg); } }
+    @keyframes lp-d1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(16px,-24px)} }
+    @keyframes lp-d2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-18px,16px)} }
+    @keyframes lp-d3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(12px,20px)} }
+    a{color:#2D1B4E;text-decoration:none} a:hover{color:#5B3FD4}
+  </style>
+</helmet>
+<div style="height:100%;min-height:100%;display:flex;flex-wrap:wrap;background:#FDFCFA;font-family:'Satoshi',system-ui,sans-serif">
+
+  <div style="flex:1 1 380px;min-height:200px;position:relative;overflow:hidden;background:linear-gradient(152deg,#191924 0%,#2D1B4E 100%);color:#fff;padding:36px 42px;display:flex;flex-direction:column;justify-content:space-between;gap:22px;box-sizing:border-box">
+    <div style="position:absolute;top:-12%;right:-10%;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(200,182,255,.4),transparent 68%);filter:blur(30px);pointer-events:none"></div>
+    <div style="position:absolute;bottom:-14%;left:-8%;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(162,210,255,.24),transparent 70%);filter:blur(34px);pointer-events:none"></div>
+    <span style="position:absolute;top:24%;left:64%;width:9px;height:9px;border-radius:50%;background:#C8B6FF;animation:lp-d1 9s ease-in-out infinite"></span>
+    <span style="position:absolute;top:58%;left:22%;width:7px;height:7px;border-radius:50%;background:#B8E0D2;animation:lp-d2 11s ease-in-out infinite"></span>
+    <span style="position:absolute;top:72%;left:76%;width:6px;height:6px;border-radius:50%;background:#FFCDB2;animation:lp-d3 13s ease-in-out infinite"></span>
+    <span style="position:absolute;top:16%;left:34%;width:5px;height:5px;border-radius:50%;background:#A2D2FF;animation:lp-d2 10s ease-in-out infinite"></span>
+
+    <div style="position:relative;display:flex;align-items:center;gap:11px">
+      <div style="display:grid;grid-template-columns:repeat(3,9px);grid-auto-rows:9px;gap:5px;flex:none">
+        <span style="width:9px;height:9px;border-radius:50%;background:#C8B6FF"></span><span style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.12)"></span><span style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.08)"></span>
+        <span style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.08)"></span><span style="width:9px;height:9px;border-radius:50%;background:#B8E0D2"></span><span style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.12)"></span>
+        <span style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.08)"></span><span style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.12)"></span><span style="width:9px;height:9px;border-radius:50%;background:#FFCDB2"></span>
+      </div>
+      <div style="font-family:'Chubbo',serif;font-weight:800;font-size:14px;letter-spacing:.16em;color:#fff;text-transform:uppercase">ZEROONE</div>
+    </div>
+
+    <div style="position:relative">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(200,182,255,.85);margin-bottom:14px">Private AI · On-prem</div>
+      <h1 style="font-family:'Chubbo',serif;font-weight:800;font-size:34px;line-height:1.08;letter-spacing:-.02em;color:#fff;margin:0">Own your AI.<br>Don't <em style="font-style:italic;color:#C8B6FF">rent</em> it.</h1>
+      <p style="font-family:'Supreme',sans-serif;font-size:14px;line-height:1.6;color:rgba(255,255,255,.68);margin:16px 0 0;max-width:300px">Private models that run on your own computers. No cloud, no monthly bills, no API invoices.</p>
+    </div>
+
+    <div style="position:relative;display:inline-flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);width:fit-content">
+      <div style="font-family:'Chubbo',serif;font-weight:800;font-size:22px;color:#fff;letter-spacing:-.02em">3h→10m</div>
+      <div style="font-family:'Satoshi';font-size:11px;line-height:1.4;color:rgba(255,255,255,.6)">First client's report<br>turnaround, on-prem</div>
+    </div>
+  </div>
+
+  <div style="flex:1 1 380px;background:#FDFCFA;padding:42px;display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+    <div ref="{{ cardRef }}" style="width:min(360px,100%)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#918D82;margin-bottom:8px">Welcome back</div>
+      <h1 style="font-family:'Chubbo',serif;font-weight:800;font-size:30px;line-height:1.04;letter-spacing:-.02em;color:#191924;margin:0 0 8px">Sign in to <em style="font-style:italic;color:#2D1B4E">ZeroOne</em></h1>
+      <p style="font-family:'Supreme',sans-serif;font-size:14px;line-height:1.55;color:#6E6B62;margin:0 0 22px">Pick up where your team left off.</p>
+
+      <button type="button" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px;border:1.5px solid #E8E6E0;border-radius:12px;background:#fff;color:#191924;font-family:'Satoshi';font-weight:600;font-size:14px;cursor:pointer;transition:background .15s,border-color .15s" style-hover="background:#F8F7F4;border-color:#D4D1C9">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>
+        Continue with Google
+      </button>
+
+      <div style="display:flex;align-items:center;gap:12px;margin:20px 0">
+        <div style="flex:1;height:1px;background:#E8E6E0"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;color:#B5B1A7">OR WITH EMAIL</div>
+        <div style="flex:1;height:1px;background:#E8E6E0"></div>
+      </div>
+
+      <label style="display:block;margin-bottom:14px">
+        <div style="font-family:'Satoshi';font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;margin-bottom:7px">Email</div>
+        <div style="position:relative">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 5L2 7"></path></svg>
+          <input type="email" value="{{ email }}" onChange="{{ setEmail }}" onKeyDown="{{ onKey }}" placeholder="you@company.com" autoComplete="email" style="width:100%;box-sizing:border-box;padding:13px 14px 13px 40px;border-radius:12px;border:1.5px solid #E8E6E0;background:#fff;font-family:'Satoshi';font-size:14px;color:#191924;outline:none;transition:border-color .15s,box-shadow .15s" style-focus="border-color:#C8B6FF;box-shadow:0 0 0 4px rgba(200,182,255,.20)">
+        </div>
+      </label>
+
+      <label style="display:block;margin-bottom:10px">
+        <div style="font-family:'Satoshi';font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;margin-bottom:7px">Password</div>
+        <div style="position:relative">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <input type="{{ pwType }}" value="{{ password }}" onChange="{{ setPassword }}" onKeyDown="{{ onKey }}" placeholder="••••••••" autoComplete="current-password" style="width:100%;box-sizing:border-box;padding:13px 44px 13px 40px;border-radius:12px;border:1.5px solid #E8E6E0;background:#fff;font-family:'Satoshi';font-size:14px;color:#191924;outline:none;transition:border-color .15s,box-shadow .15s" style-focus="border-color:#C8B6FF;box-shadow:0 0 0 4px rgba(200,182,255,.20)">
+          <button type="button" onClick="{{ togglePw }}" aria-label="Toggle password" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;padding:8px;cursor:pointer;color:#918D82;display:flex;align-items:center" style-hover="color:#2D1B4E">
+            <sc-if value="{{ hidePw }}" hint-placeholder-val="{{ true }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg></sc-if>
+            <sc-if value="{{ showPw }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.5 13.5 0 0 0 2 11s3.5 7 10 7a9.12 9.12 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg></sc-if>
+          </button>
+        </div>
+      </label>
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+        <a href="#" style="font-family:'Satoshi';font-size:12.5px;font-weight:500;color:#5B3FD4">Forgot password?</a>
+      </div>
+
+      <sc-if value="{{ hasErr }}"><div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;padding:9px 12px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><span style="font-family:'Satoshi';font-size:12.5px;color:#B91C1C">{{ err }}</span></div></sc-if>
+
+      <sc-if value="{{ idle }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ submit }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border:none;border-radius:12px;background:#191924;color:#fff;font-family:'Satoshi';font-weight:600;font-size:14.5px;cursor:pointer;transition:background .18s,transform .1s;box-shadow:0 8px 20px rgba(25,25,36,.18)" style-hover="background:#2D1B4E" style-active="transform:scale(.985)">Sign in<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></button></sc-if>
+      <sc-if value="{{ submitting }}"><div style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:12px;background:#2D1B4E;color:#fff;font-family:'Satoshi';font-weight:600;font-size:14.5px"><span style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:lp-spin .7s linear infinite;display:inline-block"></span>Signing you in…</div></sc-if>
+      <sc-if value="{{ done }}"><div style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:9px;padding:14px;border-radius:12px;background:#1F7A5C;color:#fff;font-family:'Satoshi';font-weight:600;font-size:14.5px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Welcome back, Meet</div></sc-if>
+
+      <div style="text-align:center;font-family:'Satoshi';font-size:12.5px;color:#918D82;margin-top:22px">New to ZeroOne? <a href="#" style="color:#2D1B4E;font-weight:600">Request access →</a></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:560}}">
+class Component extends DCLogic {
+  state = { email:'', password:'', showPw:false, submitting:false, done:false, err:'' };
+  emailValid(){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((this.state.email||'').trim()); }
+  shake(){ if(this._card && this._card.animate){ this._card.animate([{transform:'translateX(0)'},{transform:'translateX(-9px)'},{transform:'translateX(8px)'},{transform:'translateX(-6px)'},{transform:'translateX(4px)'},{transform:'translateX(0)'}],{duration:440,easing:'cubic-bezier(.36,.07,.19,.97)'}); } }
+  submit = (e) => {
+    if(e && e.preventDefault) e.preventDefault();
+    if(this.state.submitting || this.state.done) return;
+    if(!this.emailValid()){ this.setState({err:'Enter a valid email address'}); this.shake(); return; }
+    if(!this.state.password){ this.setState({err:'Enter your password'}); this.shake(); return; }
+    this.setState({err:'', submitting:true});
+    clearTimeout(this._t);
+    this._t = setTimeout(()=> this.setState({submitting:false, done:true}), 1300);
+  };
+  componentWillUnmount(){ clearTimeout(this._t); }
+  renderVals(){
+    const s = this.state;
+    return {
+      email:s.email, password:s.password,
+      pwType: s.showPw ? 'text' : 'password',
+      showPw:s.showPw, hidePw:!s.showPw,
+      err:s.err, hasErr:!!s.err,
+      submitting:s.submitting, done:s.done, idle: !s.submitting && !s.done,
+      setEmail: e=>this.setState({email:e.target.value, err:''}),
+      setPassword: e=>this.setState({password:e.target.value, err:''}),
+      togglePw: ()=>this.setState(st=>({showPw:!st.showPw})),
+      submit: this.submit,
+      onKey: e=>{ if(e.key==='Enter') this.submit(e); },
+      cardRef: el=>{ this._card = el; },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,2202 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<script src="/static/unpkg.com_react@18.3.1_umd_react.production.min.js"></script>
+<script src="/static/unpkg.com_react-dom@18.3.1_umd_react-dom.production.min.js"></script>
+<script>window.__resources = {"./PortalPage.dc.html": "/static/PortalPage.dc.html"};</script>
+<script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
+
+</head>
+<body>
+
+<x-dc>
+<helmet>
+<style>/* ═══════════════════════════════════════════════════════════════
+   ZEROONE D·O·T·S AI — Design Tokens
+   Colors, typography, spacing, radii, shadows, motion
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── TYPE SYSTEM v4.0 · FOUR ROLES ────────────────────────────────────
+   1 · CHUBBO       → titles & display (H1–H4, hero, pull-quotes)
+   2 · SUPREME      → body & long-form reading copy
+   3 · SATOSHI      → UI / interface chrome (buttons, nav, inputs,
+                      table cells, badges, captions — the product layer)
+   4 · JETBRAINS    → data layer (numbers, code, timestamps) +
+                      uppercase eyebrows / labels
+   All four are self-hosted variable woff2. Everything else is RETIRED.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* ── ROLE 1 · DISPLAY: Chubbo (chunky editorial slab — self-hosted variable) ──
+   Titles, H1–H4, hero, pull-quotes. Weight 700; native italics for accent. */
+@font-face { font-family:'Chubbo'; font-style:normal; font-weight:200 700; font-display:swap;
+  src:url("/static/e929d16a-cc3b-4586-a30d-3a55811439c5") format('woff2-variations'); }
+@font-face { font-family:'Chubbo'; font-style:italic; font-weight:200 700; font-display:swap;
+  src:url("/static/94a5f61b-060d-4965-a10b-2c19e312185b") format('woff2-variations'); }
+
+/* ── ROLE 2 · BODY: Supreme (clean neo-grotesque — self-hosted variable) ──
+   Long-form reading copy, leads, paragraphs. 400 body, 500 medium,
+   700 emphasis; native italics. */
+@font-face { font-family:'Supreme'; font-style:normal; font-weight:100 800; font-display:swap;
+  src:url("/static/b9688901-bd1c-4cdb-a5f1-5ce45a41e22c") format('woff2-variations'); }
+@font-face { font-family:'Supreme'; font-style:italic; font-weight:100 800; font-display:swap;
+  src:url("/static/2fddcd3c-e672-483a-80a4-c829814c8c47") format('woff2-variations'); }
+
+/* ── ROLE 3 · UI / INTERFACE: Satoshi (self-hosted variable woff2) ──
+   Buttons, nav, inputs, table cells, badges, captions, tabs. The dense
+   product-chrome voice — distinct from Supreme's editorial reading. */
+@font-face { font-family:'Satoshi'; font-style:normal; font-weight:300 900; font-display:swap;
+  src:url("/static/271a769a-00c8-40e2-b7a5-fc09eb13acc3") format('woff2-variations'); }
+@font-face { font-family:'Satoshi'; font-style:italic; font-weight:300 900; font-display:swap;
+  src:url("/static/18df1587-36b5-4bcf-be4e-a6c4befd40d3") format('woff2-variations'); }
+
+/* ── ROLE 4 · DATA / LABELS: JetBrains Mono (self-hosted variable woff2) ──
+   All numeric data, code, timestamps, hex codes + uppercase eyebrows. */
+@font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:100 800; font-display:swap;
+  src:url("/static/0ee4bd90-a829-4a5f-9e48-6fc518c42cf8") format('woff2-variations'); }
+@font-face { font-family:'JetBrains Mono'; font-style:italic; font-weight:100 800; font-display:swap;
+  src:url("/static/e3d6327f-f56b-4fc7-8c2f-dd3d043f0a8b") format('woff2-variations'); }
+
+:root {
+  /* ── D.O.T.S. Pillar Pastels (mapped to framework) ── */
+  --lavender: #C8B6FF;   /* D · Data */
+  --mint:     #B8E0D2;   /* O · Operations */
+  --peach:    #FFCDB2;   /* T · Tech */
+  --sky:      #A2D2FF;   /* S · Strategy */
+  --rose:     #FFB5C2;   /* Accent · Creative */
+  --lemon:    #FFF3B0;   /* Highlight */
+
+  /* Pillar aliases (semantic) */
+  --pillar-data:       var(--lavender);
+  --pillar-operations: var(--mint);
+  --pillar-tech:       var(--peach);
+  --pillar-strategy:   var(--sky);
+
+  /* ── Pillar tonal ladders — 5 steps per pillar, tint → base → shade ──
+     Use tints (20/40) for backgrounds + fills on light; use shades (80/95)
+     for text + icons on light. The base (60) is the identity pastel. */
+
+  /* Data · Lavender family */
+  --data-20:  #EDE6FF;   /* Very light tint — surface */
+  --data-40:  #D3C5FF;   /* Soft tint — fill */
+  --data-60:  #C8B6FF;   /* BASE — identity */
+  --data-80:  #5B3FD4;   /* Shade — text, icons, strokes */
+  --data-95:  #2D1B4E;   /* Deep — plum, italic, hero ink */
+
+  /* Operations · Mint family */
+  --ops-20:   #E5F3EC;
+  --ops-40:   #CCE9DC;
+  --ops-60:   #B8E0D2;   /* BASE */
+  --ops-80:   #1F7A5C;
+  --ops-95:   #0F3D2E;
+
+  /* Tech · Peach family */
+  --tech-20:  #FFEFE3;
+  --tech-40:  #FFDFC8;
+  --tech-60:  #FFCDB2;   /* BASE */
+  --tech-80:  #A8521A;
+  --tech-95:  #5C2A0D;
+
+  /* Strategy · Sky family */
+  --strat-20: #E5F1FF;
+  --strat-40: #C5E0FF;
+  --strat-60: #A2D2FF;   /* BASE */
+  --strat-80: #1E5B9C;
+  --strat-95: #0F2E4F;
+
+  /* ── Mid-value neutral anchors (warm + cool slate) ──
+     Bridge between cream surfaces and ink dark. Useful for filled panels,
+     nested cards, hero sub-sections that need depth without pure black. */
+  --slate-warm:  #3A3D4A;   /* Warm slate — cards on dark hero */
+  --slate-cool:  #27425D;   /* Cool slate — info panels, editorial */
+
+  /* ── Pillar "deep" variants — WCAG-safe for text + icons on light canvas ──
+     The pastels (above) are IDENTITY colors: use as dots, tint backgrounds,
+     borders, and pillar-accent strokes. They FAIL contrast as foreground.
+     The deep variants (below) are FUNCTIONAL colors: use for text, icon
+     strokes, and filled elements on cream/white. All pass AA at 14px+. */
+  --pillar-data-deep:       #5B3FD4;  /* Lavender → Deep violet */
+  --pillar-operations-deep: #1F7A5C;  /* Mint    → Deep green */
+  --pillar-tech-deep:       #A8521A;  /* Peach   → Burnt sienna */
+  --pillar-strategy-deep:   #1E5B9C;  /* Sky     → Deep blue */
+
+  /* ── Deep Anchors ── */
+  --ink:      #191924;   /* Primary text, dark BGs */
+  --plum:     #2D1B4E;   /* Hovers, premium */
+  --charcoal: #2A2A3C;   /* Footer, dark borders */
+
+  /* ── Warm Neutrals (Anthropic-style editorial) ── */
+  --cream-50:  #FDFCFA;
+  --cream-100: #F8F7F4;
+  --cream-150: #F2F0EC;
+  --sand-200:  #E8E6E0;
+  --sand-300:  #D4D1C9;
+  --stone-400: #B5B1A7;
+  --stone-500: #918D82;
+  --stone-600: #6E6B62;
+  --slate-700: #4A4842;
+  --slate-800: #2E2D29;
+
+  /* ── Sidebar (dark shell) ── */
+  --sidebar-bg:          #13131D;
+  --sidebar-hover:       #1E1E2E;
+  --sidebar-active:      #252538;
+  --sidebar-border:      #2A2A3C;
+  --sidebar-text:        #A8A6B0;
+  --sidebar-text-active: #FDFCFA;
+
+  /* ── Semantic ── */
+  --teal:        #4ECDC4;
+  --teal-hover:  #3DB8B0;
+  --amber:       #D4A574;
+  --gold:        #F5C542;
+  --danger:      #EF4444;
+  --success:     #10B981;
+
+  /* Foreground / Background aliases */
+  --bg:           var(--cream-50);
+  --bg-surface:   #FFFFFF;
+  --bg-elevated:  var(--cream-100);
+  --fg:           var(--ink);
+  --fg-muted:     var(--stone-600);
+  --fg-subtle:    var(--stone-500);
+  --border:       var(--sand-200);
+  --border-hover: var(--sand-300);
+
+  /* ── Brand Gradients ── */
+  --g-aurora: linear-gradient(135deg, #C8B6FF, #A2D2FF, #B8E0D2); /* @kind color */
+  --g-warmth: linear-gradient(135deg, #FFCDB2, #FFB5C2, #C8B6FF); /* @kind color */
+  --g-cosmos: linear-gradient(135deg, #191924, #2D1B4E); /* @kind color */
+
+  /* ── Typography — TYPE SYSTEM v4.0 (four roles) ──────────────────────
+     DISPLAY  = Chubbo — titles, H1–H4, hero, pull-quotes. Weight 700;
+       native italics in --plum for key-phrase emphasis.
+     BODY     = Supreme — long-form reading copy, leads, paragraphs.
+       400 body, 500 medium, 700 emphasis. Native italics.
+     UI       = Satoshi — interface chrome: buttons, nav, inputs, table
+       cells, badges, captions, tabs. The dense product layer.
+     DATA     = JetBrains Mono — numbers, code, timestamps, hex + the
+       uppercase eyebrow / label voice (letterspaced).
+     ──────────────────────────────────────────────────────────────────── */
+  --font-serif:   'Chubbo', Georgia, 'Times New Roman', serif;
+  --font-display: 'Chubbo', system-ui, sans-serif;
+  --font-body:    'Supreme', system-ui, -apple-system, sans-serif;
+  --font-ui:      'Satoshi', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-label:   'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Breakpoints (mobile-first) ── */
+  --bp-xs:  360px; /* @kind other */  /* Small phones (iPhone SE, older Android) */
+  --bp-sm:  480px; /* @kind other */  /* Large phones / phablet */
+  --bp-md:  768px; /* @kind other */  /* Tablet portrait */
+  --bp-lg:  1024px; /* @kind other */ /* Tablet landscape / small laptop */
+  --bp-xl:  1280px; /* @kind other */ /* Desktop */
+  --bp-2xl: 1536px; /* @kind other */ /* Wide desktop */
+
+  /* ── Touch targets (iOS HIG 44pt / Material 48dp) ── */
+  --touch-min:     44px; /* @kind spacing */  /* Minimum hit area — any tap target */
+  --touch-comfort: 48px; /* @kind spacing */  /* Comfort — primary CTAs, nav */
+  --touch-large:   56px; /* @kind spacing */  /* Hero CTAs, bottom-nav tabs */
+
+  /* ── Fluid type scale (mobile 360 → desktop 1280) ──
+     Fixed px tokens below REMAIN for desktop-only layouts; the fluid
+     tokens (*-fl) are mobile-safe and auto-scale. Use --fl-* on anything
+     that renders below 768px. */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   20px;
+  --text-xl:   28px;
+  --text-2xl:  36px;
+  --text-3xl:  52px;
+  --text-4xl:  76px;
+
+  /* Fluid (responsive) scale — use these on mobile+responsive surfaces */
+  --fl-xs:    clamp(10px, 0.7vw + 8px,  11px); /* @kind other */
+  --fl-sm:    clamp(12px, 0.4vw + 11px, 13px); /* @kind other */
+  --fl-base:  clamp(14px, 0.4vw + 13px, 16px); /* @kind other */
+  --fl-md:    clamp(15px, 0.6vw + 13px, 18px); /* @kind other */
+  --fl-lg:    clamp(17px, 0.8vw + 14px, 22px); /* @kind other */
+  --fl-xl:    clamp(22px, 2vw + 14px,   32px); /* @kind other */
+  --fl-2xl:   clamp(28px, 3vw + 14px,   44px); /* @kind other */
+  --fl-3xl:   clamp(34px, 4vw + 14px,   60px); /* @kind other */
+  --fl-4xl:   clamp(40px, 6vw + 14px,   84px); /* @kind other */
+
+  /* ── Spacing (8px grid) ── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-24: 96px;
+
+  /* ── Fluid spacing (mobile → desktop) ──
+     Use these for section padding, gaps, hero margins on responsive pages.
+     They collapse gracefully at 360px and open up at 1280px+. */
+  --sp-fl-xs:  clamp(4px,  0.4vw + 3px,  6px); /* @kind spacing */
+  --sp-fl-sm:  clamp(8px,  0.8vw + 5px,  12px); /* @kind spacing */
+  --sp-fl-md:  clamp(12px, 1vw + 8px,    20px); /* @kind spacing */
+  --sp-fl-lg:  clamp(16px, 2vw + 10px,   32px); /* @kind spacing */
+  --sp-fl-xl:  clamp(24px, 3vw + 12px,   48px); /* @kind spacing */
+  --sp-fl-2xl: clamp(32px, 4vw + 16px,   72px); /* @kind spacing */
+  --sp-fl-3xl: clamp(40px, 6vw + 20px,   112px); /* @kind spacing */
+
+  /* Section padding recipes — use on <section> wrappers */
+  --section-x: clamp(16px, 5vw, 80px); /* @kind spacing */       /* horizontal page gutter */
+  --section-y: clamp(48px, 7vw, 120px); /* @kind spacing */      /* vertical section rhythm */
+  --container-max: 1280px; /* @kind spacing */                   /* max content width */
+
+  /* ── Safe-area insets (iOS notch / home indicator / Android nav) ── */
+  --safe-top:    env(safe-area-inset-top, 0px); /* @kind spacing */
+  --safe-right:  env(safe-area-inset-right, 0px); /* @kind spacing */
+  --safe-bottom: env(safe-area-inset-bottom, 0px); /* @kind spacing */
+  --safe-left:   env(safe-area-inset-left, 0px); /* @kind spacing */
+
+  /* ── Radius ── */
+  --r-sm:   6px;
+  --r-md:   8px;
+  --r-lg:   12px;
+  --r-xl:   16px;
+  --r-2xl:  24px;
+  --r-full: 999px;
+
+  /* ── Shadows ── */
+  --shadow-sm:  0 1px 2px rgba(25,25,36,.04);
+  --shadow-md:  0 4px 12px rgba(25,25,36,.06);
+  --shadow-lg:  0 10px 32px rgba(25,25,36,.08);
+  --shadow-xl:  0 20px 50px rgba(25,25,36,.10);
+  --shadow-2xl: 0 30px 80px rgba(25,25,36,.14);
+  --shadow-focus: 0 0 0 4px rgba(200,182,255,.20);
+
+  /* ── Motion ── */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur-fast: 150ms; /* @kind other */
+  --dur-med:  250ms; /* @kind other */
+  --dur-slow: 400ms; /* @kind other */
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEMANTIC TYPOGRAPHY — drop-in element styles
+   ═══════════════════════════════════════════════════════════════ */
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── TYPE SYSTEM v4.0 · Semantic typography ────────────────────────────
+   H1 / .hero-text = Chubbo (display) at hero scale. Italic for emphasis
+     (native italic, coloured --plum).
+   H2–H4 = Chubbo — section headings. No forced uppercase; weight carries.
+   Body / p / .lead = Supreme — the reading layer.
+   UI chrome (buttons, nav, inputs) = Satoshi via --font-ui.
+   .eyebrow / .label / .data-value = JetBrains Mono — labels + data.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Hero / editorial display — Chubbo */
+h1, .h1, .hero-text {
+  font-family: var(--font-serif);
+  font-weight: 700;           /* Chubbo display — weight carries the authority */
+  font-size: clamp(40px, 6.5vw, var(--text-4xl));
+  line-height: 0.96;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+h1 em, .h1 em, .hero-text em {
+  font-style: italic;
+  color: var(--plum);         /* Chubbo has native italic — no swap needed */
+  letter-spacing: -0.03em;
+}
+
+/* Section headings — Chubbo */
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(28px, 4.5vw, var(--text-3xl));
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+h3, .h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+h4, .h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-md);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* Italic accent on display headings → falls to body italic */
+h2 em, h3 em, h4 em, .display em {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: inherit;
+  letter-spacing: 0;
+  color: var(--plum);
+}
+em, .italic { font-style: italic; color: var(--plum); }
+
+p, .body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.75;
+  color: var(--fg-muted);
+}
+
+.lead {
+  font-size: var(--text-md);
+  line-height: 1.8;
+  color: var(--fg-muted);
+}
+
+small, .caption {
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+}
+
+/* Mono labels / eyebrows / tags */
+.mono, code, kbd, pre {
+  font-family: var(--font-mono);
+}
+/* Eyebrow / section labels — JetBrains Mono */
+.eyebrow, .label-mono {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--stone-500);
+}
+/* Data values — JetBrains Mono */
+.data-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* Fluid heading utilities (Chubbo display) */
+.h1-fluid {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: var(--fl-4xl);
+  line-height: 0.96;
+  letter-spacing: -0.025em;
+}
+.h2-fluid {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fl-3xl);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+::selection { background: var(--lavender); color: var(--ink); }
+*:focus-visible { outline: 2px solid var(--lavender); outline-offset: 2px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE UTILITIES — responsive helpers
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Page container — handles gutter + max width + safe-area */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding-left: max(var(--section-x), var(--safe-left));
+  padding-right: max(var(--section-x), var(--safe-right));
+  box-sizing: border-box;
+}
+.section { padding-top: var(--section-y); padding-bottom: var(--section-y); }
+
+/* Touch-target enforcement */
+.tap    { min-height: var(--touch-min);     min-width: var(--touch-min);     }
+.tap-lg { min-height: var(--touch-comfort); min-width: var(--touch-comfort); }
+
+/* Safe-area helpers — bottom tab bars, modal sheets, etc. */
+.pb-safe { padding-bottom: calc(var(--sp-4) + var(--safe-bottom)); }
+.pt-safe { padding-top:    calc(var(--sp-4) + var(--safe-top)); }
+
+/* Show/hide by breakpoint */
+.mobile-only  { display: block; }
+.desktop-only { display: none;  }
+@media (min-width: 768px) {
+  .mobile-only  { display: none;  }
+  .desktop-only { display: block; }
+}
+
+/* Responsive hero + body — mobile defaults, desktop overrides */
+.h1-fluid { font-family: var(--font-display); font-weight: 700;
+  font-size: var(--fl-4xl); line-height: 1.02; letter-spacing: -0.015em; }
+.h2-fluid { font-family: var(--font-display); font-weight: 600;
+  font-size: var(--fl-3xl); line-height: 1.08; letter-spacing: -0.005em; }
+.body-fluid { font-size: var(--fl-base); line-height: 1.6; }
+
+/* Stack on mobile, row on desktop */
+.stack-to-row { display: flex; flex-direction: column; gap: var(--sp-fl-md); }
+@media (min-width: 768px) { .stack-to-row { flex-direction: row; } }
+</style>
+<style>/* ═══════════════════════════════════════════════════════════════
+   ZEROONE D·O·T·S AI — Design System · ROOT ENTRY
+   Consumers link THIS one file. It pulls in all design tokens,
+   typography, and semantic element styles.
+   ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   ZEROONE D·O·T·S AI — Design Tokens
+   Colors, typography, spacing, radii, shadows, motion
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── TYPE SYSTEM v4.0 · FOUR ROLES ────────────────────────────────────
+   1 · CHUBBO       → titles & display (H1–H4, hero, pull-quotes)
+   2 · SUPREME      → body & long-form reading copy
+   3 · SATOSHI      → UI / interface chrome (buttons, nav, inputs,
+                      table cells, badges, captions — the product layer)
+   4 · JETBRAINS    → data layer (numbers, code, timestamps) +
+                      uppercase eyebrows / labels
+   All four are self-hosted variable woff2. Everything else is RETIRED.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* ── ROLE 1 · DISPLAY: Chubbo (chunky editorial slab — self-hosted variable) ──
+   Titles, H1–H4, hero, pull-quotes. Weight 700; native italics for accent. */
+@font-face { font-family:'Chubbo'; font-style:normal; font-weight:200 700; font-display:swap;
+  src:url("/static/e929d16a-cc3b-4586-a30d-3a55811439c5") format('woff2-variations'); }
+@font-face { font-family:'Chubbo'; font-style:italic; font-weight:200 700; font-display:swap;
+  src:url("/static/94a5f61b-060d-4965-a10b-2c19e312185b") format('woff2-variations'); }
+
+/* ── ROLE 2 · BODY: Supreme (clean neo-grotesque — self-hosted variable) ──
+   Long-form reading copy, leads, paragraphs. 400 body, 500 medium,
+   700 emphasis; native italics. */
+@font-face { font-family:'Supreme'; font-style:normal; font-weight:100 800; font-display:swap;
+  src:url("/static/b9688901-bd1c-4cdb-a5f1-5ce45a41e22c") format('woff2-variations'); }
+@font-face { font-family:'Supreme'; font-style:italic; font-weight:100 800; font-display:swap;
+  src:url("/static/2fddcd3c-e672-483a-80a4-c829814c8c47") format('woff2-variations'); }
+
+/* ── ROLE 3 · UI / INTERFACE: Satoshi (self-hosted variable woff2) ──
+   Buttons, nav, inputs, table cells, badges, captions, tabs. The dense
+   product-chrome voice — distinct from Supreme's editorial reading. */
+@font-face { font-family:'Satoshi'; font-style:normal; font-weight:300 900; font-display:swap;
+  src:url("/static/271a769a-00c8-40e2-b7a5-fc09eb13acc3") format('woff2-variations'); }
+@font-face { font-family:'Satoshi'; font-style:italic; font-weight:300 900; font-display:swap;
+  src:url("/static/18df1587-36b5-4bcf-be4e-a6c4befd40d3") format('woff2-variations'); }
+
+/* ── ROLE 4 · DATA / LABELS: JetBrains Mono (self-hosted variable woff2) ──
+   All numeric data, code, timestamps, hex codes + uppercase eyebrows. */
+@font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:100 800; font-display:swap;
+  src:url("/static/0ee4bd90-a829-4a5f-9e48-6fc518c42cf8") format('woff2-variations'); }
+@font-face { font-family:'JetBrains Mono'; font-style:italic; font-weight:100 800; font-display:swap;
+  src:url("/static/e3d6327f-f56b-4fc7-8c2f-dd3d043f0a8b") format('woff2-variations'); }
+
+:root {
+  /* ── D.O.T.S. Pillar Pastels (mapped to framework) ── */
+  --lavender: #C8B6FF;   /* D · Data */
+  --mint:     #B8E0D2;   /* O · Operations */
+  --peach:    #FFCDB2;   /* T · Tech */
+  --sky:      #A2D2FF;   /* S · Strategy */
+  --rose:     #FFB5C2;   /* Accent · Creative */
+  --lemon:    #FFF3B0;   /* Highlight */
+
+  /* Pillar aliases (semantic) */
+  --pillar-data:       var(--lavender);
+  --pillar-operations: var(--mint);
+  --pillar-tech:       var(--peach);
+  --pillar-strategy:   var(--sky);
+
+  /* ── Pillar tonal ladders — 5 steps per pillar, tint → base → shade ──
+     Use tints (20/40) for backgrounds + fills on light; use shades (80/95)
+     for text + icons on light. The base (60) is the identity pastel. */
+
+  /* Data · Lavender family */
+  --data-20:  #EDE6FF;   /* Very light tint — surface */
+  --data-40:  #D3C5FF;   /* Soft tint — fill */
+  --data-60:  #C8B6FF;   /* BASE — identity */
+  --data-80:  #5B3FD4;   /* Shade — text, icons, strokes */
+  --data-95:  #2D1B4E;   /* Deep — plum, italic, hero ink */
+
+  /* Operations · Mint family */
+  --ops-20:   #E5F3EC;
+  --ops-40:   #CCE9DC;
+  --ops-60:   #B8E0D2;   /* BASE */
+  --ops-80:   #1F7A5C;
+  --ops-95:   #0F3D2E;
+
+  /* Tech · Peach family */
+  --tech-20:  #FFEFE3;
+  --tech-40:  #FFDFC8;
+  --tech-60:  #FFCDB2;   /* BASE */
+  --tech-80:  #A8521A;
+  --tech-95:  #5C2A0D;
+
+  /* Strategy · Sky family */
+  --strat-20: #E5F1FF;
+  --strat-40: #C5E0FF;
+  --strat-60: #A2D2FF;   /* BASE */
+  --strat-80: #1E5B9C;
+  --strat-95: #0F2E4F;
+
+  /* ── Mid-value neutral anchors (warm + cool slate) ──
+     Bridge between cream surfaces and ink dark. Useful for filled panels,
+     nested cards, hero sub-sections that need depth without pure black. */
+  --slate-warm:  #3A3D4A;   /* Warm slate — cards on dark hero */
+  --slate-cool:  #27425D;   /* Cool slate — info panels, editorial */
+
+  /* ── Pillar "deep" variants — WCAG-safe for text + icons on light canvas ──
+     The pastels (above) are IDENTITY colors: use as dots, tint backgrounds,
+     borders, and pillar-accent strokes. They FAIL contrast as foreground.
+     The deep variants (below) are FUNCTIONAL colors: use for text, icon
+     strokes, and filled elements on cream/white. All pass AA at 14px+. */
+  --pillar-data-deep:       #5B3FD4;  /* Lavender → Deep violet */
+  --pillar-operations-deep: #1F7A5C;  /* Mint    → Deep green */
+  --pillar-tech-deep:       #A8521A;  /* Peach   → Burnt sienna */
+  --pillar-strategy-deep:   #1E5B9C;  /* Sky     → Deep blue */
+
+  /* ── Deep Anchors ── */
+  --ink:      #191924;   /* Primary text, dark BGs */
+  --plum:     #2D1B4E;   /* Hovers, premium */
+  --charcoal: #2A2A3C;   /* Footer, dark borders */
+
+  /* ── Warm Neutrals (Anthropic-style editorial) ── */
+  --cream-50:  #FDFCFA;
+  --cream-100: #F8F7F4;
+  --cream-150: #F2F0EC;
+  --sand-200:  #E8E6E0;
+  --sand-300:  #D4D1C9;
+  --stone-400: #B5B1A7;
+  --stone-500: #918D82;
+  --stone-600: #6E6B62;
+  --slate-700: #4A4842;
+  --slate-800: #2E2D29;
+
+  /* ── Sidebar (dark shell) ── */
+  --sidebar-bg:          #13131D;
+  --sidebar-hover:       #1E1E2E;
+  --sidebar-active:      #252538;
+  --sidebar-border:      #2A2A3C;
+  --sidebar-text:        #A8A6B0;
+  --sidebar-text-active: #FDFCFA;
+
+  /* ── Semantic ── */
+  --teal:        #4ECDC4;
+  --teal-hover:  #3DB8B0;
+  --amber:       #D4A574;
+  --gold:        #F5C542;
+  --danger:      #EF4444;
+  --success:     #10B981;
+
+  /* Foreground / Background aliases */
+  --bg:           var(--cream-50);
+  --bg-surface:   #FFFFFF;
+  --bg-elevated:  var(--cream-100);
+  --fg:           var(--ink);
+  --fg-muted:     var(--stone-600);
+  --fg-subtle:    var(--stone-500);
+  --border:       var(--sand-200);
+  --border-hover: var(--sand-300);
+
+  /* ── Brand Gradients ── */
+  --g-aurora: linear-gradient(135deg, #C8B6FF, #A2D2FF, #B8E0D2); /* @kind color */
+  --g-warmth: linear-gradient(135deg, #FFCDB2, #FFB5C2, #C8B6FF); /* @kind color */
+  --g-cosmos: linear-gradient(135deg, #191924, #2D1B4E); /* @kind color */
+
+  /* ── Typography — TYPE SYSTEM v4.0 (four roles) ──────────────────────
+     DISPLAY  = Chubbo — titles, H1–H4, hero, pull-quotes. Weight 700;
+       native italics in --plum for key-phrase emphasis.
+     BODY     = Supreme — long-form reading copy, leads, paragraphs.
+       400 body, 500 medium, 700 emphasis. Native italics.
+     UI       = Satoshi — interface chrome: buttons, nav, inputs, table
+       cells, badges, captions, tabs. The dense product layer.
+     DATA     = JetBrains Mono — numbers, code, timestamps, hex + the
+       uppercase eyebrow / label voice (letterspaced).
+     ──────────────────────────────────────────────────────────────────── */
+  --font-serif:   'Chubbo', Georgia, 'Times New Roman', serif;
+  --font-display: 'Chubbo', system-ui, sans-serif;
+  --font-body:    'Supreme', system-ui, -apple-system, sans-serif;
+  --font-ui:      'Satoshi', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-label:   'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Breakpoints (mobile-first) ── */
+  --bp-xs:  360px; /* @kind other */  /* Small phones (iPhone SE, older Android) */
+  --bp-sm:  480px; /* @kind other */  /* Large phones / phablet */
+  --bp-md:  768px; /* @kind other */  /* Tablet portrait */
+  --bp-lg:  1024px; /* @kind other */ /* Tablet landscape / small laptop */
+  --bp-xl:  1280px; /* @kind other */ /* Desktop */
+  --bp-2xl: 1536px; /* @kind other */ /* Wide desktop */
+
+  /* ── Touch targets (iOS HIG 44pt / Material 48dp) ── */
+  --touch-min:     44px; /* @kind spacing */  /* Minimum hit area — any tap target */
+  --touch-comfort: 48px; /* @kind spacing */  /* Comfort — primary CTAs, nav */
+  --touch-large:   56px; /* @kind spacing */  /* Hero CTAs, bottom-nav tabs */
+
+  /* ── Fluid type scale (mobile 360 → desktop 1280) ──
+     Fixed px tokens below REMAIN for desktop-only layouts; the fluid
+     tokens (*-fl) are mobile-safe and auto-scale. Use --fl-* on anything
+     that renders below 768px. */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   20px;
+  --text-xl:   28px;
+  --text-2xl:  36px;
+  --text-3xl:  52px;
+  --text-4xl:  76px;
+
+  /* Fluid (responsive) scale — use these on mobile+responsive surfaces */
+  --fl-xs:    clamp(10px, 0.7vw + 8px,  11px); /* @kind other */
+  --fl-sm:    clamp(12px, 0.4vw + 11px, 13px); /* @kind other */
+  --fl-base:  clamp(14px, 0.4vw + 13px, 16px); /* @kind other */
+  --fl-md:    clamp(15px, 0.6vw + 13px, 18px); /* @kind other */
+  --fl-lg:    clamp(17px, 0.8vw + 14px, 22px); /* @kind other */
+  --fl-xl:    clamp(22px, 2vw + 14px,   32px); /* @kind other */
+  --fl-2xl:   clamp(28px, 3vw + 14px,   44px); /* @kind other */
+  --fl-3xl:   clamp(34px, 4vw + 14px,   60px); /* @kind other */
+  --fl-4xl:   clamp(40px, 6vw + 14px,   84px); /* @kind other */
+
+  /* ── Spacing (8px grid) ── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-24: 96px;
+
+  /* ── Fluid spacing (mobile → desktop) ──
+     Use these for section padding, gaps, hero margins on responsive pages.
+     They collapse gracefully at 360px and open up at 1280px+. */
+  --sp-fl-xs:  clamp(4px,  0.4vw + 3px,  6px); /* @kind spacing */
+  --sp-fl-sm:  clamp(8px,  0.8vw + 5px,  12px); /* @kind spacing */
+  --sp-fl-md:  clamp(12px, 1vw + 8px,    20px); /* @kind spacing */
+  --sp-fl-lg:  clamp(16px, 2vw + 10px,   32px); /* @kind spacing */
+  --sp-fl-xl:  clamp(24px, 3vw + 12px,   48px); /* @kind spacing */
+  --sp-fl-2xl: clamp(32px, 4vw + 16px,   72px); /* @kind spacing */
+  --sp-fl-3xl: clamp(40px, 6vw + 20px,   112px); /* @kind spacing */
+
+  /* Section padding recipes — use on <section> wrappers */
+  --section-x: clamp(16px, 5vw, 80px); /* @kind spacing */       /* horizontal page gutter */
+  --section-y: clamp(48px, 7vw, 120px); /* @kind spacing */      /* vertical section rhythm */
+  --container-max: 1280px; /* @kind spacing */                   /* max content width */
+
+  /* ── Safe-area insets (iOS notch / home indicator / Android nav) ── */
+  --safe-top:    env(safe-area-inset-top, 0px); /* @kind spacing */
+  --safe-right:  env(safe-area-inset-right, 0px); /* @kind spacing */
+  --safe-bottom: env(safe-area-inset-bottom, 0px); /* @kind spacing */
+  --safe-left:   env(safe-area-inset-left, 0px); /* @kind spacing */
+
+  /* ── Radius ── */
+  --r-sm:   6px;
+  --r-md:   8px;
+  --r-lg:   12px;
+  --r-xl:   16px;
+  --r-2xl:  24px;
+  --r-full: 999px;
+
+  /* ── Shadows ── */
+  --shadow-sm:  0 1px 2px rgba(25,25,36,.04);
+  --shadow-md:  0 4px 12px rgba(25,25,36,.06);
+  --shadow-lg:  0 10px 32px rgba(25,25,36,.08);
+  --shadow-xl:  0 20px 50px rgba(25,25,36,.10);
+  --shadow-2xl: 0 30px 80px rgba(25,25,36,.14);
+  --shadow-focus: 0 0 0 4px rgba(200,182,255,.20);
+
+  /* ── Motion ── */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur-fast: 150ms; /* @kind other */
+  --dur-med:  250ms; /* @kind other */
+  --dur-slow: 400ms; /* @kind other */
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEMANTIC TYPOGRAPHY — drop-in element styles
+   ═══════════════════════════════════════════════════════════════ */
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── TYPE SYSTEM v4.0 · Semantic typography ────────────────────────────
+   H1 / .hero-text = Chubbo (display) at hero scale. Italic for emphasis
+     (native italic, coloured --plum).
+   H2–H4 = Chubbo — section headings. No forced uppercase; weight carries.
+   Body / p / .lead = Supreme — the reading layer.
+   UI chrome (buttons, nav, inputs) = Satoshi via --font-ui.
+   .eyebrow / .label / .data-value = JetBrains Mono — labels + data.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Hero / editorial display — Chubbo */
+h1, .h1, .hero-text {
+  font-family: var(--font-serif);
+  font-weight: 700;           /* Chubbo display — weight carries the authority */
+  font-size: clamp(40px, 6.5vw, var(--text-4xl));
+  line-height: 0.96;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+h1 em, .h1 em, .hero-text em {
+  font-style: italic;
+  color: var(--plum);         /* Chubbo has native italic — no swap needed */
+  letter-spacing: -0.03em;
+}
+
+/* Section headings — Chubbo */
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(28px, 4.5vw, var(--text-3xl));
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+h3, .h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+h4, .h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-md);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* Italic accent on display headings → falls to body italic */
+h2 em, h3 em, h4 em, .display em {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: inherit;
+  letter-spacing: 0;
+  color: var(--plum);
+}
+em, .italic { font-style: italic; color: var(--plum); }
+
+p, .body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.75;
+  color: var(--fg-muted);
+}
+
+.lead {
+  font-size: var(--text-md);
+  line-height: 1.8;
+  color: var(--fg-muted);
+}
+
+small, .caption {
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+}
+
+/* Mono labels / eyebrows / tags */
+.mono, code, kbd, pre {
+  font-family: var(--font-mono);
+}
+/* Eyebrow / section labels — JetBrains Mono */
+.eyebrow, .label-mono {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--stone-500);
+}
+/* Data values — JetBrains Mono */
+.data-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* Fluid heading utilities (Chubbo display) */
+.h1-fluid {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: var(--fl-4xl);
+  line-height: 0.96;
+  letter-spacing: -0.025em;
+}
+.h2-fluid {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fl-3xl);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+::selection { background: var(--lavender); color: var(--ink); }
+*:focus-visible { outline: 2px solid var(--lavender); outline-offset: 2px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE UTILITIES — responsive helpers
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Page container — handles gutter + max width + safe-area */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding-left: max(var(--section-x), var(--safe-left));
+  padding-right: max(var(--section-x), var(--safe-right));
+  box-sizing: border-box;
+}
+.section { padding-top: var(--section-y); padding-bottom: var(--section-y); }
+
+/* Touch-target enforcement */
+.tap    { min-height: var(--touch-min);     min-width: var(--touch-min);     }
+.tap-lg { min-height: var(--touch-comfort); min-width: var(--touch-comfort); }
+
+/* Safe-area helpers — bottom tab bars, modal sheets, etc. */
+.pb-safe { padding-bottom: calc(var(--sp-4) + var(--safe-bottom)); }
+.pt-safe { padding-top:    calc(var(--sp-4) + var(--safe-top)); }
+
+/* Show/hide by breakpoint */
+.mobile-only  { display: block; }
+.desktop-only { display: none;  }
+@media (min-width: 768px) {
+  .mobile-only  { display: none;  }
+  .desktop-only { display: block; }
+}
+
+/* Responsive hero + body — mobile defaults, desktop overrides */
+.h1-fluid { font-family: var(--font-display); font-weight: 700;
+  font-size: var(--fl-4xl); line-height: 1.02; letter-spacing: -0.015em; }
+.h2-fluid { font-family: var(--font-display); font-weight: 600;
+  font-size: var(--fl-3xl); line-height: 1.08; letter-spacing: -0.005em; }
+.body-fluid { font-size: var(--fl-base); line-height: 1.6; }
+
+/* Stack on mobile, row on desktop */
+.stack-to-row { display: flex; flex-direction: column; gap: var(--sp-fl-md); }
+@media (min-width: 768px) { .stack-to-row { flex-direction: row; } }
+
+</style>
+<script src="/static/2239d4cc-7838-4536-8ece-531a99433615.js"></script>
+<style>
+ html,body{margin:0;height:100%;background:#FDFCFA;font-family:'Satoshi',system-ui,sans-serif;color:#191924}
+ *{box-sizing:border-box}
+ a{color:#2D1B4E;text-decoration:none} a:hover{color:#5b3fa0}
+ .z-scroll::-webkit-scrollbar{width:7px;height:7px} .z-scroll::-webkit-scrollbar-thumb{background:rgba(25,25,36,.13);border-radius:4px} .z-scroll::-webkit-scrollbar-track{background:transparent}
+ .ws-bar{scrollbar-width:thin;scrollbar-color:rgba(25,25,36,.2) transparent} .ws-bar::-webkit-scrollbar{height:5px} .ws-bar::-webkit-scrollbar-thumb{background:rgba(25,25,36,.16);border-radius:3px} .ws-bar::-webkit-scrollbar-track{background:transparent}
+ aside[data-dragging="true"]{transition:none !important;user-select:none}
+ .rz-grip:hover{background:linear-gradient(90deg,transparent,rgba(200,182,255,.22))} .rz-grip:hover > span{background:#C8B6FF;height:44px}
+ .crail-item{position:relative;display:flex}
+ .crail-fly{position:absolute;left:100%;top:-9px;padding-left:10px;opacity:0;visibility:hidden;transform:translateX(-5px);transition:opacity 130ms ease,transform 130ms ease;z-index:80}
+ .crail-item:hover .crail-fly{opacity:1;visibility:visible;transform:translateX(0)}
+ .crail-fly-inner{min-width:196px;max-width:240px;background:#fff;border:1px solid #E4E2DB;border-radius:13px;box-shadow:0 20px 48px rgba(25,25,36,.22);padding:7px}
+ .crail-fly-head{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.6px;text-transform:uppercase;color:#B4B0A6;padding:4px 9px 7px}
+ .crail-fly-item{margin-bottom:1px} .crail-fly-item:last-child{margin-bottom:0} .crail-fly-item:hover{background:rgba(25,25,36,.06) !important}
+</style>
+</helmet>
+<div style="height:100vh;width:100%;display:flex;overflow:hidden;background:#FDFCFA">
+ <aside data-dragging="{{ dragging }}" style="width:{{ railW }};flex:none;transition:width 260ms cubic-bezier(0.16,1,0.3,1);background:#FBFAF8;border-right:1px solid rgba(25,25,36,0.06);display:flex;flex-direction:column;position:relative;z-index:20;overflow:visible">
+
+  <sc-if value="{{ collapsed }}" hint-placeholder-val="{{ false }}">
+   <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:19px 0 14px;gap:7px;min-height:0">
+    <svg width="27" height="27" sc-camel-view-box="0 0 100 100" fill="none" style="flex:none;display:block;margin-bottom:8px"><circle cx="16" cy="16" r="12.5" fill="#5B3FD4"></circle><circle cx="50" cy="16" r="12.5" fill="#E6E1D7"></circle><circle cx="84" cy="16" r="12.5" fill="#E6E1D7"></circle><circle cx="16" cy="50" r="12.5" fill="#E6E1D7"></circle><circle cx="50" cy="50" r="12.5" fill="#1F7A5C"></circle><circle cx="84" cy="50" r="12.5" fill="#E6E1D7"></circle><circle cx="16" cy="84" r="12.5" fill="#E6E1D7"></circle><circle cx="50" cy="84" r="12.5" fill="#E6E1D7"></circle><circle cx="84" cy="84" r="12.5" fill="#A8521A"></circle></svg>
+    <button sc-camel-on-click="{{ onCollapse }}" title="Expand" style="border:none;background:transparent;cursor:pointer;color:#A7A399;padding:5px;border-radius:9px;display:flex" style-hover="background:rgba(25,25,36,.05)"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg></button>
+    <div style="width:26px;height:1px;background:#EAE8E2;margin:2px 0 4px"></div>
+    <sc-for list="{{ navItems }}" as="m" hint-placeholder-count="3">
+     <div class="crail-item">
+      <button sc-camel-on-click="{{ m.onTile }}" aria-label="{{ m.name }}" style="{{ m.tileStyle }}"><span style="display:flex;color:#191924">{{ m.tileIconEl }}</span></button>
+      <div class="crail-fly"><div class="crail-fly-inner">
+       <sc-if value="{{ m.isModule }}">
+        <div class="crail-fly-head">{{ m.name }}</div>
+        <sc-for list="{{ m.tabs }}" as="t" hint-placeholder-count="0">
+         <button sc-camel-on-click="{{ t.onClick }}" class="crail-fly-item" style="{{ t.flyStyle }}"><span style="display:flex;flex:none;color:{{ t.iconColor }}">{{ t.iconEl }}</span>{{ t.name }}</button>
+        </sc-for>
+       </sc-if>
+       <sc-if value="{{ m.isStandalone }}">
+        <button sc-camel-on-click="{{ m.onTile }}" class="crail-fly-item" style="{{ m.flyStyle }}"><span style="display:flex;flex:none;color:{{ m.iconColor }}">{{ m.tileIconEl }}</span>{{ m.name }}</button>
+       </sc-if>
+      </div></div>
+     </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <sc-if value="{{ notif }}"><span style="width:8px;height:8px;border-radius:50%;background:#FFB5C2;margin-bottom:4px"></span></sc-if>
+    <button sc-camel-on-click="{{ onProfile }}" title="{{ user.name }} ({{ user.role }})" style="width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;background:{{ user.color }};color:#0f2f22;font-family:'Chubbo',serif;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">{{ user.initials }}</button>
+   </div>
+  </sc-if>
+
+  <sc-if value="{{ notCollapsed }}" hint-placeholder-val="{{ true }}">
+   <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+    <div style="display:flex;align-items:center;gap:12px;padding:20px 13px 15px 18px;min-height:62px;flex:none">
+     <svg width="29" height="29" sc-camel-view-box="0 0 100 100" fill="none" style="flex:none;display:block"><circle cx="16" cy="16" r="12.5" fill="#5B3FD4"></circle><circle cx="50" cy="16" r="12.5" fill="#E6E1D7"></circle><circle cx="84" cy="16" r="12.5" fill="#E6E1D7"></circle><circle cx="16" cy="50" r="12.5" fill="#E6E1D7"></circle><circle cx="50" cy="50" r="12.5" fill="#1F7A5C"></circle><circle cx="84" cy="50" r="12.5" fill="#E6E1D7"></circle><circle cx="16" cy="84" r="12.5" fill="#E6E1D7"></circle><circle cx="50" cy="84" r="12.5" fill="#E6E1D7"></circle><circle cx="84" cy="84" r="12.5" fill="#A8521A"></circle></svg>
+     <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;line-height:1.05">
+      <span style="font-family:'Chubbo','Georgia',serif;font-weight:700;font-size:15px;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ orgName }}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.3px;text-transform:uppercase;color:#A7A399">{{ orgIndustry }}</span>
+     </div>
+     <button sc-camel-on-click="{{ onCollapse }}" title="Collapse" style="border:none;background:transparent;cursor:pointer;color:#A7A399;padding:4px;border-radius:8px;display:flex;flex:none" style-hover="background:rgba(25,25,36,.05)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg></button>
+    </div>
+
+    <div style="padding:12px 14px 14px;border-bottom:1px solid #EAE8E2;flex:none">
+     <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.8px;text-transform:uppercase;color:#B4B0A6;padding:0 2px 8px">Workspace</div>
+     <div class="ws-bar" style="display:flex;align-items:center;gap:3px;background:#F0EEE9;border:1px solid #E4E2DB;border-radius:12px;padding:5px;overflow-x:auto">
+      <sc-for list="{{ workspaces }}" as="w" hint-placeholder-count="4">
+       <button sc-camel-on-click="{{ w.onClick }}" title="{{ w.name }}" style="{{ w.btnStyle }}">
+        <span style="display:flex;color:{{ w.iconColor }};flex:none">
+         <sc-if value="{{ w.isWork }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></sc-if>
+         <sc-if value="{{ w.isHq }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"></path><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4"></path></svg></sc-if>
+         <sc-if value="{{ w.isChat }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg></sc-if>
+         <sc-if value="{{ w.isAnalytics }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></sc-if>
+         <sc-if value="{{ w.isDocument }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></sc-if>
+         <sc-if value="{{ w.isConfig }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg></sc-if>
+         <sc-if value="{{ w.isAdmin }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></sc-if>
+         <sc-if value="{{ w.isBilling }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></sc-if>
+         <sc-if value="{{ w.isArchive }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></sc-if>
+        </span>
+        <sc-if value="{{ w.active }}"><span style="font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;color:#191924;white-space:nowrap">{{ w.name }}</span></sc-if>
+       </button>
+      </sc-for>
+     </div>
+    </div>
+
+    <nav class="z-scroll" style="flex:1;overflow-y:auto;padding:13px 11px 8px;display:flex;flex-direction:column;gap:5px;min-height:0">
+     <sc-for list="{{ navItems }}" as="m" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column">
+       <sc-if value="{{ m.isStandalone }}"><button sc-camel-on-click="{{ m.onClick }}" style="{{ m.rowStyle }}" style-hover="background:rgba(25,25,36,.03)"><span style="display:flex;color:{{ m.iconColor }};flex:none">{{ m.iconEl }}</span><span style="flex:1;text-align:left">{{ m.name }}</span></button></sc-if>
+       <sc-if value="{{ m.isModule }}">
+       <button sc-camel-on-click="{{ m.onToggle }}" style="{{ m.headStyle }}" style-hover="filter:brightness(0.985)">
+        <span style="display:flex;color:{{ m.iconColor }};flex:none">{{ m.iconEl }}</span>
+        <span style="flex:1;text-align:left">{{ m.name }}</span>
+        <span style="{{ m.countStyle }}">{{ m.count }}</span>
+        <svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="#6E6B62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ m.caretStyle }};transition:transform 180ms;flex:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+       </button>
+       <sc-if value="{{ m.open }}">
+        <div style="{{ m.tabWrapStyle }}">
+         <sc-for list="{{ m.tabs }}" as="tb" hint-placeholder-count="3">
+          <button sc-camel-on-click="{{ tb.onClick }}" style="{{ tb.rowStyle }}" style-hover="background:rgba(25,25,36,.04)">
+           <span style="display:flex;color:{{ tb.iconColor }};flex:none">{{ tb.iconEl }}</span>
+           <span>{{ tb.name }}</span>
+          </button>
+         </sc-for>
+        </div>
+       </sc-if>
+       </sc-if>
+      </div>
+     </sc-for>
+    </nav>
+
+    <sc-if value="{{ hasUpdates }}">
+     <div style="margin:0 12px;padding:11px 4px 12px;border-top:1px solid #EAE8E2;flex:none">
+      <button sc-camel-on-click="{{ onOpenNotif }}" title="Open notifications" style="display:flex;align-items:center;gap:7px;width:100%;border:none;background:transparent;cursor:pointer;padding:0;margin-bottom:9px" style-hover="opacity:.65">
+       <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#B4B0A6;flex:1;text-align:left">Updates</span>
+       <sc-if value="{{ hasUnread }}"><span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:#7a2438;background:#FFB5C2;border-radius:999px;min-width:16px;height:16px;padding:0 5px;display:flex;align-items:center;justify-content:center">{{ unreadCount }}</span></sc-if>
+       <svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="#B4B0A6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+      <sc-if value="{{ updatesEmpty }}">
+       <div style="display:flex;align-items:center;gap:8px;padding:4px 6px 2px;margin:0 -6px">
+        <svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#7FC9A3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span style="font-family:'Satoshi',sans-serif;font-size:11.5px;color:#918D82">You're all caught up</span>
+       </div>
+      </sc-if>
+      <sc-for list="{{ updatesList }}" as="u" hint-placeholder-count="2">
+       <div style="display:flex;align-items:flex-start;gap:8px;width:100%;padding:6px;border-radius:9px;margin:0 -6px 2px" style-hover="background:rgba(25,25,36,.04)">
+        <span style="width:6px;height:6px;border-radius:50%;background:{{ u.dot }};flex:none;margin-top:5px"></span>
+        <button sc-camel-on-click="{{ u.onClick }}" title="Open in notifications" style="flex:1;min-width:0;border:none;background:transparent;cursor:pointer;text-align:left;padding:0;font-family:'Satoshi',sans-serif;font-size:11.5px;line-height:1.4;color:#6E6B62">{{ u.text }}</button>
+        <button sc-camel-on-click="{{ u.onMarkRead }}" title="Mark as read" style="border:none;background:transparent;cursor:pointer;color:#C4C0B6;padding:1px;display:flex;flex:none;border-radius:5px;margin-top:1px" style-hover="background:rgba(184,224,210,.5);color:#1a8a5a"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+       </div>
+      </sc-for>
+     </div>
+    </sc-if>
+
+    <div style="border-top:1px solid #EAE8E2;padding:9px;position:relative;flex:none">
+     <sc-if value="{{ profileOpen }}">
+      <div class="z-scroll" style="position:absolute;left:9px;right:9px;bottom:calc(100% - 1px);background:#fff;border:1px solid #E4E2DB;border-radius:16px;box-shadow:0 22px 54px rgba(25,25,36,.18);padding:10px;z-index:40">
+       <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#B4B0A6;padding:5px 8px 7px">Organisations</div>
+       <div class="z-scroll" style="max-height:204px;overflow-y:auto;margin:0 -2px;padding:0 2px">
+       <sc-for list="{{ orgs }}" as="o" hint-placeholder-count="4">
+        <button sc-camel-on-click="{{ o.onClick }}" style="{{ o.cardStyle }}" style-hover="background:rgba(25,25,36,.035)">
+         <span style="width:34px;height:34px;border-radius:9px;background:#191924;display:flex;align-items:center;justify-content:center;flex:none"><span style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:15px;color:{{ o.tileColor }}">{{ o.initial }}</span></span>
+         <div style="flex:1;min-width:0;text-align:left">
+          <div style="font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:11px;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.industry }}</div>
+         </div>
+         <sc-if value="{{ o.active }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+        </button>
+       </sc-for>
+       </div>
+       <div style="height:1px;background:#EEEDE8;margin:9px 4px"></div>
+       <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B4B0A6;padding:2px 8px 8px">Products</div>
+       <div class="z-scroll" style="max-height:128px;overflow-y:auto;margin:0 -2px;padding:0 2px">
+       <sc-for list="{{ products }}" as="p" hint-placeholder-count="2">
+        <button sc-camel-on-click="{{ p.onClick }}" style="{{ p.simpleStyle }}" style-hover="{{ p.hoverStyle }}">
+         <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }};flex:none"></span>
+         <span style="flex:1;text-align:left;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;color:{{ p.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span>
+         <sc-if value="{{ p.active }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+        </button>
+       </sc-for>
+       </div>
+       <sc-if value="{{ hasRoles }}">
+        <div style="height:1px;background:#EEEDE8;margin:9px 4px"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B4B0A6;padding:2px 8px 8px">Role · viewing as</div>
+        <sc-for list="{{ roleItems }}" as="r" hint-placeholder-count="3">
+         <button sc-camel-on-click="{{ r.onClick }}" style="{{ r.simpleStyle }}" style-hover="{{ r.hoverStyle }}">
+          <span style="width:8px;height:8px;border-radius:50%;background:{{ r.dot }};flex:none"></span>
+          <span style="flex:1;min-width:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:{{ r.nameColor }}">{{ r.label }}</span> <span style="font-family:'Satoshi',sans-serif;font-size:12px;color:{{ r.nameColor }};opacity:.7">· {{ r.name }}</span></span>
+          <sc-if value="{{ r.active }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+         </button>
+        </sc-for>
+       </sc-if>
+      </div>
+     </sc-if>
+     <button sc-camel-on-click="{{ onProfile }}" style="display:flex;align-items:center;gap:10px;width:100%;border:none;background:transparent;cursor:pointer;padding:6px;border-radius:12px;text-align:left" style-hover="background:rgba(25,25,36,.04)">
+      <span style="width:36px;height:36px;border-radius:50%;background:{{ user.color }};color:#0f2f22;font-family:'Chubbo',serif;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">{{ user.initials }}</span>
+      <span style="flex:1;min-width:0">
+       <span style="display:block;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ user.name }}</span>
+       <span style="display:block;font-family:'Satoshi',sans-serif;font-size:11px;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ user.email }} <sc-if value="{{ user.role }}">· {{ user.role }}</sc-if></span>
+      </span>
+      <span style="display:flex;color:#A7A399;flex:none"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></span>
+     </button>
+    </div>
+    <div style="padding:9px;border-top:1px solid #EAE8E2;text-align:center;flex:none"><span style="font-family:'Satoshi',sans-serif;font-size:10.5px;color:#B4B0A6">Made by <a href="https://dotsai.in" target="_blank" rel="noopener noreferrer" style="color:#6E6B62;font-weight:600;text-decoration:none" style-hover="color:#5b3fa0;text-decoration:underline">ZeroOne DOTS AI</a></span></div>
+   </div>
+  </sc-if>
+
+  <div class="rz-grip" sc-camel-on-pointer-down="{{ onResizeStart }}" title="Drag to resize · pull all the way in to collapse, out to open" style="position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:50;display:flex;align-items:center;justify-content:center;touch-action:none">
+   <span style="width:3px;height:34px;border-radius:3px;background:#E4E2DB;transition:height 140ms,background 140ms"></span>
+  </div>
+
+ </aside>
+ <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+
+  <header style="flex:none;min-height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #EAE8E2;background:rgba(253,252,250,.9);backdrop-filter:blur(20px);position:relative;z-index:40">
+   <nav style="display:flex;align-items:center;gap:1px;flex:1 1 auto;min-width:0">
+    <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="5">
+     <div style="display:flex;align-items:center;gap:1px;flex:0 1 auto;min-width:0" sc-camel-on-mouse-enter="{{ c.onEnter }}" sc-camel-on-mouse-leave="{{ c.onLeave }}">
+      <div style="{{ c.segStyle }}">
+       <button sc-camel-on-click="{{ c.onClick }}" style="{{ c.btnStyle }}" style-hover="background:rgba(25,25,36,.05)">
+        <span style="{{ c.labelStyle }}">{{ c.label }}</span>
+       </button>
+       <sc-if value="{{ c.open }}">
+        <div class="z-scroll" style="{{ c.menuStyle }}">
+         <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#B4B0A6;padding:5px 8px 7px">{{ c.menuTitle }}</div>
+         <sc-for list="{{ c.options }}" as="o" hint-placeholder-count="4">
+          <button sc-camel-on-click="{{ o.onClick }}" style="{{ o.rowStyle }}" style-hover="background:rgba(25,25,36,.05)">
+           <span style="width:8px;height:8px;border-radius:50%;background:{{ o.dot }};flex:none"></span>
+           <span style="flex:1;min-width:0;text-align:left">
+            <span style="display:block;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</span>
+            <sc-if value="{{ o.hasSub }}"><span style="display:block;font-family:'Satoshi',sans-serif;font-size:11px;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.sub }}</span></sc-if>
+           </span>
+           <sc-if value="{{ o.active }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+          </button>
+         </sc-for>
+        </div>
+       </sc-if>
+      </div>
+      <sc-if value="{{ c.sep }}"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#CFCBC1;padding:0 1px;flex:none">›</span></sc-if>
+     </div>
+    </sc-for>
+   </nav>
+
+   <button sc-camel-on-click="{{ onSearchFocus }}" title="Search (⌘K)" style="width:34px;height:34px;border-radius:10px;border:1px solid #E4E2DB;background:#F8F7F4;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#4A4842;flex:none" style-hover="background:#F0EEE9">
+    <svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+   </button>
+
+   <button sc-camel-on-click="{{ onFeedback }}" title="Send feedback" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:10px;border:1px solid #E4E2DB;background:#F8F7F4;cursor:pointer;color:#4A4842;flex:none;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600" style-hover="background:#F0EEE9">
+    <svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    <span style="white-space:nowrap">Feedback</span>
+   </button>
+
+   <button sc-camel-on-click="{{ onNotif }}" title="Notifications" style="position:relative;width:34px;height:34px;border-radius:10px;border:1px solid #E4E2DB;background:#F8F7F4;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#4A4842;flex:none" style-hover="background:#F0EEE9">
+    <svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+    <sc-if value="{{ hasUnread }}"><span style="position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#FFB5C2;color:#7a2438;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #FDFCFA">{{ unreadCount }}</span></sc-if>
+   </button>
+
+   <button sc-camel-on-click="{{ onAIOpen }}" title="AI Assistant" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 15px 0 13px;border-radius:10px;border:none;cursor:pointer;background:#191924;color:#fff;flex:none;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600" style-hover="background:#2D1B4E">
+    <svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.3L19 10l-5.1 1.7L12 17l-1.9-5.3L5 10l5.1-1.7z"></path><path d="M19 3v4"></path><path d="M21 5h-4"></path></svg>
+    <span>AI</span>
+   </button>
+  </header>
+
+  <sc-if value="{{ searchOpen }}">
+   <div sc-camel-on-click="{{ onSearchClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.28);z-index:95;display:flex;align-items:flex-start;justify-content:center;padding:12vh 20px 20px">
+    <div sc-camel-on-click="{{ stop }}" style="width:min(560px,94vw);max-height:70vh;background:#fff;border:1px solid #E4E2DB;border-radius:16px;box-shadow:0 30px 80px rgba(25,25,36,.26);display:flex;flex-direction:column;overflow:hidden">
+     <div style="display:flex;align-items:center;gap:11px;padding:15px 17px;border-bottom:1px solid #EEEDE8;flex:none">
+      <svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input ref="{{ searchRef }}" value="{{ searchQuery }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search organisations, products, modules, tabs…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:15px;color:#191924">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#B4B0A6;flex:none;border:1px solid #E4E2DB;border-radius:5px;padding:2px 6px">ESC</span>
+     </div>
+     <div class="z-scroll" style="flex:1;overflow:auto;padding:8px;min-height:0">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#B4B0A6;padding:6px 9px 8px">{{ searchSection }}</div>
+      <sc-if value="{{ searchHasHits }}">
+       <sc-for list="{{ searchHits }}" as="h" hint-placeholder-count="5">
+        <button sc-camel-on-click="{{ h.onClick }}" style="display:flex;align-items:center;gap:11px;width:100%;border:none;cursor:pointer;background:transparent;padding:10px;border-radius:11px;text-align:left;margin-bottom:1px" style-hover="background:rgba(25,25,36,.05)">
+         <span style="width:30px;height:30px;border-radius:8px;background:{{ h.tileBg }};display:flex;align-items:center;justify-content:center;flex:none;color:#191924"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span>
+         <span style="flex:1;min-width:0">
+          <span style="display:block;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.label }}</span>
+          <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.4px;color:#A7A399;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.path }}</span>
+         </span>
+         <svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#C4C0B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+       </sc-for>
+      </sc-if>
+      <sc-if value="{{ searchNoHits }}">
+       <div style="padding:26px 12px;text-align:center;font-family:'Satoshi',sans-serif;font-size:13px;color:#918D82">No matches for “{{ searchQuery }}”</div>
+      </sc-if>
+     </div>
+    </div>
+   </div>
+  </sc-if>
+
+  <div style="flex:1;min-width:0;display:flex;overflow:hidden">
+   <sc-if value="{{ isCustomersView }}" hint-placeholder-val="{{ false }}">
+    <dc-import name="Customers" tab="{{ cTab }}" accent="{{ cAccent }}" hint-size="100%,100%"></dc-import>
+   </sc-if>
+   <sc-if value="{{ isPortalView }}" hint-placeholder-val="{{ true }}">
+    <dc-import name="PortalPage" org="{{ cOrg }}" product="{{ cProduct }}" workspace="{{ cWorkspace }}" module-name="{{ cModule }}" tab-name="{{ cTab }}" kind="{{ cKind }}" accent="{{ cAccent }}" hide-crumb="{{ hideCrumb }}" hint-size="100%,100%"></dc-import>
+   </sc-if>
+  </div>
+
+  <sc-if value="{{ notifOpen }}">
+   <div sc-camel-on-click="{{ onNotifClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.28);z-index:80"></div>
+   <div style="position:fixed;top:0;right:0;height:100vh;width:min(440px,92vw);background:#FDFCFA;border-left:1px solid #EAE8E2;box-shadow:-30px 0 80px rgba(25,25,36,.16);z-index:90;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:13px;padding:18px 20px;border-bottom:1px solid #EAE8E2;flex:none">
+     <span style="width:40px;height:40px;border-radius:11px;background:#191924;display:flex;align-items:center;justify-content:center;color:#fff;flex:none"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span>
+     <span style="flex:1;font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:19px;color:#191924">Notifications</span>
+     <button sc-camel-on-click="{{ onNotifClose }}" title="Close" style="width:34px;height:34px;border-radius:9px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#918D82;flex:none" style-hover="background:rgba(25,25,36,.06)"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:9px;padding:14px 20px 4px;flex:none">
+     <button sc-camel-on-click="{{ onMarkAll }}" style="display:flex;align-items:center;gap:6px;border:1px solid #E4E2DB;background:transparent;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;color:#4A4842;padding:8px 13px;border-radius:999px" style-hover="background:rgba(25,25,36,.04)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Mark all read</button>
+     <div style="position:relative">
+      <button sc-camel-on-click="{{ onToggleCat }}" style="display:flex;align-items:center;gap:6px;border:1px solid #E4E2DB;background:transparent;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;color:#4A4842;padding:8px 13px;border-radius:999px" style-hover="background:rgba(25,25,36,.04)"><span>{{ catLabel }}</span><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <sc-if value="{{ notifCatOpen }}">
+       <div style="position:absolute;top:100%;left:0;margin-top:5px;min-width:152px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 44px rgba(25,25,36,.18);padding:6px;z-index:5">
+        <sc-for list="{{ catOpts }}" as="co" hint-placeholder-count="4">
+         <button sc-camel-on-click="{{ co.onClick }}" style="{{ co.style }}" style-hover="background:rgba(25,25,36,.05)"><span style="flex:1;text-align:left">{{ co.label }}</span><sc-if value="{{ co.active }}"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></button>
+        </sc-for>
+       </div>
+      </sc-if>
+     </div>
+     <button sc-camel-on-click="{{ onSort }}" style="display:flex;align-items:center;gap:6px;border:1px solid #E4E2DB;background:transparent;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;color:#4A4842;padding:8px 13px;border-radius:999px" style-hover="background:rgba(25,25,36,.04)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 21 7 17 3"></polyline><line x1="21" y1="7" x2="9" y2="7"></line><polyline points="7 13 3 17 7 21"></polyline><line x1="3" y1="17" x2="15" y2="17"></line></svg>{{ sortLabel }}</button>
+    </div>
+
+    <div style="display:flex;gap:8px;padding:8px 20px 15px;border-bottom:1px solid #EAE8E2;flex:none">
+     <sc-for list="{{ notifPills }}" as="p" hint-placeholder-count="3">
+      <button sc-camel-on-click="{{ p.onClick }}" style="{{ p.style }}" style-hover="filter:brightness(0.97)">{{ p.label }}</button>
+     </sc-for>
+    </div>
+
+    <div class="z-scroll" style="flex:1;overflow:auto;min-height:0">
+     <sc-if value="{{ notifHasItems }}">
+      <div style="padding:12px 14px">
+       <sc-for list="{{ notifList }}" as="n" hint-placeholder-count="4">
+        <button sc-camel-on-click="{{ n.onClick }}" style="display:flex;gap:11px;width:100%;text-align:left;border:none;background:{{ n.bg }};cursor:pointer;padding:13px 12px;border-radius:11px;margin-bottom:3px" style-hover="background:rgba(25,25,36,.04)">
+         <span style="width:9px;height:9px;border-radius:50%;background:{{ n.dot }};flex:none;margin-top:4px"></span>
+         <span style="flex:1;min-width:0">
+          <span style="display:block;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:{{ n.weight }};color:#191924;line-height:1.35">{{ n.title }}</span>
+          <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4px;color:#A7A399;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.path }}</span>
+         </span>
+         <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#B4B0A6">{{ n.time }}</span>
+          <sc-if value="{{ n.unread }}"><span style="width:7px;height:7px;border-radius:50%;background:#FFB5C2"></span></sc-if>
+         </span>
+        </button>
+       </sc-for>
+      </div>
+     </sc-if>
+     <sc-if value="{{ notifEmpty }}">
+      <div style="height:100%;min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 34px;gap:4px">
+       <span style="width:66px;height:66px;border-radius:19px;background:#F0EEE9;display:flex;align-items:center;justify-content:center;color:#B4B0A6;margin-bottom:10px"><svg width="30" height="30" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span>
+       <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924">All caught up!</div>
+       <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;line-height:1.5;color:#918D82;max-width:280px">You have no notifications right now. We'll let you know when something happens.</div>
+      </div>
+     </sc-if>
+    </div>
+   </div>
+  </sc-if>
+
+  <sc-if value="{{ fbOpen }}">
+   <div sc-camel-on-click="{{ onFbClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);backdrop-filter:blur(2px);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div sc-camel-on-click="{{ stop }}" style="width:min(560px,96vw);max-height:90vh;overflow:auto;background:#fff;border:1px solid #EAE8E2;border-radius:22px;box-shadow:0 40px 100px rgba(25,25,36,.3);padding:26px 28px 24px">
+
+     <sc-if value="{{ fbSent }}">
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:34px 20px 30px">
+       <span style="width:64px;height:64px;border-radius:50%;background:#B8E0D2;display:flex;align-items:center;justify-content:center;color:#0f5138;margin-bottom:8px"><svg width="30" height="30" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+       <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:23px;color:#191924">Thank you!</div>
+       <div style="font-family:'Satoshi',sans-serif;font-size:14px;color:#6E6B62">Your feedback has been recorded.</div>
+      </div>
+     </sc-if>
+
+     <sc-if value="{{ fbForm }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+       <span style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:23px;color:#191924">Send Feedback</span>
+       <button sc-camel-on-click="{{ onFbClose }}" title="Close" style="width:34px;height:34px;border-radius:9px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#918D82" style-hover="background:rgba(25,25,36,.06)"><svg width="19" height="19" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:16px">
+       <sc-for list="{{ fbCats }}" as="c" hint-placeholder-count="4">
+        <button sc-camel-on-click="{{ c.onClick }}" style="{{ c.style }}" style-hover="border-color:#C4C0B6">
+         <span style="display:flex;color:#6E6B62;flex:none">
+          <sc-if value="{{ c.isBug }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="8" height="12" rx="4"></rect><path d="M12 6V4"></path><path d="m7 8-2-2"></path><path d="m17 8 2-2"></path><path d="M6 12H3"></path><path d="M21 12h-3"></path><path d="m7 16-2 2"></path><path d="m17 16 2 2"></path></svg></sc-if>
+          <sc-if value="{{ c.isFeature }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path></svg></sc-if>
+          <sc-if value="{{ c.isImprovement }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg></sc-if>
+          <sc-if value="{{ c.isGeneral }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg></sc-if>
+         </span>
+         {{ c.label }}
+        </button>
+       </sc-for>
+      </div>
+
+      <textarea value="{{ fbText }}" sc-camel-on-change="{{ onFbText }}" maxlength="5000" placeholder="Describe the issue or suggestion…" style="width:100%;min-height:150px;resize:vertical;border:1.5px solid #C8B6FF;border-radius:14px;padding:15px 16px;font-family:'Satoshi',sans-serif;font-size:14.5px;line-height:1.5;color:#191924;outline:none;box-shadow:0 0 0 4px rgba(200,182,255,.14);background:#fff"></textarea>
+      <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px;color:#B4B0A6;margin:7px 2px 14px">{{ fbCount }}/5000</div>
+
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px">
+       <span style="display:inline-flex;align-items:center;gap:6px;background:#F0EEE9;border-radius:999px;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#6E6B62"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>{{ fbPath }}</span>
+       <span style="display:inline-flex;align-items:center;gap:6px;background:#F0EEE9;border-radius:999px;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#6E6B62"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>{{ fbTime }}</span>
+       <sc-if value="{{ fbHasElement }}">
+        <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(200,182,255,.24);border:1px solid rgba(200,182,255,.6);border-radius:999px;padding:6px 10px 6px 12px;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;color:#3a2b60"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="#5b3fa0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path></svg>{{ fbTarget }}<button sc-camel-on-click="{{ onFbRemoveAnn }}" title="Remove" style="border:none;background:transparent;cursor:pointer;color:#5b3fa0;padding:0;display:flex"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></span>
+       </sc-if>
+       <sc-if value="{{ fbHasDrawing }}">
+        <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,181,194,.26);border:1px solid rgba(255,181,194,.7);border-radius:999px;padding:6px 10px 6px 12px;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;color:#7a2438"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="#b3455a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>Drawing attached<button sc-camel-on-click="{{ onFbRemoveAnn }}" title="Remove" style="border:none;background:transparent;cursor:pointer;color:#b3455a;padding:0;display:flex"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></span>
+       </sc-if>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+       <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#B4B0A6;margin-right:2px">Annotate</span>
+       <button sc-camel-on-click="{{ onFbDraw }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E4E2DB;background:transparent;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;color:#4A4842;padding:8px 13px;border-radius:10px" style-hover="background:rgba(25,25,36,.04)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>Draw on page</button>
+       <button sc-camel-on-click="{{ onFbPick }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E4E2DB;background:transparent;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;color:#4A4842;padding:8px 13px;border-radius:10px" style-hover="background:rgba(25,25,36,.04)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#918D82" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path></svg>Select element</button>
+      </div>
+
+      <button sc-camel-on-click="{{ onFbSend }}" style="{{ fbSendStyle }}" style-hover="filter:brightness(0.97)">Send Feedback</button>
+     </sc-if>
+
+    </div>
+   </div>
+  </sc-if>
+
+  <sc-if value="{{ aiOpen }}">
+   <div style="{{ aiWinStyle }}">
+    <div sc-camel-on-pointer-down="{{ onAIDrag }}" style="flex:none;display:flex;align-items:center;gap:11px;padding:13px 15px;border-bottom:1px solid #EAE8E2;background:#F5F3EE;cursor:grab">
+     <span style="width:36px;height:36px;border-radius:10px;background:#191924;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="#C8B6FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.3L19 10l-5.1 1.7L12 17l-1.9-5.3L5 10l5.1-1.7z"></path><path d="M19 3v4"></path><path d="M21 5h-4"></path></svg></span>
+     <div style="flex:1;min-width:0">
+      <div style="font-family:'Chubbo','Georgia',serif;font-weight:700;font-size:15px;color:#191924;line-height:1.1">AI Assistant</div>
+      <div style="font-family:'Satoshi',sans-serif;font-size:11.5px;color:#918D82;padding-top:2px">Private · runs on your infrastructure</div>
+     </div>
+     <div style="display:flex;align-items:center;gap:1px;flex:none;margin-right:3px">
+      <button sc-camel-on-click="{{ onAINew }}" title="New chat" style="width:30px;height:30px;border-radius:8px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6E6B62" style-hover="background:rgba(25,25,36,.07);color:#191924"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg></button>
+      <button sc-camel-on-click="{{ onAIHistory }}" title="Chat history" style="position:relative;width:30px;height:30px;border-radius:8px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6E6B62" style-hover="background:rgba(25,25,36,.07);color:#191924"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg><sc-if value="{{ aiHasPageHistory }}"><span style="position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#C8B6FF;border:1.5px solid #F5F3EE"></span></sc-if></button>
+     </div>
+     <div style="display:flex;align-items:center;gap:7px;flex:none">
+      <button sc-camel-on-click="{{ onAIMin }}" title="Minimise" style="width:14px;height:14px;border-radius:50%;border:none;background:#FFC53D;cursor:pointer;padding:0"></button>
+      <button sc-camel-on-click="{{ onAIMax }}" title="Maximise" style="width:14px;height:14px;border-radius:50%;border:none;background:#2FC463;cursor:pointer;padding:0"></button>
+      <button sc-camel-on-click="{{ onAIClose }}" title="Close" style="width:14px;height:14px;border-radius:50%;border:none;background:#FF5F57;cursor:pointer;padding:0"></button>
+     </div>
+    </div>
+
+    <sc-if value="{{ aiNotMin }}">
+     <sc-if value="{{ aiHistoryOpen }}">
+      <div style="position:absolute;left:0;right:0;top:63px;bottom:0;background:#FBFAF8;z-index:6;display:flex;flex-direction:column">
+       <div style="flex:none;padding:14px 15px 11px;border-bottom:1px solid #EEEDE8">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+         <span style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:17px;color:#191924">Chat history</span>
+         <button sc-camel-on-click="{{ onAIHistory }}" title="Back to chat" style="width:30px;height:30px;border-radius:8px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#918D82" style-hover="background:rgba(25,25,36,.06)"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.4px;color:#A7A399;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ aiPageLabel }}</div>
+        <div style="display:flex;gap:6px;margin-top:11px">
+         <button sc-camel-on-click="{{ onScopePage }}" style="{{ aiScopePageStyle }}">This page</button>
+         <button sc-camel-on-click="{{ onScopeAll }}" style="{{ aiScopeAllStyle }}">All pages</button>
+        </div>
+       </div>
+       <div class="z-scroll" style="flex:1;overflow-y:auto;padding:13px 15px 8px;min-height:0">
+        <sc-if value="{{ aiHistoryEmpty }}">
+         <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:34px 12px;color:#B4B0A6">
+          <svg width="30" height="30" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg>
+          <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#918D82">No past chats here yet.</div>
+         </div>
+        </sc-if>
+        <sc-for list="{{ aiHistoryList }}" as="h" hint-placeholder-count="0">
+         <div sc-camel-on-click="{{ h.onOpen }}" style="{{ h.rowStyle }}" style-hover="border-color:#C8B6FF">
+          <span style="width:30px;height:30px;border-radius:8px;background:rgba(200,182,255,.18);display:flex;align-items:center;justify-content:center;color:#5b3fa0;flex:none;margin-top:1px"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+          <div style="flex:1;min-width:0">
+           <div style="font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.title }}</div>
+           <sc-if value="{{ h.showLabel }}"><div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#A7A399;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.label }}</div></sc-if>
+           <div style="font-family:'Satoshi',sans-serif;font-size:11px;color:#918D82;margin-top:3px">{{ h.when }} · {{ h.count }}</div>
+          </div>
+          <sc-if value="{{ h.active }}"><span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.6px;text-transform:uppercase;color:#5b3fa0;background:rgba(200,182,255,.24);padding:3px 7px;border-radius:6px;flex:none;margin-top:1px">Open</span></sc-if>
+          <button sc-camel-on-click="{{ h.onDelete }}" title="Delete chat" style="border:none;background:transparent;cursor:pointer;color:#C4C0B6;padding:2px;display:flex;flex:none;border-radius:6px;margin-top:1px" style-hover="background:rgba(255,181,194,.3);color:#b3455a"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+         </div>
+        </sc-for>
+       </div>
+       <div style="flex:none;padding:10px 15px 14px;border-top:1px solid #EEEDE8">
+        <button sc-camel-on-click="{{ onAINew }}" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:12px;border-radius:12px" style-hover="background:#2D1B4E"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>New chat</button>
+       </div>
+      </div>
+     </sc-if>
+     <div style="flex:none;padding:11px 15px 0"><span style="display:inline-flex;align-items:center;gap:6px;background:rgba(200,182,255,.2);border-radius:999px;padding:5px 11px;font-family:'Satoshi',sans-serif;font-size:11.5px;color:#5b3fa0;max-width:100%"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ aiCtx }}</span></span></div>
+
+     <div ref="{{ setAIScroll }}" class="z-scroll" style="flex:1;overflow-y:auto;padding:16px 15px 6px;min-height:0">
+      <sc-if value="{{ aiEmpty }}">
+       <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 6px 8px">
+        <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:22px;color:#191924">How can I help?</div>
+        <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#918D82;margin-top:5px">I understand the page you're on. Ask me anything.</div>
+       </div>
+       <sc-if value="{{ aiHasPageHistory }}">
+        <button sc-camel-on-click="{{ onAIHistory }}" style="display:flex;align-items:center;gap:9px;width:100%;border:1px solid #E7E5DE;background:rgba(200,182,255,.07);cursor:pointer;padding:11px 14px;border-radius:13px;margin-top:14px;text-align:left" style-hover="border-color:#C8B6FF">
+         <span style="width:28px;height:28px;border-radius:8px;background:rgba(200,182,255,.2);display:flex;align-items:center;justify-content:center;color:#5b3fa0;flex:none"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg></span>
+         <span style="flex:1;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;color:#2A2A32">{{ aiPageCountLabel }}</span>
+         <svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+       </sc-if>
+       <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+        <sc-for list="{{ aiSuggests }}" as="s" hint-placeholder-count="3">
+         <button sc-camel-on-click="{{ s.onClick }}" style="width:100%;text-align:left;border:1px solid #E7E5DE;background:#fff;cursor:pointer;padding:13px 16px;border-radius:13px;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#2A2A32" style-hover="border-color:#C8B6FF;background:rgba(200,182,255,.06)">{{ s.label }}</button>
+        </sc-for>
+       </div>
+      </sc-if>
+      <sc-for list="{{ aiMsgs }}" as="m" hint-placeholder-count="0">
+       <div style="{{ m.wrapStyle }}"><div style="{{ m.bubbleStyle }}">{{ m.text }}</div></div>
+      </sc-for>
+      <sc-if value="{{ aiThinking }}">
+       <div style="display:flex;justify-content:flex-start;margin-bottom:12px"><div style="background:#fff;border:1px solid #EAE8E2;border-radius:15px 15px 15px 4px;padding:12px 15px;display:flex;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#C8B6FF"></span><span style="width:6px;height:6px;border-radius:50%;background:#B8E0D2"></span><span style="width:6px;height:6px;border-radius:50%;background:#FFCDB2"></span></div></div>
+      </sc-if>
+     </div>
+
+     <div style="flex:none;padding:10px 13px 6px">
+      <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #E4E2DB;border-radius:14px;padding:8px 10px 8px 13px">
+       <svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="#B4B0A6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+       <input value="{{ aiInput }}" sc-camel-on-input="{{ onAIInput }}" sc-camel-on-key-down="{{ onAIKey }}" placeholder="Ask anything…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924">
+       <button sc-camel-on-click="{{ onAISend }}" title="Send" style="width:34px;height:34px;border-radius:9px;border:none;cursor:pointer;background:#191924;color:#fff;display:flex;align-items:center;justify-content:center;flex:none" style-hover="background:#2D1B4E"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+      </div>
+      <div style="position:relative;display:flex;align-items:center;gap:8px;padding:8px 2px 3px">
+       <button sc-camel-on-click="{{ onAIMode }}" style="display:flex;align-items:center;gap:5px;border:none;background:rgba(255,205,178,.34);cursor:pointer;padding:5px 8px 5px 12px;border-radius:999px;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;color:#8a5a38" style-hover="background:rgba(255,205,178,.5)"><span>{{ aiMode }}</span><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+       <div style="flex:1"></div>
+       <sc-if value="{{ aiHasMsgs }}"><button sc-camel-on-click="{{ onAIClear }}" style="border:none;background:transparent;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:#B4B0A6;padding:0" style-hover="color:#5b3fa0">Clear</button></sc-if>
+       <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#B4B0A6">{{ aiTokens }} tok</span>
+       <button sc-camel-on-click="{{ onAIModel }}" style="display:flex;align-items:center;gap:6px;border:none;background:transparent;cursor:pointer;padding:5px 7px;border-radius:8px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:rgba(25,25,36,.05)"><span style="width:6px;height:6px;border-radius:50%;background:#C8B6FF;flex:none"></span><span>{{ aiModel }}</span><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+
+       <sc-if value="{{ aiModeOpen }}">
+        <div style="position:absolute;left:0;bottom:calc(100% + 8px);width:236px;background:#fff;border:1px solid #E4E2DB;border-radius:14px;box-shadow:0 -10px 44px rgba(25,25,36,.2);padding:7px;z-index:9">
+         <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:#B4B0A6;padding:5px 8px 3px">Mode</div>
+         <div style="font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;padding:3px 10px 8px">{{ aiMode }} · Default</div>
+         <div style="height:1px;background:#EEEDE8;margin:2px 4px 5px"></div>
+         <sc-for list="{{ aiModeOpts }}" as="m" hint-placeholder-count="4">
+          <button sc-camel-on-click="{{ m.onClick }}" style="{{ m.rowStyle }}" style-hover="background:rgba(25,25,36,.05)">
+           <span style="flex:1;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;color:#2A2A32">{{ m.name }}</span>
+           <sc-if value="{{ m.active }}"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#BBB7AD">{{ m.num }}</span>
+          </button>
+         </sc-for>
+        </div>
+       </sc-if>
+
+       <sc-if value="{{ aiModelOpen }}">
+        <div style="position:absolute;right:0;bottom:calc(100% + 8px);width:292px;background:#fff;border:1px solid #E4E2DB;border-radius:14px;box-shadow:0 -10px 44px rgba(25,25,36,.2);padding:8px;z-index:9">
+         <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:#B4B0A6;padding:4px 8px 6px">Models</div>
+         <sc-for list="{{ aiModels }}" as="m" hint-placeholder-count="4">
+          <button sc-camel-on-click="{{ m.onClick }}" style="{{ m.rowStyle }}" style-hover="background:rgba(25,25,36,.05)">
+           <span style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#191924">{{ m.name }}</span>
+           <sc-if value="{{ m.hasBadge }}"><span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.3px;color:#8a8578;background:#F0EEE9;padding:2px 7px;border-radius:6px">{{ m.badge }}</span></sc-if>
+           <span style="flex:1"></span>
+           <sc-if value="{{ m.active }}"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#D98A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if>
+           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#BBB7AD;min-width:10px;text-align:right">{{ m.num }}</span>
+          </button>
+         </sc-for>
+         <div style="height:1px;background:#EEEDE8;margin:7px 4px"></div>
+         <button style="display:flex;align-items:center;width:100%;border:none;background:transparent;cursor:pointer;padding:9px 10px;border-radius:9px;text-align:left" style-hover="background:rgba(25,25,36,.05)"><span style="flex:1;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#2A2A32">More models</span><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+         <div style="height:1px;background:#EEEDE8;margin:7px 4px"></div>
+         <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:#B4B0A6;padding:2px 8px 8px">Fast mode</div>
+         <div style="display:flex;align-items:center;gap:10px;padding:2px 10px 6px">
+          <span style="flex:1;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#2A2A32">Enable fast mode</span>
+          <button sc-camel-on-click="{{ onFast }}" title="Toggle fast mode" style="{{ fastTrackStyle }}"><span style="width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(25,25,36,.3)"></span></button>
+         </div>
+        </div>
+       </sc-if>
+      </div>
+     </div>
+    </sc-if>
+
+    <sc-if value="{{ aiResizable }}">
+     <div sc-camel-on-pointer-down="{{ aiRz.n }}" style="position:absolute;top:0;left:10px;right:10px;height:6px;cursor:ns-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.s }}" style="position:absolute;bottom:0;left:10px;right:10px;height:6px;cursor:ns-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.e }}" style="position:absolute;top:10px;bottom:10px;right:0;width:6px;cursor:ew-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.w }}" style="position:absolute;top:10px;bottom:10px;left:0;width:6px;cursor:ew-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.nw }}" style="position:absolute;top:0;left:0;width:14px;height:14px;cursor:nwse-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.ne }}" style="position:absolute;top:0;right:0;width:14px;height:14px;cursor:nesw-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.sw }}" style="position:absolute;bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize"></div>
+     <div sc-camel-on-pointer-down="{{ aiRz.se }}" style="position:absolute;bottom:0;right:0;width:16px;height:16px;cursor:nwse-resize"></div>
+    </sc-if>
+   </div>
+  </sc-if>
+
+ </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;defaultOrg&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Z9S-AI&quot;],&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;startCollapsed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;showNotifications&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Rail&quot;}}">
+const MODCOLOR = { 'Operations':'#B8E0D2', 'Analytics':'#C8B6FF', 'Chemical Stock':'#FFCDB2', 'Performance Mgmt':'#A2D2FF', 'User Management':'#FFB5C2', 'Quotation':'#FFCDB2' };
+
+
+const PRODUCTS = {
+  hq: { name:'HQ', tag:'Z9S-AI Operating System', modules:[
+    {name:'HQ', tabs:[{t:'Dashboard',k:'dashboard'}]},
+    {name:'Config', tabs:[{t:'Users',k:'table'},{t:'Roles',k:'table'}]},
+    {name:'Users', tabs:[
+      {module:'User', t:'All Users', k:'table'},
+      {module:'User', t:'Product Admin', k:'table'},
+      {module:'Role', t:'Role List', k:'table'},
+      {module:'Role', t:'Permissions', k:'table'}
+    ]}
+  ]}
+};
+
+const ORGS = [
+  {id:'z9s-ai', name:'Z9S-AI', industry:'AI Implementation', initials:'Z', color:'#C8B6FF', workspace:'HQ', products:['hq'], note:'Z9S-AI operating system.', workspaces:[{name:'HQ',icon:'grid'},{name:'Config',icon:'sliders'},{name:'Users',icon:'users'}]},
+];
+
+const USER = { name:'Meet Deshani', email:'meet@dotsai.in', initials:'MD', color:'#B8E0D2', role:'Admin' };
+const AI_MODELS = [
+  { name:'Nova 2', badge:'On-prem' },
+  { name:'Nova 2 Pro', badge:'' },
+  { name:'Swift 1.5', badge:'' },
+  { name:'Micro 1', badge:'' },
+];
+const AI_MODES = ['Ask','Act on page','Research','Auto'];
+function aiSlug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+function aiTimeAgo(ts){ const d=Math.max(0,Date.now()-ts); const m=Math.round(d/60000); if(m<1) return 'just now'; if(m<60) return m+'m ago'; const h=Math.round(m/60); if(h<24) return h+'h ago'; const dd=Math.round(h/24); return dd+'d ago'; }
+
+// ── Workspaces belong to an Organisation × Product combination ──────────
+const WS_BASE = [
+  { name:'Work',      icon:'work' },
+  { name:'Chat',      icon:'chat' },
+  { name:'Analytics', icon:'analytics' },
+  { name:'Document',  icon:'document' },
+  { name:'Config',    icon:'config' },
+  { name:'Admin',     icon:'admin' },
+  { name:'Billing',   icon:'billing' },
+  { name:'Archive',   icon:'archive' },
+];
+
+function workspacesFor(orgId, productKey) {
+  return [
+    { name: 'HQ', icon: 'hq' },
+    { name: 'Config', icon: 'config' },
+    { name: 'Users', icon: 'admin' }
+  ];
+}
+
+const PRODUCT_WS_TABS = {
+  hq: {
+    __all__: [],
+    HQ: [
+      { tab: 'Dashboard', kind: 'dashboard' }
+    ],
+    Config: [
+      { tab: 'Users', kind: 'table' },
+      { tab: 'Roles', kind: 'table' }
+    ],
+    Users: [
+      { module: 'User', tab: 'All Users', kind: 'table' },
+      { module: 'User', tab: 'Product Admin', kind: 'table' },
+      { module: 'Role', tab: 'Role List', kind: 'table' },
+      { module: 'Role', tab: 'Permissions', kind: 'table' }
+    ]
+  }
+};
+
+function navColor(name, kind){
+  const M = { Client:'#A2D2FF', Clients:'#A2D2FF', Visits:'#B8E0D2', Planning:'#FFCDB2', Feedback:'#FFB5C2', Dashboard:'#A2D2FF', Users:'#FFB5C2', Config:'#FFCDB2', 'My Trips':'#A2D2FF', 'My Requests':'#B8E0D2', 'All Visits':'#B8E0D2', 'Request a new BM Trip':'#FFCDB2', 'User guide':'#FFF3B0', Operations:'#B8E0D2', Analytics:'#C8B6FF', 'Chemical Stock':'#FFCDB2', 'Performance Mgmt':'#A2D2FF', 'User Management':'#FFB5C2', Quotation:'#FFCDB2', 'Cx List':'#A2D2FF', Customers:'#A2D2FF', 'Add Customer':'#A2D2FF', Catalog:'#FFCDB2', Services:'#FFCDB2', 'Add Service':'#FFCDB2', Products:'#FFCDB2', 'Add Product':'#FFCDB2', Projects:'#B8E0D2', 'Add Project':'#B8E0D2', Timelines:'#B8E0D2', Billings:'#B8E0D2', Team:'#B8E0D2', Tickets:'#FFB5C2', 'Add Ticket':'#FFB5C2', 'Job Types':'#FFB5C2', Inbox:'#B8E0D2', Customer:'#B8E0D2', Channels:'#B8E0D2', Contract:'#C8B6FF', Contracts:'#C8B6FF', 'Add Contract':'#C8B6FF', 'Billing Schedule':'#C8B6FF', Invoice:'#C8B6FF', Invoices:'#C8B6FF', 'Add Invoice':'#C8B6FF', 'To Raise':'#C8B6FF', 'GST Returns':'#A2D2FF' };
+  if(M[name]) return M[name];
+  const K = { dashboard:'#A2D2FF', report:'#C8B6FF', table:'#B8E0D2', form:'#B8E0D2', design:'#FFCDB2' };
+  return K[kind] || '#C8B6FF';
+}
+// ── Nav icons (Lucide-style) — every module & tab carries one ────────────
+const ICON = {
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  pin:'<path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  history:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  message:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+  bar:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  sliders:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  plus:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>',
+  activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  flask:'<path d="M9 3h6"/><path d="M10 3v6l-5.5 9.5A2 2 0 0 0 6 21h12a2 2 0 0 0 1.5-3.5L14 9V3"/><line x1="7" y1="15" x2="17" y2="15"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  list:'<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+  trend:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  key:'<path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 0-7.8 7.8 5.5 5.5 0 0 0 7.8-7.8zm0 0L15 8m0 0l3 3 3-3-3-3"/>',
+  gauge:'<path d="M12 15l3.5-3.5"/><path d="M20.3 18a9 9 0 1 0-16.6 0"/>',
+  package:'<path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+};
+const ICON_BY_NAME = {
+  'Dashboard':'grid','Client':'users','Clients':'users','Users':'users','User Management':'users',
+  'Visits':'pin','Add Visit':'pin','All Visits':'clipboard','Visit History':'history','My Requests':'clipboard',
+  'Planning':'calendar','Visit Planning':'calendar','Feedback':'message','Performance':'gauge',
+  'Analytics':'bar','Config':'sliders','User guide':'book','My Trips':'plane','Request a new BM Trip':'plus',
+  'Operations':'activity','Chemical Stock':'flask','Performance Mgmt':'gauge','Quotation':'file',
+  'Create Quote':'file','Panel Builder':'sliders','Pricing':'list','Win Rate':'bar','Job Card':'clipboard',
+  'Log Activity':'edit','Repair Status':'file','Turnaround':'activity','Load':'activity','Add Reading':'edit',
+  'Dosage Design':'sliders','Water Analysis Report':'file','Stock Register':'list','Standard Pack Sizes':'package',
+  'Corrosion Report':'file','Reports':'file','Trends':'trend','Alerts':'bell','Roles':'shield','Access':'key',
+  'Rep Performance':'bar','Visit ROI':'trend','Plan Visit':'calendar','Dosage':'sliders',
+  'Cx List':'list','Customers':'users','Add Customer':'plus','Catalog':'package','Services':'package','Add Service':'plus','Products':'package','Add Product':'plus','Projects':'clipboard','Add Project':'plus','Timelines':'calendar','Billings':'list','Team':'users','Tickets':'bell','Add Ticket':'plus','Job Types':'sliders','Inbox':'message','Customer':'message','Channels':'sliders','Contract':'file','Contracts':'file','Add Contract':'plus','Billing Schedule':'list','Invoice':'file','Invoices':'file','Add Invoice':'plus','To Raise':'list','GST Returns':'bar',
+};
+const ICON_BY_KIND = { dashboard:'grid', form:'edit', table:'list', report:'file', design:'sliders' };
+function navIconInner(name, kind){ return ICON[ICON_BY_NAME[name]] || ICON[ICON_BY_KIND[kind]] || ICON.file; }
+function mkIcon(name, kind, size){
+  return React.createElement('svg', { width:size||16, height:size||16, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:1.8, strokeLinecap:'round', strokeLinejoin:'round', style:{display:'block',flex:'none'}, dangerouslySetInnerHTML:{__html: navIconInner(name, kind)} });
+}
+// ── Some products are ROLE-based: each role sees its own set of tabs ──────
+// (Travel Desk: BM · Requester · Admin — a flat, standalone menu per role.)
+const PRODUCT_ROLES = {
+  hq: [
+    { id:'admin',     label:'Admin',     user:{ name:'Meet Deshani', email:'meet@dotsai.in', initials:'MD', color:'#B8E0D2', role:'Admin' } }
+  ],
+  traveldesk: [
+    { id:'bm',        label:'BM',        user:{ name:'Meet Deshani (BM)',    email:'meet@dotsai.in',      initials:'MD', color:'#B8E0D2' },
+      tabs:[ { tab:'My Trips', kind:'table' } ] },
+    { id:'requester', label:'Requester', user:{ name:'Nishant Kapadia',      email:'nishant@neonir.com',  initials:'NK', color:'#C8B6FF' },
+      tabs:[ { tab:'Request a new BM Trip', kind:'form' }, { tab:'My Requests', kind:'table' } ] },
+    { id:'admin',     label:'Admin',     user:{ name:'Meet Deshani (Admin)', email:'dmeetn2211@gmail.com', initials:'MD', color:'#FFCDB2' },
+      tabs:[ { tab:'All Visits', kind:'table' }, { tab:'Analytics', kind:'report' }, { tab:'Users', kind:'table' } ] },
+  ],
+};
+function rolesFor(productKey){ return PRODUCT_ROLES[productKey] || null; }
+function roleObj(productKey, roleId){ const rs=rolesFor(productKey); if(!rs) return null; return rs.find(r=>r.id===roleId) || rs[0]; }
+function firstRoleId(productKey){ const rs=rolesFor(productKey); return rs ? rs[0].id : null; }
+
+function tabsFor(productKey, workspaceName, roleId){
+  const out = [];
+  const roles = rolesFor(productKey);
+  if(roles && productKey !== 'hq'){
+    // Role-based product: Dashboard (all workspaces) + role tabs (in Work) + User guide.
+    out.push({ tab:'Dashboard', kind:'dashboard' });
+    if(workspaceName==='Work') roleObj(productKey, roleId).tabs.forEach(t=>out.push({ ...t }));
+    out.push({ tab:'User guide', kind:'report' });
+    return out;
+  }
+  const cfg = PRODUCT_WS_TABS[productKey];
+  if(cfg){
+    if(cfg.__all__) cfg.__all__.forEach(t=>out.push({ ...t }));
+    if(cfg[workspaceName]) cfg[workspaceName].forEach(t=>out.push({ ...t }));
+    return out;
+  }
+  // Fallback for products without a per-workspace spec yet:
+  out.push({ tab:'Dashboard', kind:'dashboard' });
+  if(workspaceName==='Work') PRODUCTS[productKey].modules.forEach(m=>m.tabs.forEach(tb=>out.push({ module:m.name, tab:tb.t, kind:tb.k })));
+  return out;
+}
+// Ordered nav list: standalone tabs at top level, multi-tab modules grouped.
+// A module with only ONE tab collapses to a standalone tab (a lone tab under
+// a module is meaningless), so it renders flat with no dropdown.
+function navItemsFor(productKey, workspaceName, roleId){
+  const items=[]; const byMod={};
+  tabsFor(productKey, workspaceName, roleId).forEach(e=>{
+    const standalone = !e.module || e.module===workspaceName;
+    if(standalone){ items.push({ type:'tab', tab:e.tab, kind:e.kind, module:workspaceName }); }
+    else {
+      if(!byMod[e.module]){ const g={ type:'module', name:e.module, tabs:[] }; byMod[e.module]=g; items.push(g); }
+      byMod[e.module].tabs.push({ tab:e.tab, kind:e.kind, module:e.module });
+    }
+  });
+  return items.map(it => (it.type==='module' && it.tabs.length===1)
+    ? { type:'tab', tab:it.tabs[0].tab, kind:it.tabs[0].kind, module:workspaceName }
+    : it);
+}
+function firstTabOf(productKey, workspaceName, roleId){
+  const items = navItemsFor(productKey, workspaceName, roleId); const it = items[0];
+  if(!it) return { module:workspaceName, tab:'Dashboard', kind:'dashboard' };
+  if(it.type==='tab') return { module:it.module, tab:it.tab, kind:it.kind };
+  return { module:it.name, tab:it.tabs[0].tab, kind:it.tabs[0].kind };
+}
+const ORG_BY_LABEL = { 'Z9S-AI':'z9s-ai' };
+
+function tint(hex, a){
+  const h = (hex||'#C8B6FF').replace('#','');
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function buildNotifs(org){
+  const pk = org.products[0]; const prod = PRODUCTS[pk];
+  const items = navItemsFor(pk, workspacesFor(org.id, pk)[0].name);
+  const pick = (i)=>{ const it = items[Math.min(Math.max(i,0), items.length-1)] || items[0]; return it.type==='tab' ? {product:pk,module:it.module,tab:it.tab,kind:it.kind} : {product:pk,module:it.name,tab:it.tabs[0].tab,kind:it.tabs[0].kind}; };
+  const lbl = (t)=> prod.name+' · '+t.module+' · '+t.tab;
+  const t0=pick(0), t1=pick(1), t2=pick(2), tL=pick(items.length-1);
+  return [
+    {id:'p1', dot:'#FFCDB2', cat:'platform', title: org.note, path:'Platform · '+prod.name, time:'2m', target:t0},
+    {id:'p2', dot:'#C8B6FF', cat:'platform', title:'Your role has full access to all modules.', path:'Platform · '+prod.name, time:'20m', target:tL},
+    {id:'n1', dot:'#B8E0D2', cat:'update', title:'New activity in '+t1.tab, path:lbl(t1), time:'12m', target:t1},
+    {id:'n2', dot:'#FFCDB2', cat:'alert', title:'2 items need your attention', path:lbl(t1), time:'1h', target:t1},
+    {id:'n3', dot:'#C8B6FF', cat:'update', title:t2.tab+' is ready to view', path:lbl(t2), time:'3h', target:t2},
+    {id:'n4', dot:'#A2D2FF', cat:'mention', title:'Meet Deshani updated your access', path:lbl(tL), time:'1d', target:tL},
+  ];
+}
+
+class Component extends DCLogic {
+  logout = () => {
+    fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login'; });
+  };
+  state = (() => {
+    const orgId = ORG_BY_LABEL[this.props && this.props.defaultOrg] || 'z9s-ai';
+    const org = ORGS.find(o=>o.id===orgId);
+    const pk = org.products[0];
+    const ws0 = workspacesFor(orgId, pk)[0].name;
+    const role0 = firstRoleId(pk);
+    const ft = firstTabOf(pk, ws0, role0);
+    return {
+      org:orgId, product:pk, role:role0,
+      open:{[ft.module]:true},
+      tab:{module:ft.module, tab:ft.tab, kind:ft.kind},
+      collapsed: !!(this.props && this.props.startCollapsed),
+      profileOpen:false,
+      workspace: ws0,
+      dismissed:{},
+      width:272, dragging:false,
+      navOpen:null, searchQuery:'', searchOpen:false,
+      notifOpen:false, notifFilter:'all', notifSort:'newest', notifCat:'all', notifCatOpen:false, notifRead:{},
+      fbOpen:false, fbCat:'general', fbText:'', fbMode:'page', fbTarget:null, fbHasDrawing:false, fbSent:false, fbBusy:false,
+      aiOpen:false, aiMin:false, aiMax:false, aiPos:null, aiSize:{w:432,h:566}, aiPrevPos:null, aiPrevSize:null, aiDragging:false,
+      aiMsgs:[], aiInput:'', aiModelOpen:false, aiModel:'Nova 2 Pro', aiMode:'Auto', aiModeOpen:false, aiFastMode:false, aiTokens:0, aiThinking:false,
+      aiSessionId:null, aiHistoryOpen:false, aiHistoryAll:false, aiSessions:(()=>{ try{ return JSON.parse(localStorage.getItem('zeroone_ai_sessions')||'[]'); }catch(_){ return []; } })(),
+    };
+  })();
+
+  set(patch){ this.setState(st => (typeof patch==='function' ? patch(st) : patch)); }
+  componentDidMount(){
+    this._key = (e)=>{
+      if ((e.metaKey||e.ctrlKey) && (e.key==='k'||e.key==='K')){ e.preventDefault(); this.openSearch(); }
+      else if (e.key==='Escape' && !this.state.fbBusy){ this.set({ searchOpen:false, notifOpen:false, navOpen:null, notifCatOpen:false, fbOpen:false }); }
+    };
+    document.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount(){ document.removeEventListener('keydown', this._key); }
+
+  // ── AI assistant ───────────────────────────────────────────
+  openAI(){ this.set(s=>{ let pos=s.aiPos; if(!pos){ pos={ x: Math.max(20, (window.innerWidth||1200)-s.aiSize.w-28), y: Math.max(20, (window.innerHeight||800)-s.aiSize.h-26) }; } return { aiOpen:true, aiMin:false, aiPos:pos, navOpen:null, searchOpen:false, notifOpen:false }; }); }
+  closeAI(){ this._saveCurrent(); this.set({ aiOpen:false, aiModelOpen:false, aiHistoryOpen:false }); }
+  _pageKey(){ const st=this.state; const prod=PRODUCTS[st.product]; return aiSlug(prod.name+'/'+st.tab.module+'/'+st.tab.tab); }
+  _pageLabel(){ const st=this.state; const prod=PRODUCTS[st.product]; return prod.name+' · '+st.tab.module+' · '+st.tab.tab; }
+  _saveCurrent(){
+    const msgs=this.state.aiMsgs; if(!msgs.some(m=>m.role==='user')) return;
+    const first=msgs.find(m=>m.role==='user'); const title=first?first.text:'Chat';
+    const id=this.state.aiSessionId||('s'+Date.now().toString(36)+Math.floor(Math.random()*900+100));
+    const entry={ id, pageKey:this._pageKey(), pageLabel:this._pageLabel(), title, ts:Date.now(), count:msgs.length, msgs:msgs.map(m=>({role:m.role,text:m.text})) };
+    const sessions=(this.state.aiSessions||[]).slice(); const idx=sessions.findIndex(s=>s.id===id);
+    if(idx>=0) sessions[idx]=entry; else sessions.unshift(entry);
+    try{ localStorage.setItem('zeroone_ai_sessions', JSON.stringify(sessions.slice(0,80))); }catch(_){}
+    this.set({ aiSessions:sessions, aiSessionId:id });
+  }
+  toggleHistory(){ this.set(s=>({ aiHistoryOpen:!s.aiHistoryOpen, aiModelOpen:false, aiModeOpen:false })); }
+  setHistoryScope(all){ this.set({ aiHistoryAll:all }); }
+  newChat(){ this._saveCurrent(); clearTimeout(this._aiT); this.set({ aiMsgs:[], aiSessionId:null, aiThinking:false, aiInput:'', aiHistoryOpen:false }); }
+  openSession(id){ this._saveCurrent(); const s=(this.state.aiSessions||[]).find(x=>x.id===id); if(!s) return; this.set({ aiMsgs:s.msgs.map(m=>({role:m.role,text:m.text})), aiSessionId:id, aiHistoryOpen:false, aiThinking:false }); setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },60); }
+  deleteSession(id){ const sessions=(this.state.aiSessions||[]).filter(s=>s.id!==id); try{ localStorage.setItem('zeroone_ai_sessions', JSON.stringify(sessions)); }catch(_){} this.set(st=>({ aiSessions:sessions, aiSessionId: st.aiSessionId===id?null:st.aiSessionId, aiMsgs: st.aiSessionId===id?[]:st.aiMsgs })); }
+  toggleAIMin(){ this.set(s=>({ aiMin:!s.aiMin, aiMax:false })); }
+  toggleAIMax(){ this.set(s=>{ if(s.aiMax) return { aiMax:false }; return { aiMax:true, aiMin:false }; }); }
+  toggleAIModel(){ this.set(s=>({ aiModelOpen:!s.aiModelOpen, aiModeOpen:false })); }
+  setAIModel(m){ this.set({ aiModel:m, aiModelOpen:false }); }
+  toggleAIMode(){ this.set(s=>({ aiModeOpen:!s.aiModeOpen, aiModelOpen:false })); }
+  setAIMode(m){ this.set({ aiMode:m, aiModeOpen:false }); }
+  toggleFastMode(){ this.set(s=>({ aiFastMode:!s.aiFastMode })); }
+  onAIInput(e){ const v=e&&e.target?e.target.value:''; this.set({ aiInput:v }); }
+  onAIKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); this.sendAI(); } }
+  _aiReply(msg){
+    const st=this.state; const prod=PRODUCTS[st.product]; const at=st.tab; const org=ORGS.find(o=>o.id===st.org); const q=msg.toLowerCase();
+    const kindLine = {
+      form:`${at.tab} captures a new entry. Fill the fields and Save — it syncs to the ${st.workspace} workspace instantly.`,
+      table:`${at.tab} lists every record for ${st.workspace}. Sort, filter and export straight from the header row.`,
+      dashboard:`${at.tab} is a live snapshot for ${st.workspace} — the stat cards and trend refresh as new data lands.`,
+      report:`${at.tab} is generated from your latest data on ${org.name}'s own infrastructure. Use Export to share it.`,
+      design:`${at.tab} lets you tune the inputs on the left and see the computed output update on the right.`,
+    }[at.kind] || `You're viewing ${at.tab}.`;
+    if(q.includes('what can')||q.includes('this page')) return kindLine;
+    if(q.includes('analyz')||q.includes('data here')||q.includes('the data')) return `Looking at ${at.tab}: the numbers worth watching here are turnaround and on-spec rate. Want me to summarise the last 6 periods for ${st.workspace}?`;
+    if(q.includes('configure')||q.includes('set up')||q.includes('permission')) return `To configure ${at.module}, head to User Management → Access and set the module permissions. I can walk you through each step if you'd like.`;
+    return `You're on ${prod.name} · ${at.module} · ${at.tab}. ${kindLine}`;
+  }
+  sendAI(text){
+    const st=this.state; const msg=String(text!=null?text:st.aiInput).trim(); if(!msg||st.aiThinking) return;
+    const reply=this._aiReply(msg);
+    this.set(s=>({ aiMsgs:[...s.aiMsgs,{role:'user',text:msg}], aiInput:'', aiThinking:true, aiTokens: s.aiTokens + Math.max(6, Math.round(msg.length/4)) }));
+    setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },40);
+    clearTimeout(this._aiT);
+    this._aiT=setTimeout(()=>{
+      this.set(s=>({ aiMsgs:[...s.aiMsgs,{role:'ai',text:reply}], aiThinking:false, aiTokens: s.aiTokens + Math.round(reply.length/4) + 24 }));
+      setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },40);
+      setTimeout(()=>this._saveCurrent(),60);
+    }, 620);
+  }
+  clearAI(){ clearTimeout(this._aiT); this.set({ aiMsgs:[], aiThinking:false, aiInput:'', aiSessionId:null }); }
+  startAIDrag(e){
+    if(this.state.aiMax) return;
+    if(e&&e.preventDefault) e.preventDefault();
+    const sx=e.clientX, sy=e.clientY, p={...this.state.aiPos}, sz=this.state.aiSize;
+    this.set({ aiDragging:true, aiModelOpen:false, aiModeOpen:false });
+    const move=(ev)=>{ const nx=p.x+(ev.clientX-sx), ny=p.y+(ev.clientY-sy); const maxX=(window.innerWidth||1200)-90, maxY=(window.innerHeight||800)-44; this.set({ aiPos:{ x:Math.max(-sz.w+140,Math.min(maxX,nx)), y:Math.max(6,Math.min(maxY,ny)) } }); };
+    const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); this.set({aiDragging:false}); };
+    document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+  }
+  startAIResize(dir,e){
+    if(this.state.aiMax) return;
+    if(e&&e.preventDefault) e.preventDefault(); if(e&&e.stopPropagation) e.stopPropagation();
+    const sx=e.clientX, sy=e.clientY, p={...this.state.aiPos}, sz={...this.state.aiSize};
+    const MINW=316, MINH=384, MAXW=Math.min(760,(window.innerWidth||1200)-16), MAXH=(window.innerHeight||800)-16;
+    this.set({ aiDragging:true, aiModelOpen:false, aiModeOpen:false });
+    const move=(ev)=>{
+      const dx=ev.clientX-sx, dy=ev.clientY-sy; let w=sz.w, h=sz.h, x=p.x, y=p.y;
+      if(dir.indexOf('e')>=0) w=sz.w+dx;
+      if(dir.indexOf('s')>=0) h=sz.h+dy;
+      if(dir.indexOf('w')>=0) w=sz.w-dx;
+      if(dir.indexOf('n')>=0) h=sz.h-dy;
+      w=Math.max(MINW,Math.min(MAXW,w)); h=Math.max(MINH,Math.min(MAXH,h));
+      if(dir.indexOf('w')>=0) x=p.x+(sz.w-w);
+      if(dir.indexOf('n')>=0) y=p.y+(sz.h-h);
+      this.set({ aiPos:{x,y}, aiSize:{w,h} });
+    };
+    const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); this.set({aiDragging:false}); };
+    document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+  }
+
+  // ── feedback ───────────────────────────────────────────────
+  openFeedback(){ this.set({ fbOpen:true, navOpen:null, searchOpen:false, notifOpen:false }); }
+  closeFeedback(){ if(!this.state.fbSent) this.set({ fbOpen:false }); }
+  setFbCat(c){ this.set({ fbCat:c }); }
+  onFbText(e){ const v = e&&e.target ? e.target.value : ''; this.set({ fbText:v }); }
+  removeAnnotation(){ this._strokes=[]; this.set({ fbMode:'page', fbTarget:null, fbHasDrawing:false }); }
+  sendFeedback(){
+    const st=this.state; if(!st.fbText.trim()) return;
+    const org=ORGS.find(o=>o.id===st.org); const prod=PRODUCTS[st.product]; const at=st.tab;
+    const entry={ ts:Date.now(), category:st.fbCat, text:st.fbText, org:org.name, product:prod.name, workspace:st.workspace, module:at.module, tab:at.tab, mode:st.fbMode, target:st.fbTarget||null, hasDrawing:!!st.fbHasDrawing };
+    try{ const arr=JSON.parse(localStorage.getItem('zeroone_feedback')||'[]'); arr.push(entry); localStorage.setItem('zeroone_feedback', JSON.stringify(arr)); }catch(_){}
+    this.set({ fbSent:true });
+    setTimeout(()=>{ this.set({ fbOpen:false, fbSent:false, fbText:'', fbCat:'general', fbMode:'page', fbTarget:null, fbHasDrawing:false }); this._strokes=[]; }, 1600);
+  }
+  _fbLabel(el){
+    if(!el) return 'Element';
+    const aria = el.getAttribute && el.getAttribute('aria-label');
+    let txt = (aria || el.textContent || '').trim().replace(/\s+/g,' ');
+    if(txt.length>34) txt = txt.slice(0,34)+'…';
+    return txt ? '“'+txt+'”' : el.tagName.toLowerCase();
+  }
+  startPick(){
+    this.set({ fbOpen:false, fbBusy:true });
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;z-index:120;cursor:crosshair;background:rgba(25,25,36,.05)';
+    const hl=document.createElement('div');
+    hl.style.cssText='position:fixed;pointer-events:none;border:2px solid #C8B6FF;background:rgba(200,182,255,.18);border-radius:6px;z-index:121;transition:left 60ms,top 60ms,width 60ms,height 60ms';
+    const tip=document.createElement('div');
+    tip.style.cssText="position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:122;background:#191924;color:#fff;font:600 12.5px 'Satoshi',sans-serif;padding:9px 16px;border-radius:999px;pointer-events:none;box-shadow:0 12px 30px rgba(25,25,36,.28)";
+    tip.textContent='Click any element to attach it · Esc to cancel';
+    document.body.appendChild(overlay); document.body.appendChild(hl); document.body.appendChild(tip);
+    let current=null;
+    const move=(e)=>{ overlay.style.pointerEvents='none'; const el=document.elementFromPoint(e.clientX,e.clientY); overlay.style.pointerEvents='auto'; if(!el||el===tip||el===hl){ return; } current=el; const r=el.getBoundingClientRect(); hl.style.left=r.left+'px'; hl.style.top=r.top+'px'; hl.style.width=r.width+'px'; hl.style.height=r.height+'px'; };
+    const cleanup=()=>{ overlay.remove(); hl.remove(); tip.remove(); document.removeEventListener('mousemove',move,true); document.removeEventListener('keydown',key,true); };
+    const done=(e)=>{ e.preventDefault(); e.stopPropagation(); const lbl=this._fbLabel(current); cleanup(); this.set({ fbMode:'element', fbTarget:lbl, fbHasDrawing:false, fbOpen:true, fbBusy:false }); };
+    const key=(e)=>{ if(e.key==='Escape'){ e.preventDefault(); cleanup(); this.set({ fbOpen:true, fbBusy:false }); } };
+    document.addEventListener('mousemove',move,true);
+    overlay.addEventListener('click',done,true);
+    document.addEventListener('keydown',key,true);
+  }
+  startDraw(){
+    this.set({ fbOpen:false, fbBusy:true });
+    const canvas=document.createElement('canvas');
+    canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+    canvas.style.cssText='position:fixed;inset:0;z-index:121;cursor:crosshair;touch-action:none;background:rgba(25,25,36,.05)';
+    const ctx=canvas.getContext('2d'); ctx.strokeStyle='#E5484D'; ctx.lineWidth=3.5; ctx.lineJoin='round'; ctx.lineCap='round';
+    const tip=document.createElement('div');
+    tip.style.cssText="position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:123;background:#191924;color:#fff;font:600 12.5px 'Satoshi',sans-serif;padding:9px 16px;border-radius:999px;pointer-events:none;box-shadow:0 12px 30px rgba(25,25,36,.28)";
+    tip.textContent='Draw on the page to point things out';
+    const bar=document.createElement('div');
+    bar.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:124;display:flex;gap:7px;background:#fff;border:1px solid #E4E2DB;border-radius:14px;box-shadow:0 20px 50px rgba(25,25,36,.22);padding:8px";
+    const mk=(label,bg,color)=>{ const b=document.createElement('button'); b.textContent=label; b.style.cssText='border:none;cursor:pointer;font:600 13px "Satoshi",sans-serif;padding:9px 16px;border-radius:10px;background:'+bg+';color:'+color; return b; };
+    const doneB=mk('Attach drawing','#191924','#fff'), clearB=mk('Clear','#F0EEE9','#4A4842'), cancelB=mk('Cancel','transparent','#918D82');
+    bar.appendChild(clearB); bar.appendChild(cancelB); bar.appendChild(doneB);
+    document.body.appendChild(canvas); document.body.appendChild(tip); document.body.appendChild(bar);
+    const strokes=this._strokes||[]; let drawing=false, cur=null;
+    const redraw=()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); strokes.forEach(s=>{ if(s.length<2)return; ctx.beginPath(); ctx.moveTo(s[0].x,s[0].y); for(let i=1;i<s.length;i++) ctx.lineTo(s[i].x,s[i].y); ctx.stroke(); }); };
+    redraw();
+    const down=(e)=>{ drawing=true; cur=[{x:e.clientX,y:e.clientY}]; };
+    const move=(e)=>{ if(!drawing)return; const p={x:e.clientX,y:e.clientY}; const l=cur[cur.length-1]; ctx.beginPath(); ctx.moveTo(l.x,l.y); ctx.lineTo(p.x,p.y); ctx.stroke(); cur.push(p); };
+    const up=()=>{ if(drawing&&cur&&cur.length>1) strokes.push(cur); drawing=false; cur=null; };
+    canvas.addEventListener('pointerdown',down); canvas.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+    const cleanup=()=>{ canvas.remove(); tip.remove(); bar.remove(); window.removeEventListener('pointerup',up); };
+    doneB.onclick=()=>{ this._strokes=strokes; cleanup(); this.set({ fbMode:strokes.length?'draw':'page', fbHasDrawing:strokes.length>0, fbTarget:null, fbOpen:true, fbBusy:false }); };
+    clearB.onclick=()=>{ strokes.length=0; redraw(); };
+    cancelB.onclick=()=>{ cleanup(); this.set({ fbOpen:true, fbBusy:false }); };
+  }
+  toggleModule(name){ this.set(s=>({ open:{...s.open,[name]:!s.open[name]} })); }
+  selectTab(module,tab,kind){ this.set(s=>({ tab:{module,tab,kind}, open:{...s.open,[module]:true}, profileOpen:false, navOpen:null, searchOpen:false })); }
+  tileClick(name){ this.set(s=>({ collapsed:false, open:{...s.open,[name]:true} })); }
+  toggleCollapse(){ this.set(s=>({ collapsed:!s.collapsed, profileOpen:false, width:(s.collapsed && s.width < 208) ? 248 : s.width })); }
+  startResize(e){
+    if (e && e.preventDefault) e.preventDefault();
+    const startX = e.clientX;
+    let collapsedNow = this.state.collapsed;
+    const startW = collapsedNow ? 72 : this.state.width;
+    const MIN = 208, MAX = 440, COLLAPSE_AT = 168, EXPAND_AT = 128;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.cursor = 'col-resize';
+    this.set({ dragging:true, profileOpen:false });
+    const onMove = (ev)=>{
+      const w = startW + (ev.clientX - startX);
+      if (collapsedNow){
+        if (w >= EXPAND_AT){ collapsedNow = false; this.set({ collapsed:false, width: Math.min(MAX, Math.max(MIN, w)) }); }
+        return;
+      }
+      if (w < COLLAPSE_AT){ collapsedNow = true; this.set({ collapsed:true, width:248 }); return; }
+      this.set({ width: Math.min(MAX, Math.max(MIN, w)) });
+    };
+    const cleanup = ()=>{
+      document.body.style.cursor = prevCursor;
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      this.set({ dragging:false });
+    };
+    const onUp = ()=>cleanup();
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+  toggleProfile(){ this.set(s=>({ collapsed:false, profileOpen:!s.profileOpen })); }
+  dismissUpdate(id){ this.set(s=>({ dismissed:{...s.dismissed,[id]:true} })); }
+  selectWorkspace(name){
+    const items = navItemsFor(this.state.product, name, this.state.role); const cur = this.state.tab;
+    const exists = items.some(it => it.type==='tab' ? (it.module===cur.module && it.tab===cur.tab) : (it.name===cur.module && it.tabs.some(t=>t.tab===cur.tab)));
+    if(exists){ this.set({ workspace:name }); }
+    else { const ft=firstTabOf(this.state.product,name,this.state.role); this.set({ workspace:name, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind} }); }
+  }
+  selectOrg(id){
+    const org = ORGS.find(o=>o.id===id); const pk = org.products[0];
+    const ws = workspacesFor(id, pk)[0].name; const role = firstRoleId(pk); const ft = firstTabOf(pk, ws, role);
+    this.set({ org:id, product:pk, role, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind}, workspace:ws, dismissed:{}, navOpen:null, searchOpen:false, searchQuery:'', notifRead:{} });
+  }
+  selectProduct(key){
+    const wsl = workspacesFor(this.state.org, key);
+    const ws = wsl.some(w=>w.name===this.state.workspace) ? this.state.workspace : wsl[0].name;
+    const role = firstRoleId(key); const ft = firstTabOf(key, ws, role);
+    this.set({ product:key, role, workspace:ws, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind}, profileOpen:false, navOpen:null, searchOpen:false });
+  }
+  selectRole(id){
+    const ws = this.state.workspace; const ft = firstTabOf(this.state.product, ws, id);
+    this.set({ role:id, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind}, profileOpen:false, navOpen:null });
+  }
+  gotoModule(name){ const g = navItemsFor(this.state.product, this.state.workspace, this.state.role).find(x=>x.type==='module' && x.name===name); if(!g) return; const t=g.tabs[0]; this.set(s=>({ tab:{module:name,tab:t.tab,kind:t.kind}, open:{...s.open,[name]:true}, navOpen:null })); }
+  toggleNav(key){ clearTimeout(this._navT); this.set(s=>({ navOpen: s.navOpen===key?null:key, searchOpen:false })); }
+  openNav(key){ clearTimeout(this._navT); this.set({ navOpen:key }); }
+  closeNavSoon(){ clearTimeout(this._navT); this._navT = setTimeout(()=>this.set({ navOpen:null }), 200); }
+  onSearch(e){ const v = e && e.target ? e.target.value : ''; this.set({ searchQuery:v, searchOpen:true, navOpen:null }); }
+  openSearch(){ this.set({ searchOpen:true, navOpen:null, notifOpen:false }); }
+  closeSearch(){ this.set({ searchOpen:false }); }
+  gotoSearch(h){ this.set(s=>({ product:h.product, tab:{module:h.module,tab:h.tab,kind:h.kind}, open:{...s.open,[h.module]:true}, searchOpen:false, searchQuery:'' })); }
+  toggleNotif(){ this.set(s=>({ notifOpen:!s.notifOpen, navOpen:null, searchOpen:false })); }
+  openNotifPanel(){ this.set({ notifOpen:true, navOpen:null, searchOpen:false, profileOpen:false }); }
+  markRead(id){ this.set(s=>({ notifRead:{ ...s.notifRead, [id]:true } })); }
+  closeNotif(){ this.set({ notifOpen:false, notifCatOpen:false }); }
+  setNotifFilter(f){ this.set({ notifFilter:f }); }
+  toggleSort(){ this.set(s=>({ notifSort: s.notifSort==='newest'?'oldest':'newest' })); }
+  toggleCat(){ this.set(s=>({ notifCatOpen:!s.notifCatOpen })); }
+  setCat(c){ this.set({ notifCat:c, notifCatOpen:false }); }
+  markAllRead(){ const org = ORGS.find(o=>o.id===this.state.org); const m={...this.state.notifRead}; buildNotifs(org).forEach(n=>m[n.id]=true); this.set({ notifRead:m }); }
+  notifClick(n){ this.set(s=>({ product:n.target.product, workspace: workspacesFor(s.org, n.target.product)[0].name, tab:{module:n.target.module,tab:n.target.tab,kind:n.target.kind}, open:{...s.open,[n.target.module]:true}, notifRead:{...s.notifRead,[n.id]:true}, notifOpen:false })); }
+
+  renderVals(){
+    const st = this.state;
+    const org = ORGS.find(o=>o.id===st.org);
+    const prod = PRODUCTS[st.product];
+    const at = st.tab;
+    const showNotif = this.props.showNotifications !== false;
+
+    const wsList = workspacesFor(st.org, st.product);
+    const activeWs = st.workspace || wsList[0].name;
+    const roleList0 = rolesFor(st.product);
+    const curRole = roleObj(st.product, st.role);
+    const sessionUser = curRole ? curRole.user : USER;
+    const roleItems = (roleList0||[]).map(r=>({
+      id:r.id, label:r.label, name:r.user.name, active:r.id===st.role,
+      simpleStyle: `display:flex;align-items:center;gap:10px;width:100%;border:none;cursor:pointer;padding:9px 11px;border-radius:11px;background:${r.id===st.role?'#191924':'transparent'};text-align:left;margin-bottom:2px`,
+      hoverStyle: r.id===st.role ? 'background:#2a2a35;' : 'background:rgba(25,25,36,.05);',
+      dot: r.id===st.role ? '#7FC9A3' : '#C9C5BB',
+      nameColor: r.id===st.role ? '#fff' : '#2A2A32',
+      onClick: ()=>this.selectRole(r.id),
+    }));
+    const navRaw = navItemsFor(st.product, activeWs, st.role);
+    const moduleGroups = navRaw.filter(i=>i.type==='module');
+    const standaloneTabs = navRaw.filter(i=>i.type==='tab');
+    const activeStandalone = at.module === activeWs;
+    const curGroup = moduleGroups.find(g=>g.name===at.module) || null;
+    const navItems = navRaw.map(it=>{
+      if(it.type==='tab'){
+        const color = navColor(it.tab, it.kind);
+        const active = activeStandalone && at.tab===it.tab;
+        return {
+          isStandalone:true, isModule:false, name:it.tab, color, active,
+          iconEl: mkIcon(it.tab, it.kind, 17), iconColor: active ? '#191924' : '#8f8b81', tileIconEl: mkIcon(it.tab, it.kind, 19),
+          rowStyle:`display:flex;align-items:center;gap:11px;width:100%;border:1px solid ${active?tint(color,.55):'transparent'};border-left:3px solid ${active?color:'transparent'};cursor:pointer;padding:10px 12px;border-radius:11px;background:${active?'#fff':'transparent'};box-shadow:${active?'0 1px 3px rgba(25,25,36,.09),inset 0 0 0 1px rgba(255,255,255,.5)':'none'};font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:${active?600:500};color:${active?'#191924':'#4A4842'}`,
+          tileStyle:`width:42px;height:42px;border-radius:12px;border:1px solid ${active?'transparent':tint(color,.4)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;background:${active?color:tint(color,.16)};box-shadow:${active?'0 2px 6px '+tint(color,.5):'none'}`,
+          flyStyle:`display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;cursor:pointer;padding:8px 11px;border-radius:9px;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:${active?600:500};color:${active?'#191924':'#4A4842'};background:${active?tint(color,.22):'transparent'}`,
+          onClick:()=>this.selectTab(activeWs, it.tab, it.kind),
+          onTile:()=>this.selectTab(activeWs, it.tab, it.kind),
+        };
+      }
+      const color = navColor(it.name);
+      const open = !!st.open[it.name];
+      const hasActive = at.module===it.name;
+      return {
+        isStandalone:false, isModule:true, name:it.name, color, count:String(it.tabs.length),
+        open, hasActive, caretStyle: open?'rotate(0deg)':'rotate(-90deg)',
+        iconEl: mkIcon(it.name, null, 17), iconColor: hasActive ? '#191924' : (open ? color : '#6E6B62'), tileIconEl: mkIcon(it.name, null, 19),
+        headStyle:`display:flex;align-items:center;gap:11px;width:100%;border:1px solid ${hasActive?tint(color,.55):'transparent'};border-left:${hasActive?'3px':'1px'} solid ${hasActive?color:'transparent'};cursor:pointer;padding:10px 12px;border-radius:11px;background:${hasActive?tint(color,.16):'transparent'};box-shadow:${hasActive?'inset 0 1px 2px rgba(25,25,36,.05)':'none'};font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924`,
+        countStyle:`font-family:'JetBrains Mono',monospace;font-size:10px;color:#8b8780;background:${hasActive?'rgba(255,255,255,.7)':tint(color,.2)};padding:1px 6px;border-radius:6px`,
+        tabWrapStyle:`display:flex;flex-direction:column;gap:1px;padding:5px 0 3px 11px;margin:3px 0 4px 20px;border-left:1.5px solid ${tint(color,.55)}`,
+        tileStyle:`width:42px;height:42px;border-radius:12px;border:1px solid ${hasActive?'transparent':tint(color,.4)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;background:${hasActive?color:tint(color,.16)};box-shadow:${hasActive?'0 2px 6px '+tint(color,.5):'none'}`,
+        onToggle:()=>this.toggleModule(it.name),
+        onTile:()=>this.tileClick(it.name),
+        tabs: it.tabs.map(tb=>{
+          const active = hasActive && at.tab===tb.tab;
+          return { name:tb.tab, active, iconColor: active?'#191924':'#a8a49a', iconEl: mkIcon(tb.tab, tb.kind, 15),
+            rowStyle:`display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;cursor:pointer;padding:7px 10px;border-radius:9px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:${active?600:400};color:${active?'#191924':'#6E6B62'};background:${active?'#fff':'transparent'};box-shadow:${active?'0 1px 3px rgba(25,25,36,.10)':'none'}`,
+            flyStyle:`display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;cursor:pointer;padding:8px 11px;border-radius:9px;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:${active?600:500};color:${active?'#191924':'#4A4842'};background:${active?tint(color,.22):'transparent'}`,
+            onClick:()=>this.selectTab(it.name, tb.tab, tb.kind) };
+        }),
+      };
+    });
+
+    const orgs = ORGS.map(o=>({
+      id:o.id, name:o.name, industry:o.industry, initial:o.initials, tileColor:o.color, active:o.id===st.org,
+      cardStyle: `display:flex;align-items:center;gap:11px;width:100%;border:1px solid ${o.id===st.org?'rgba(255,205,178,.85)':'transparent'};cursor:pointer;padding:9px 10px;border-radius:12px;background:${o.id===st.org?'rgba(255,205,178,.30)':'transparent'};text-align:left;margin-bottom:3px`,
+      onClick: ()=>this.selectOrg(o.id),
+    }));
+
+    const products = org.products.map(k=>({
+      key:k, name:PRODUCTS[k].name, active:k===st.product,
+      dot: k===st.product ? '#7FC9A3' : '#C9C5BB',
+      nameColor: k===st.product ? '#fff' : '#2A2A32',
+      simpleStyle: `display:flex;align-items:center;gap:10px;width:100%;border:none;cursor:pointer;padding:9px 11px;border-radius:11px;background:${k===st.product?'#191924':'transparent'};text-align:left;margin-bottom:2px`,
+      hoverStyle: k===st.product ? 'background:#2a2a35;' : 'background:rgba(25,25,36,.05);',
+      onClick: ()=>this.selectProduct(k),
+    }));
+
+    const workspaces = wsList.map(w=>({
+      name:w.name, active:w.name===activeWs,
+      isWork:w.icon==='work', isHq:w.icon==='hq', isChat:w.icon==='chat', isAnalytics:w.icon==='analytics', isDocument:w.icon==='document', isConfig:w.icon==='config', isAdmin:w.icon==='admin', isBilling:w.icon==='billing', isArchive:w.icon==='archive',
+      iconColor: w.name===activeWs ? '#191924' : '#918D82',
+      btnStyle: w.name===activeWs
+        ? "display:flex;align-items:center;gap:7px;border:none;cursor:pointer;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.12);padding:6px 11px 6px 9px;border-radius:9px;flex:none"
+        : "display:flex;align-items:center;border:none;cursor:pointer;background:transparent;padding:6px 8px;border-radius:9px;flex:none",
+      onClick: ()=>this.selectWorkspace(w.name),
+    }));
+
+    const previewSeed = showNotif ? buildNotifs(org).map(n=>({ ...n, read:!!st.notifRead[n.id] })) : [];
+    const previewUnread = previewSeed.filter(n=>!n.read);
+    const updatesList = previewUnread.slice(0,2).map(n=>({ id:n.id, dot:n.dot, text:n.title, onClick:()=>this.openNotifPanel(), onMarkRead:()=>this.markRead(n.id) }));
+    const updatesEmpty = showNotif && previewUnread.length===0;
+
+    // ── top navbar breadcrumb ──────────────────────────────────
+    const crumbDefs = [
+      {key:'org', label:org.name, dot:org.color, menuTitle:'Switch organisation',
+        options: ORGS.map(o=>({ name:o.name, sub:o.industry, dot:o.color, active:o.id===st.org, onClick:()=>this.selectOrg(o.id) }))},
+      {key:'product', label:prod.name, dot:'#7FC9A3', menuTitle:'Products',
+        options: org.products.map(k=>({ name:PRODUCTS[k].name, sub:PRODUCTS[k].tag, dot:k===st.product?'#7FC9A3':'#C9C5BB', active:k===st.product, onClick:()=>this.selectProduct(k) }))},
+      {key:'workspace', label:activeWs, dot:'#A2D2FF', menuTitle:'Workspaces',
+        options: wsList.map(w=>({ name:w.name, sub:'', dot:w.name===activeWs?'#7FC9A3':'#C9C5BB', active:w.name===activeWs, onClick:()=>this.selectWorkspace(w.name) }))},
+    ];
+    if(curGroup && !activeStandalone){
+      crumbDefs.push({key:'module', label:at.module, dot:navColor(at.module), menuTitle:'Modules',
+        options: moduleGroups.map(g=>({ name:g.name, sub:g.tabs.length+' tabs', dot:navColor(g.name), active:g.name===at.module, onClick:()=>this.gotoModule(g.name) }))});
+      crumbDefs.push({key:'tab', label:at.tab, dot:navColor(curGroup.name), menuTitle:curGroup.name+' tabs',
+        options: curGroup.tabs.map(tb=>({ name:tb.tab, sub:'', dot:navColor(curGroup.name), active:tb.tab===at.tab, onClick:()=>this.selectTab(curGroup.name, tb.tab, tb.kind) }))});
+    } else {
+      crumbDefs.push({key:'tab', label:at.tab, dot:navColor(at.tab, at.kind), menuTitle:'Pages',
+        options: standaloneTabs.map(t=>({ name:t.tab, sub:'', dot:navColor(t.tab, t.kind), active:t.tab===at.tab, onClick:()=>this.selectTab(activeWs, t.tab, t.kind) }))});
+    }
+    const crumbs = crumbDefs.map((c,i)=>({
+      label:c.label, dot:c.dot, hasDot:true, open:st.navOpen===c.key, sep:i<crumbDefs.length-1, menuTitle:c.menuTitle,
+      caret: st.navOpen===c.key ? 'rotate(180deg)' : 'rotate(0deg)',
+      btnStyle:`display:flex;align-items:center;border:none;cursor:pointer;background:${st.navOpen===c.key?'rgba(25,25,36,.06)':'transparent'};padding:5px 8px;border-radius:8px;min-width:0;overflow:hidden;width:100%`,
+      segStyle:`position:relative;min-width:0;flex:0 1 auto;max-width:${c.key==='tab'?150:(c.key==='org'?128:104)}px`,
+      menuStyle:`position:absolute;top:100%;left:0;margin-top:5px;min-width:238px;max-height:204px;overflow:auto;background:#fff;border:1px solid #E4E2DB;border-radius:14px;box-shadow:0 22px 54px rgba(25,25,36,.18);padding:7px;z-index:70`,
+      labelStyle:`font-family:'Satoshi',sans-serif;font-size:${c.key==='tab'?13.5:13}px;font-weight:${c.key==='tab'?700:500};color:${c.key==='tab'?'#191924':'#5A5850'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0`,
+      options:c.options.map(o=>({
+        name:o.name, sub:o.sub, hasSub:!!o.sub, dot:o.dot, active:o.active,
+        rowStyle:`display:flex;align-items:center;gap:10px;width:100%;border:none;cursor:pointer;padding:9px 10px;border-radius:10px;background:${o.active?'rgba(255,205,178,.28)':'transparent'};text-align:left;margin-bottom:1px`,
+        onClick:o.onClick,
+      })),
+      onEnter:()=>this.openNav(c.key),
+      onLeave:()=>this.closeNavSoon(),
+      onClick:()=>this.toggleNav(c.key),
+    }));
+
+    // ── global search (command palette) ────────────────────────
+    const q = (st.searchQuery||'').trim().toLowerCase();
+    let hits = [];
+    org.products.forEach(pk=>{
+      const pr = PRODUCTS[pk];
+      pr.modules.forEach(m=>{
+        m.tabs.forEach(tb=>{
+          const hay = (tb.t+' '+m.name+' '+pr.name).toLowerCase();
+          if (!q || hay.includes(q)) hits.push({ product:pk, module:m.name, tab:tb.t, kind:tb.k, label:tb.t, path:pr.name+' · '+m.name, tileBg:tint(MODCOLOR[m.name]||'#C8B6FF',.3) });
+        });
+      });
+    });
+    if (!q) hits = hits.filter(h=>h.product===st.product);
+    const searchHits = hits.slice(0,9).map(h=>({ ...h, onClick:()=>this.gotoSearch(h) }));
+    const searchOpen = st.searchOpen;
+    const searchHasHits = searchOpen && searchHits.length>0;
+    const searchNoHits = searchOpen && q.length>0 && searchHits.length===0;
+    const searchSection = q ? 'Results' : 'Quick jump · '+prod.name;
+
+    // ── notifications ──────────────────────────────────────────
+    const seed = buildNotifs(org).map(n=>({ ...n, read:!!st.notifRead[n.id] }));
+    let nf = seed;
+    if (st.notifCat!=='all') nf = nf.filter(n=>n.cat===st.notifCat);
+    if (st.notifFilter==='unread') nf = nf.filter(n=>!n.read);
+    else if (st.notifFilter==='read') nf = nf.filter(n=>n.read);
+    if (st.notifSort==='oldest') nf = nf.slice().reverse();
+    const notifList = nf.map(n=>({
+      id:n.id, title:n.title, path:n.path, time:n.time, dot:n.dot, unread:!n.read,
+      weight:n.read?500:700, bg:n.read?'transparent':'rgba(200,182,255,.08)',
+      onClick:()=>this.notifClick(n),
+    }));
+    const unreadCount = seed.filter(n=>!n.read).length;
+    const notifPills = [['all','All'],['unread','Unread'],['read','Read']].map(([k,lbl])=>({
+      label:lbl,
+      style:`border:none;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:7px 15px;border-radius:999px;background:${st.notifFilter===k?'#191924':'#F0EEE9'};color:${st.notifFilter===k?'#fff':'#4A4842'}`,
+      onClick:()=>this.setNotifFilter(k),
+    }));
+    const CATL = {all:'All',platform:'Platform Updates',update:'Updates',alert:'Alerts',mention:'Mentions'};
+    const catOpts = [['all','All'],['platform','Platform Updates'],['update','Updates'],['alert','Alerts'],['mention','Mentions']].map(([k,lbl])=>({
+      label:lbl, active:st.notifCat===k,
+      style:`display:flex;align-items:center;width:100%;border:none;cursor:pointer;background:transparent;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;color:#2A2A32;padding:8px 10px;border-radius:9px`,
+      onClick:()=>this.setCat(k),
+    }));
+
+    // ── feedback ───────────────────────────────────────────────
+    const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    const fbPath = '/'+[prod.name, at.module, at.tab].map(slug).join('/');
+    const now = new Date();
+    const fbTime = ('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+    const fbCats = [
+      ['bug','Bug'],['feature','Feature'],['improvement','Improvement'],['general','General']
+    ].map(([k,lbl])=>({
+      key:k, label:lbl, active:st.fbCat===k, isBug:k==='bug', isFeature:k==='feature', isImprovement:k==='improvement', isGeneral:k==='general',
+      style:`display:flex;align-items:center;gap:7px;border:1px solid ${st.fbCat===k?'#191924':'#E4E2DB'};cursor:pointer;background:${st.fbCat===k?'rgba(25,25,36,.05)':'transparent'};font-family:'Satoshi',sans-serif;font-size:13px;font-weight:${st.fbCat===k?600:500};color:#2A2A32;padding:9px 15px;border-radius:999px;white-space:nowrap`,
+      onClick:()=>this.setFbCat(k),
+    }));
+    // ── AI assistant ───────────────────────────────────────────
+    const aiCtx = 'Product: '+prod.name+' · Page: '+at.tab+' · '+at.module;
+    const aiPos = st.aiPos || {x:0,y:0};
+    const aiWinStyle = st.aiMax
+      ? "position:fixed;left:16px;top:16px;width:calc(100vw - 32px);height:calc(100vh - 32px);z-index:92;display:flex;flex-direction:column;background:#FBFAF8;border:1px solid #E4E2DB;border-radius:20px;box-shadow:0 40px 100px rgba(25,25,36,.32);overflow:hidden"
+      : "position:fixed;left:"+aiPos.x+"px;top:"+aiPos.y+"px;width:"+st.aiSize.w+"px;height:"+(st.aiMin?62:st.aiSize.h)+"px;z-index:92;display:flex;flex-direction:column;background:#FBFAF8;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);overflow:hidden";
+    const aiModels = AI_MODELS.map((m,i)=>({ name:m.name, badge:m.badge, hasBadge:!!m.badge, num:String(i+1), active:m.name===st.aiModel, onClick:()=>this.setAIModel(m.name),
+      rowStyle:"display:flex;align-items:center;gap:8px;width:100%;border:none;cursor:pointer;background:"+(m.name===st.aiModel?'rgba(200,182,255,.14)':'transparent')+";padding:9px 10px;border-radius:9px;text-align:left" }));
+    const aiModeOpts = AI_MODES.map((m,i)=>({ name:m, num:String(i+1), active:m===st.aiMode, onClick:()=>this.setAIMode(m),
+      rowStyle:"display:flex;align-items:center;gap:9px;width:100%;border:none;cursor:pointer;background:"+(m===st.aiMode?'rgba(200,182,255,.14)':'transparent')+";padding:9px 10px;border-radius:9px;text-align:left" }));
+    const fastTrackStyle = "width:38px;height:22px;border-radius:999px;border:none;cursor:pointer;padding:3px;display:flex;align-items:center;background:"+(st.aiFastMode?'#191924':'#D8D5CD')+";justify-content:"+(st.aiFastMode?'flex-end':'flex-start');
+    const aiPageKey = this._pageKey();
+    const aiAllSessions = (st.aiSessions||[]).slice().sort((a,b)=>b.ts-a.ts);
+    const aiPageSessions = aiAllSessions.filter(s=>s.pageKey===aiPageKey);
+    const aiHistScope = st.aiHistoryAll ? aiAllSessions : aiPageSessions;
+    const aiHistoryList = aiHistScope.map(s=>({
+      id:s.id, title:s.title, count:String(s.count)+' msgs', when:aiTimeAgo(s.ts), label:s.pageLabel, showLabel: st.aiHistoryAll, active:s.id===st.aiSessionId,
+      rowStyle:"display:flex;align-items:flex-start;gap:10px;width:100%;border:1px solid "+(s.id===st.aiSessionId?'rgba(200,182,255,.7)':'#EAE8E2')+";cursor:pointer;background:"+(s.id===st.aiSessionId?'rgba(200,182,255,.1)':'#fff')+";padding:11px 12px;border-radius:12px;text-align:left;margin-bottom:8px",
+      onOpen:()=>this.openSession(s.id), onDelete:(e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.deleteSession(s.id); },
+    }));
+    const aiPageCount = aiPageSessions.length;
+    const aiPageCountLabel = aiPageCount===1 ? '1 past chat on this page' : aiPageCount+' past chats on this page';
+    const aiScopePageStyle = "border:none;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;padding:6px 13px;border-radius:999px;background:"+(!st.aiHistoryAll?'#191924':'#F0EEE9')+";color:"+(!st.aiHistoryAll?'#fff':'#4A4842');
+    const aiScopeAllStyle = "border:none;cursor:pointer;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;padding:6px 13px;border-radius:999px;background:"+(st.aiHistoryAll?'#191924':'#F0EEE9')+";color:"+(st.aiHistoryAll?'#fff':'#4A4842');
+    const aiMsgs = st.aiMsgs.map((m,i)=>({ text:m.text, isUser:m.role==='user', isAI:m.role==='ai',
+      wrapStyle:"display:flex;margin-bottom:12px;"+(m.role==='user'?'justify-content:flex-end':'justify-content:flex-start'),
+      bubbleStyle: m.role==='user'
+        ? "max-width:82%;background:#191924;color:#F5F3EF;font-family:'Satoshi',sans-serif;font-size:13.5px;line-height:1.5;padding:10px 14px;border-radius:15px 15px 4px 15px"
+        : "max-width:86%;background:#fff;border:1px solid #EAE8E2;color:#2A2A32;font-family:'Satoshi',sans-serif;font-size:13.5px;line-height:1.52;padding:11px 14px;border-radius:15px 15px 15px 4px" }));
+    const aiSuggests = [
+      ['What can I do on this page?','M9 11l3 3L22 4'],
+      ['Analyze the data here','M3 3v18h18'],
+      ['Help me configure this','M12 2v4'],
+    ].map(([label])=>({ label, onClick:()=>this.sendAI(label) }));
+    const aiRz = {
+      n:(e)=>this.startAIResize('n',e), s:(e)=>this.startAIResize('s',e), e:(e)=>this.startAIResize('e',e), w:(e)=>this.startAIResize('w',e),
+      ne:(e)=>this.startAIResize('ne',e), nw:(e)=>this.startAIResize('nw',e), se:(e)=>this.startAIResize('se',e), sw:(e)=>this.startAIResize('sw',e),
+    };
+
+    const fbHasElement = st.fbMode==='element' && !!st.fbTarget;
+    const fbCanSend = st.fbText.trim().length>0;
+    const fbSendStyle = `width:100%;border:none;cursor:${fbCanSend?'pointer':'not-allowed'};font-family:'Satoshi',sans-serif;font-size:15px;font-weight:700;padding:15px;border-radius:14px;background:${fbCanSend?'#FFCDB2':'#F1EFEA'};color:${fbCanSend?'#7a4a28':'#B4B0A6'}`;
+
+    return {
+      orgName:org.name, orgIndustry:org.industry,
+      navItems, orgs, products, workspaces, updatesList, updatesEmpty, hasUpdates: showNotif,
+      collapsed:st.collapsed, notCollapsed:!st.collapsed, profileOpen:st.profileOpen, dragging:st.dragging,
+      notif: showNotif && updatesList.length>0, user:sessionUser,
+      hasRoles: !!roleList0, roleItems, roleLabel: curRole ? curRole.label : '',
+      railW: st.collapsed ? '72px' : (st.width + 'px'),
+      onResizeStart: (e)=>this.startResize(e),
+      cOrg:org.name, cProduct:prod.name, cWorkspace:activeWs,
+      cModule:at.module, cTab:at.tab, cKind:at.kind, cAccent: navColor(at.module, at.kind),
+      isCustomersView: (st.product==='hq' && at.module==='Customers'), isPortalView: !(st.product==='hq' && at.module==='Customers'),
+      onCollapse: ()=>this.toggleCollapse(),
+      onProfile: ()=>this.toggleProfile(),
+      crumbs,
+      searchQuery: st.searchQuery, searchOpen, searchHits, searchHasHits, searchNoHits, searchSection,
+      onSearch:(e)=>this.onSearch(e), onSearchFocus:()=>this.openSearch(), onSearchClose:()=>this.closeSearch(),
+      searchRef:(el)=>{ if(el){ setTimeout(()=>{ try{el.focus();}catch(_){} }, 10); } }, stop:(e)=>e.stopPropagation(),
+      notifOpen:st.notifOpen, notifList, notifHasItems:notifList.length>0, notifEmpty:notifList.length===0,
+      unreadCount, hasUnread:unreadCount>0,
+      notifPills, catLabel:CATL[st.notifCat], catOpts, notifCatOpen:st.notifCatOpen, sortLabel: st.notifSort==='newest'?'Newest':'Oldest',
+      onNotif:()=>this.toggleNotif(), onOpenNotif:()=>this.openNotifPanel(), onNotifClose:()=>this.closeNotif(), onMarkAll:()=>this.markAllRead(), onSort:()=>this.toggleSort(), onToggleCat:()=>this.toggleCat(),
+      fbOpen:st.fbOpen, fbSent:st.fbSent, fbForm: st.fbOpen && !st.fbSent, fbCats, fbText:st.fbText, fbCount:st.fbText.length,
+      fbPath, fbTime, fbHasElement, fbTarget:st.fbTarget, fbHasDrawing:st.fbHasDrawing, fbHasAnnotation: fbHasElement || st.fbHasDrawing,
+      fbCanSend, fbSendStyle,
+      onFeedback:()=>this.openFeedback(), onFbClose:()=>this.closeFeedback(), onFbText:(e)=>this.onFbText(e),
+      onFbPick:()=>this.startPick(), onFbDraw:()=>this.startDraw(), onFbRemoveAnn:()=>this.removeAnnotation(), onFbSend:()=>this.sendFeedback(),
+      hideCrumb:true,
+      aiOpen:st.aiOpen, aiMin:st.aiMin, aiMax:st.aiMax, aiNotMin:!st.aiMin, aiWinStyle, aiCtx, aiModel:st.aiModel, aiModelOpen:st.aiModelOpen, aiModels,
+      aiMsgs, aiHasMsgs: st.aiMsgs.length>0, aiEmpty: st.aiMsgs.length===0, aiThinking:st.aiThinking, aiResizable: st.aiOpen && !st.aiMin && !st.aiMax,
+      aiMode:st.aiMode, aiModeOpen:st.aiModeOpen, aiModeOpts, aiFastMode:st.aiFastMode, fastTrackStyle,
+      onAIMode:()=>this.toggleAIMode(), onFast:()=>this.toggleFastMode(),
+      aiHistoryOpen:st.aiHistoryOpen, aiHistoryList, aiHistoryEmpty: aiHistScope.length===0, aiPageLabel:this._pageLabel(),
+      aiPageCount, aiPageCountLabel, aiHasPageHistory: aiPageCount>0, aiScopePageStyle, aiScopeAllStyle,
+      onAINew:()=>this.newChat(), onAIHistory:()=>this.toggleHistory(), onScopePage:()=>this.setHistoryScope(false), onScopeAll:()=>this.setHistoryScope(true),
+      aiInput:st.aiInput, aiTokens:st.aiTokens, aiSuggests, aiRz,
+      aiMaxIcon: st.aiMax ? 'M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3' : 'M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3',
+      onAIOpen:()=>this.openAI(), onAIClose:()=>this.closeAI(), onAIMin:()=>this.toggleAIMin(), onAIMax:()=>this.toggleAIMax(),
+      onAIDrag:(e)=>this.startAIDrag(e), onAIModel:()=>this.toggleAIModel(), onAIInput:(e)=>this.onAIInput(e), onAIKey:(e)=>this.onAIKey(e),
+      onAISend:()=>this.sendAI(), onAIClear:()=>this.clearAI(), setAIScroll:(el)=>{ this._aiScroll=el; },
+    };
+  }
+}
+</script>
+
+
+</body></html>

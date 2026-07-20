@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="/static/unpkg.com_react@18.3.1_umd_react.production.min.js"></script>
+<script src="/static/unpkg.com_react-dom@18.3.1_umd_react-dom.production.min.js"></script>
+<script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family:'Chubbo'; font-style:normal; font-weight:200 700; font-display:swap;
+      src:url("/static/e929d16a-cc3b-4586-a30d-3a55811439c5") format('woff2-variations'); }
+    @font-face { font-family:'Supreme'; font-style:normal; font-weight:100 800; font-display:swap;
+      src:url("/static/b9688901-bd1c-4cdb-a5f1-5ce45a41e22c") format('woff2-variations'); }
+    @font-face { font-family:'Satoshi'; font-style:normal; font-weight:300 900; font-display:swap;
+      src:url("/static/271a769a-00c8-40e2-b7a5-fc09eb13acc3") format('woff2-variations'); }
+    @font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:100 800; font-display:swap;
+      src:url("/static/0ee4bd90-a829-4a5f-9e48-6fc518c42cf8") format('woff2-variations'); }
+  </style>
+</helmet>
+<div style="height:100%;display:flex;flex-direction:column;background:#FDFCFA;font-family:'Satoshi',sans-serif;color:#191924;overflow:hidden">
+
+  <sc-if value="{{ showCrumb }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 26px;height:56px;border-bottom:1px solid #E8E6E0;background:rgba(253,252,250,.86)">
+    <span style="width:7px;height:7px;border-radius:50%;background:{{ accent }};flex:none"></span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ crumb }}</span>
+  </div>
+  </sc-if>
+
+  <div style="flex:1;overflow:auto;padding:30px 34px 40px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#918D82;margin-bottom:9px">{{ moduleName }}</div>
+    <h1 style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:33px;line-height:1.04;letter-spacing:-0.02em;margin:0;color:#191924">{{ tabName }}</h1>
+    <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 26px;max-width:560px">{{ sub }}</p>
+
+    <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:540px;display:flex;flex-direction:column;gap:16px">
+        <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.3px;color:#918D82;margin-bottom:7px">{{ f.label }}</div>
+            <div style="display:flex;align-items:center;padding:11px 15px;border-radius:12px;background:#fff;border:1.5px solid #E8E6E0;font-size:13.5px;color:#B8B4AC">{{ f.ph }}</div>
+          </label>
+        </sc-for>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:11px 22px;border-radius:999px">Save {{ tabName }}</button>
+          <button style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:11px 20px;border-radius:999px">Cancel</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
+      <div style="border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05)">
+        <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
+          <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ gridCols }};padding:11px 18px;border-bottom:1px solid #EEEDE8">
+          <sc-for list="{{ columns }}" as="c" hint-placeholder-count="4">
+            <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">{{ c }}</div>
+          </sc-for>
+        </div>
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:{{ gridCols }};padding:13px 18px;border-bottom:1px solid #F3F2EE;align-items:center">
+            <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
+              <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#3A3A44">{{ cell }}</div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+            <div style="background:#fff;border:1px solid #E8E6E0;border-left:3px solid {{ accent }};border-radius:16px;padding:18px 20px">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">{{ s.l }}</div>
+              <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:34px;line-height:1;letter-spacing:-0.03em;margin-top:9px;color:#191924">{{ s.v }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#1a8a5a;margin-top:6px">{{ s.d }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
+          <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden">
+            <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
+              <path d="M0,120 C80,110 140,78 200,72 C260,66 320,92 380,60 C440,38 500,26 600,16" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isReport }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:620px;background:#fff;border:1px solid #E8E6E0;border-radius:18px;padding:26px 28px;box-shadow:0 1px 3px rgba(25,25,36,.05)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Generated · just now</div>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:rgba(184,224,210,.28);color:#1a5c42;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#B8E0D2"></span>Ready</span>
+        </div>
+        <sc-for list="{{ reportLines }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #F1F0EC">
+            <span style="font-family:'Satoshi',sans-serif;font-size:13.5px;color:#4A4842">{{ r.l }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#191924;font-weight:500">{{ r.v }}</span>
+          </div>
+        </sc-for>
+        <button style="margin-top:22px;border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:11px 22px;border-radius:999px">Export {{ tabName }}</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDesign }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:720px">
+        <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Parameters</div>
+          <div style="display:flex;flex-direction:column;gap:13px">
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+              <label style="display:block">
+                <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}</div>
+                <div style="display:flex;align-items:center;padding:10px 14px;border-radius:11px;background:#F8F7F4;border:1px solid #E8E6E0;font-size:13px;color:#6E6B62">{{ f.ph }}</div>
+              </label>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:linear-gradient(150deg,{{ accentSoft }},#fff 70%);border:1px solid #E8E6E0;border-radius:16px;padding:20px;display:flex;flex-direction:column">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Live preview</div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;min-height:150px">
+            <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:40px;letter-spacing:-0.03em;color:#191924">{{ previewValue }}</div>
+            <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#6E6B62">{{ previewLabel }}</div>
+          </div>
+          <button style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:10px 18px;border-radius:999px;align-self:flex-start">Recalculate</button>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:560},&quot;org&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;product&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;HQ&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;workspace&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;HQ&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;moduleName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Operations&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tabName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;form&quot;,&quot;table&quot;,&quot;dashboard&quot;,&quot;report&quot;,&quot;design&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C8B6FF&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    loading: true,
+    rows: [],
+    columns: [],
+    stats: [],
+    previewValue: '—',
+    previewLabel: 'Computed output'
+  };
+
+  componentDidMount() {
+    this.fetchData();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.tabName !== this.props.tabName || prevProps.workspace !== this.props.workspace) {
+      this.fetchData();
+    }
+  }
+
+  fetchData() {
+    const tabName = this.props.tabName;
+    const kind = this.props.kind;
+
+    if (kind === 'table') {
+      let endpoint = '';
+      if (tabName === 'Users' || tabName === 'All Users') {
+        endpoint = '/api/users';
+      } else if (tabName === 'Product Admin') {
+        endpoint = '/api/users?role=Product Admin';
+      } else if (tabName === 'Roles' || tabName === 'Role List') {
+        endpoint = '/api/roles';
+      } else if (tabName === 'Permissions') {
+        endpoint = '/api/permissions';
+      }
+
+      if (endpoint) {
+        this.setState({ loading: true });
+        fetch(endpoint)
+          .then(res => {
+            if (res.status === 401) {
+              window.location.href = '/login';
+              return [];
+            }
+            return res.json();
+          })
+          .then(data => {
+            let cols = [];
+            let rows = [];
+            
+            if (tabName === 'Users' || tabName === 'All Users' || tabName === 'Product Admin') {
+              cols = ['Name', 'Email', 'Role', 'Status'];
+              rows = data.map(u => ({
+                cells: [u.name, u.email, u.role ? u.role.name : 'None', u.status]
+              }));
+            } else if (tabName === 'Roles' || tabName === 'Role List') {
+              cols = ['Role', 'Description', 'Created At'];
+              rows = data.map(r => ({
+                cells: [r.name, r.description || '', new Date(r.created_at).toLocaleDateString()]
+              }));
+            } else if (tabName === 'Permissions') {
+              cols = ['Name', 'Code', 'Description'];
+              rows = data.map(p => ({
+                cells: [p.name, p.code, p.description || '']
+              }));
+            }
+            
+            this.setState({ columns: cols, rows: rows, loading: false });
+          })
+          .catch(err => {
+            console.error('Error fetching table:', err);
+            this.setState({ loading: false });
+          });
+      }
+    } else if (kind === 'dashboard') {
+      this.setState({ loading: true });
+      fetch('/api/dashboard/stats')
+        .then(res => {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return { stats: [] };
+          }
+          return res.json();
+        })
+        .then(data => {
+          this.setState({ stats: data.stats || [], loading: false });
+        })
+        .catch(err => {
+          console.error('Error fetching stats:', err);
+          this.setState({ loading: false });
+        });
+    }
+  }
+
+  renderVals() {
+    const p = this.props;
+    const org = p.org || 'Z9S-AI';
+    const product = p.product || 'HQ';
+    const workspace = p.workspace || 'HQ';
+    const moduleName = p.moduleName || 'Module';
+    const tabName = p.tabName || 'Tab';
+    const kind = p.kind || 'dashboard';
+    const accent = p.accent || '#C8B6FF';
+
+    const tint = (hex, a) => {
+      const h = (hex || '#C8B6FF').replace('#', '');
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      return `rgba(${r},${g},${b},${a})`;
+    };
+
+    const crumb = `${org}  ·  ${product}  ·  ${workspace}  ·  ${moduleName}  ·  ${tabName}`;
+
+    // Columns and rows from state
+    const columns = this.state.columns || [];
+    const rows = this.state.rows || [];
+    const gridCols = columns.map((c,i) => i === 0 ? '1.6fr' : '1fr').join(' ');
+    const tableCount = `${rows.length} records`;
+
+    // Stats from state
+    const stats = this.state.stats || [];
+
+    const SUBS = {
+      form: 'Fill the fields and save — the entry syncs to your workspace instantly.',
+      table: 'Everything recorded for this workspace, filterable and export-ready.',
+      dashboard: 'Live snapshot for this workspace, refreshed as new data lands.',
+      report: 'Auto-generated from the latest readings on your own infrastructure.',
+      design: 'Tune the inputs on the left; the preview updates on the right.',
+    };
+    const sub = SUBS[kind] || SUBS.report;
+
+    return {
+      crumb, moduleName, tabName, sub, accent, accentSoft: tint(accent, 0.16),
+      showCrumb: this.props.hideCrumb !== true,
+      isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
+      isReport: kind === 'report', isDesign: kind === 'design',
+      fields: [], columns, rows, gridCols, tableCount, stats, reportLines: [],
+      previewValue: this.state.previewValue, previewLabel: this.state.previewLabel,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/colors_and_type.css">
+  <link rel="stylesheet" href="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/styles.css">
+  <script src="_ds/zeroone-d-o-t-s-ai-design-system-94ab84c8-4448-4080-be25-5f3d9bd6464d/_ds_bundle.js"></script>
+</helmet>
+<div style="height:100%;display:flex;flex-direction:column;background:#FDFCFA;font-family:'Satoshi',sans-serif;color:#191924;overflow:hidden">
+
+  <sc-if value="{{ showCrumb }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 26px;height:56px;border-bottom:1px solid #E8E6E0;background:rgba(253,252,250,.86)">
+    <span style="width:7px;height:7px;border-radius:50%;background:{{ accent }};flex:none"></span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ crumb }}</span>
+  </div>
+  </sc-if>
+
+  <div style="flex:1;overflow:auto;padding:30px 34px 40px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#918D82;margin-bottom:9px">{{ moduleName }}</div>
+    <h1 style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:33px;line-height:1.04;letter-spacing:-0.02em;margin:0;color:#191924">{{ tabName }}</h1>
+    <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 26px;max-width:560px">{{ sub }}</p>
+
+    <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:540px;display:flex;flex-direction:column;gap:16px">
+        <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.3px;color:#918D82;margin-bottom:7px">{{ f.label }}</div>
+            <div style="display:flex;align-items:center;padding:11px 15px;border-radius:12px;background:#fff;border:1.5px solid #E8E6E0;font-size:13.5px;color:#B8B4AC">{{ f.ph }}</div>
+          </label>
+        </sc-for>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:11px 22px;border-radius:999px">Save {{ tabName }}</button>
+          <button style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:11px 20px;border-radius:999px">Cancel</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
+      <div style="border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05)">
+        <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
+          <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ gridCols }};padding:11px 18px;border-bottom:1px solid #EEEDE8">
+          <sc-for list="{{ columns }}" as="c" hint-placeholder-count="4">
+            <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">{{ c }}</div>
+          </sc-for>
+        </div>
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:{{ gridCols }};padding:13px 18px;border-bottom:1px solid #F3F2EE;align-items:center">
+            <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
+              <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#3A3A44">{{ cell }}</div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+            <div style="background:#fff;border:1px solid #E8E6E0;border-left:3px solid {{ accent }};border-radius:16px;padding:18px 20px">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">{{ s.l }}</div>
+              <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:34px;line-height:1;letter-spacing:-0.03em;margin-top:9px;color:#191924">{{ s.v }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#1a8a5a;margin-top:6px">{{ s.d }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
+          <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden">
+            <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
+              <path d="M0,120 C80,110 140,78 200,72 C260,66 320,92 380,60 C440,38 500,26 600,16" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isReport }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:620px;background:#fff;border:1px solid #E8E6E0;border-radius:18px;padding:26px 28px;box-shadow:0 1px 3px rgba(25,25,36,.05)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Generated · just now</div>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:rgba(184,224,210,.28);color:#1a5c42;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#B8E0D2"></span>Ready</span>
+        </div>
+        <sc-for list="{{ reportLines }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #F1F0EC">
+            <span style="font-family:'Satoshi',sans-serif;font-size:13.5px;color:#4A4842">{{ r.l }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#191924;font-weight:500">{{ r.v }}</span>
+          </div>
+        </sc-for>
+        <button style="margin-top:22px;border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:11px 22px;border-radius:999px">Export {{ tabName }}</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDesign }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:720px">
+        <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Parameters</div>
+          <div style="display:flex;flex-direction:column;gap:13px">
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+              <label style="display:block">
+                <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}</div>
+                <div style="display:flex;align-items:center;padding:10px 14px;border-radius:11px;background:#F8F7F4;border:1px solid #E8E6E0;font-size:13px;color:#6E6B62">{{ f.ph }}</div>
+              </label>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:linear-gradient(150deg,{{ accentSoft }},#fff 70%);border:1px solid #E8E6E0;border-radius:16px;padding:20px;display:flex;flex-direction:column">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Live preview</div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;min-height:150px">
+            <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:40px;letter-spacing:-0.03em;color:#191924">{{ previewValue }}</div>
+            <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#6E6B62">{{ previewLabel }}</div>
+          </div>
+          <button style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:10px 18px;border-radius:999px;align-self:flex-start">Recalculate</button>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:560},&quot;org&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;NeoNir Engineering&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;product&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;AquaServe&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;workspace&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;NeoNir&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;moduleName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Operations&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tabName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Add Reading&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;form&quot;,&quot;table&quot;,&quot;dashboard&quot;,&quot;report&quot;,&quot;design&quot;],&quot;default&quot;:&quot;form&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#B8E0D2&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const org = p.org || 'Organisation';
+    const product = p.product || 'Product';
+    const workspace = p.workspace || 'Workspace';
+    const moduleName = p.moduleName || 'Module';
+    const tabName = p.tabName || 'Tab';
+    const kind = p.kind || 'report';
+    const accent = p.accent || '#C8B6FF';
+
+    const tint = (hex, a) => {
+      const h = (hex || '#C8B6FF').replace('#', '');
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      return `rgba(${r},${g},${b},${a})`;
+    };
+
+    const crumb = `${org}  ·  ${product}  ·  ${workspace}  ·  ${moduleName}  ·  ${tabName}`;
+
+    // ── body data keyed by tab, falling back to kind-generic ──────────────
+    const FIELDS = {
+      'Add Reading':   [{label:'pH value',ph:'e.g. 7.2'},{label:'Turbidity (NTU)',ph:'e.g. 0.8'},{label:'Free chlorine (ppm)',ph:'e.g. 0.5'},{label:'Recorded by',ph:'Select operator'}],
+      'Add Visit':     [{label:'Client',ph:'Select client'},{label:'Visit date',ph:'Pick a date'},{label:'Purpose',ph:'Site audit / demo / service'},{label:'Rep',ph:'Assign rep'}],
+      'Create Quote':  [{label:'Customer',ph:'Search customer'},{label:'Panel type',ph:'LT / MCC / PCC'},{label:'Target price (₹)',ph:'e.g. 2,40,000'},{label:'Valid till',ph:'Pick a date'}],
+      'Job Card':      [{label:'Asset ID',ph:'Scan or enter'},{label:'Fault reported',ph:'Describe the fault'},{label:'Priority',ph:'Low / Medium / High'},{label:'Assigned to',ph:'Select technician'}],
+      'Plan Visit':    [{label:'Region',ph:'Select region'},{label:'Week',ph:'Pick a week'},{label:'Clients to cover',ph:'Add clients'}],
+      'Dosage Design': [{label:'Raw water TDS',ph:'e.g. 1,200 ppm'},{label:'Target hardness',ph:'e.g. 50 ppm'},{label:'Flow rate (m³/h)',ph:'e.g. 40'}],
+      'Panel Builder': [{label:'Incomer rating',ph:'e.g. 400 A'},{label:'Feeders',ph:'e.g. 8'},{label:'Enclosure',ph:'IP54 / IP65'}],
+    };
+    const fields = FIELDS[tabName] || [{label:'Reference',ph:'Auto-generated'},{label:'Recorded by',ph:'Select user'},{label:'Notes',ph:'Add a note…'}];
+
+    const TABLES = {
+      'Stock Register':     {cols:['Chemical','Batch','Qty (kg)','Status'], rows:[['Poly-Aluminium Chloride','PAC-2291','1,240','In stock'],['Sodium Hypochlorite','SHY-1104','380','Low'],['Antiscalant AS-40','AS-4420','910','In stock'],['Chlorine Dioxide','CLD-0071','56','Reorder']]},
+      'Standard Pack Sizes':{cols:['SKU','Pack','Unit','List price'], rows:[['PAC-25','25 kg','Bag','₹1,850'],['SHY-50','50 L','Carboy','₹3,400'],['AS-20','20 kg','Drum','₹5,120'],['CLD-05','5 kg','Kit','₹2,760']]},
+      'Users':              {cols:['Name','Email','Role','Status'], rows:[['Bharat Associate','ba@traveldesk.test','Admin','Active'],['Neha Rao','neha@site.in','Operator','Active'],['Imran Q.','imran@site.in','Viewer','Invited'],['S. Kulkarni','sk@site.in','Operator','Active']]},
+      'Roles':              {cols:['Role','Members','Scope','Updated'], rows:[['Admin','2','All modules','2d ago'],['Operator','6','Operations','5d ago'],['Analyst','3','Analytics','1w ago'],['Viewer','4','Read-only','3w ago']]},
+      'Access':             {cols:['User','Module','Level','Granted'], rows:[['Neha Rao','Operations','Write','12 Jun'],['Imran Q.','Analytics','Read','09 Jun'],['S. Kulkarni','Chemical Stock','Write','02 Jun'],['Bharat A.','All','Owner','01 Jan']]},
+      'Visit History':      {cols:['Date','Client','Rep','Outcome'], rows:[['08 Jul','Dorf-Ketal','A. Singh','Won'],['06 Jul','Pioneer','M. Das','Follow-up'],['03 Jul','Om Enterprise','A. Singh','Quoted'],['28 Jun','Aqua Feed','R. Nair','Won']]},
+      'Pricing':            {cols:['Component','Base','Margin','Final'], rows:[['LT Panel shell','₹64,000','18%','₹75,520'],['Busbar set','₹22,400','15%','₹25,760'],['MCCB pack','₹41,000','20%','₹49,200'],['Wiring + labour','₹18,000','25%','₹22,500']]},
+    };
+    const tbl = TABLES[tabName] || {cols:['Item','Value','Owner','Status'], rows:[['Row A','128','Neha','Active'],['Row B','54','Imran','Active'],['Row C','311','Kulkarni','Paused']]};
+    const columns = tbl.cols;
+    const rows = tbl.rows.map(r => ({ cells: r }));
+    const gridCols = columns.map((c,i) => i === 0 ? '1.6fr' : '1fr').join(' ');
+    const tableCount = `${tbl.rows.length} records`;
+
+    const STATS = {
+      'Dashboard': [{l:'Reports today',v:'42',d:'↗ +6 vs yest.'},{l:'Avg turnaround',v:'11m',d:'↘ was 2h 40m'},{l:'On-spec rate',v:'98%',d:'↗ +2 pts'}],
+      'Turnaround':[{l:'Median',v:'2.4d',d:'↘ -0.6d'},{l:'Open jobs',v:'17',d:'↗ +3'},{l:'SLA met',v:'94%',d:'↗ +1 pt'}],
+      'Load':      [{l:'Utilisation',v:'82%',d:'↗ +4 pts'},{l:'Backlog',v:'6',d:'↘ -2'},{l:'Techs active',v:'9',d:'stable'}],
+    };
+    const stats = STATS[tabName] || [{l:'This period',v:'128',d:'↗ +12%'},{l:'Avg / day',v:'18',d:'↗ +3'},{l:'Health',v:'96%',d:'stable'}];
+
+    const REPORTS = {
+      'Water Analysis Report': [{l:'pH (post-treatment)',v:'7.1'},{l:'Turbidity',v:'0.6 NTU'},{l:'Free chlorine',v:'0.5 ppm'},{l:'Hardness',v:'48 ppm'},{l:'Verdict',v:'Within spec'}],
+      'Corrosion Report':      [{l:'Coupon loss',v:'0.03 mm/yr'},{l:'Langelier index',v:'+0.2'},{l:'Iron (Fe)',v:'0.04 ppm'},{l:'Verdict',v:'Low risk'}],
+      'Visit ROI':             [{l:'Visits logged',v:'46'},{l:'Cost / visit',v:'₹1,120'},{l:'Revenue attributed',v:'₹8.4L'},{l:'ROI',v:'6.2×'}],
+      'Rep Performance':       [{l:'Top rep',v:'A. Singh'},{l:'Win rate',v:'38%'},{l:'Avg deal',v:'₹1.9L'},{l:'Visits / week',v:'11'}],
+      'Win Rate':              [{l:'Quotes sent',v:'128'},{l:'Won',v:'49'},{l:'Win rate',v:'38%'},{l:'Avg cycle',v:'14d'}],
+      'Reports':               [{l:'Scheduled',v:'12'},{l:'Delivered',v:'11'},{l:'Failed',v:'0'},{l:'Next run',v:'06:00'}],
+      'Trends':                [{l:'Volume Δ 30d',v:'+14%'},{l:'Anomalies',v:'2'},{l:'Forecast',v:'Rising'},{l:'Confidence',v:'0.88'}],
+    };
+    const reportLines = REPORTS[tabName] || [{l:'Summary metric',v:'128'},{l:'Change',v:'+12%'},{l:'Verdict',v:'On track'}];
+
+    const DESIGN = {
+      'Dosage Design': {v:'42 ppm', l:'Recommended PAC dose'},
+      'Panel Builder': {v:'8-way', l:'Optimised feeder layout'},
+    };
+    const dz = DESIGN[tabName] || {v:'—', l:'Computed output'};
+
+    const SUBS = {
+      form: 'Fill the fields and save — the entry syncs to your workspace instantly.',
+      table: 'Everything recorded for this workspace, filterable and export-ready.',
+      dashboard: 'Live snapshot for this workspace, refreshed as new data lands.',
+      report: 'Auto-generated from the latest readings on your own infrastructure.',
+      design: 'Tune the inputs on the left; the preview updates on the right.',
+    };
+    const sub = SUBS[kind] || SUBS.report;
+
+    return {
+      crumb, moduleName, tabName, sub, accent, accentSoft: tint(accent, 0.16),
+      showCrumb: this.props.hideCrumb !== true,
+      isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
+      isReport: kind === 'report', isDesign: kind === 'design',
+      fields, columns, rows, gridCols, tableCount, stats, reportLines,
+      previewValue: dz.v, previewLabel: dz.l,
+    };
+  }
+}
+</script>
+</body>
+</html>

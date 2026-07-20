@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  hq-portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hq-portal
+    # Keep ports container-internal on the VPS per CLAUDE.md deploy playbook.
+    # Nginx reverse proxies to the container port. For local testing, we publish port 8000.
+    ports:
+      - "8005:8000"
+    env_file:
+      - .env
+    restart: always
