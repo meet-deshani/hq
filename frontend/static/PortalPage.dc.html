@@ -30,17 +30,17 @@
   </div>
   </sc-if>
 
-  <div style="flex:1;overflow:auto;padding:30px 34px 40px">
+  <div style="flex:1;overflow:auto;padding:30px 34px 40px;width:100%;box-sizing:border-box">
     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#918D82;margin-bottom:9px">{{ moduleName }}</div>
     <h1 style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:33px;line-height:1.04;letter-spacing:-0.02em;margin:0;color:#191924">{{ tabName }}</h1>
-    <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 26px;max-width:560px">{{ sub }}</p>
+    <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 26px;width:100%">{{ sub }}</p>
 
     <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
-      <div style="max-width:540px;display:flex;flex-direction:column;gap:16px">
+      <div style="width:100%;display:flex;flex-direction:column;gap:16px">
         <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
-          <label style="display:block">
+          <label style="display:block;width:100%">
             <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.3px;color:#918D82;margin-bottom:7px">{{ f.label }}</div>
-            <div style="display:flex;align-items:center;padding:11px 15px;border-radius:12px;background:#fff;border:1.5px solid #E8E6E0;font-size:13.5px;color:#B8B4AC">{{ f.ph }}</div>
+            <div style="display:flex;align-items:center;padding:11px 15px;border-radius:12px;background:#fff;border:1.5px solid #E8E6E0;font-size:13.5px;color:#B8B4AC;width:100%;box-sizing:border-box">{{ f.ph }}</div>
           </label>
         </sc-for>
         <div style="display:flex;gap:10px;margin-top:6px">
@@ -51,7 +51,7 @@
     </sc-if>
 
     <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
-      <div style="border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05)">
+      <div style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
         <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
           <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
           <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
@@ -72,8 +72,8 @@
     </sc-if>
 
     <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
-      <div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      <div style="width:100%">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%">
           <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
             <div style="background:#fff;border:1px solid #E8E6E0;border-left:3px solid {{ accent }};border-radius:16px;padding:18px 20px">
               <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">{{ s.l }}</div>
@@ -82,9 +82,9 @@
             </div>
           </sc-for>
         </div>
-        <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px">
+        <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px;width:100%;box-sizing:border-box">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
-          <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden">
+          <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden;width:100%">
             <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
               <path d="M0,120 C80,110 140,78 200,72 C260,66 320,92 380,60 C440,38 500,26 600,16" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
             </svg>
@@ -94,7 +94,7 @@
     </sc-if>
 
     <sc-if value="{{ isReport }}" hint-placeholder-val="{{ true }}">
-      <div style="max-width:620px;background:#fff;border:1px solid #E8E6E0;border-radius:18px;padding:26px 28px;box-shadow:0 1px 3px rgba(25,25,36,.05)">
+      <div style="width:100%;background:#fff;border:1px solid #E8E6E0;border-radius:18px;padding:26px 28px;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Generated · just now</div>
           <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:rgba(184,224,210,.28);color:#1a5c42;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#B8E0D2"></span>Ready</span>
@@ -110,7 +110,7 @@
     </sc-if>
 
     <sc-if value="{{ isDesign }}" hint-placeholder-val="{{ true }}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:720px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%">
         <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Parameters</div>
           <div style="display:flex;flex-direction:column;gap:13px">
