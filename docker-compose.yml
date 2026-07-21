@@ -1,5 +1,9 @@
 services:
-  hq-portal:
+  # Service key stays `app` to match the container deploy.sh first created —
+  # `deploy hq` runs a bare `compose up -d` (no --remove-orphans), so renaming
+  # the service would try to create a second container named hq-portal and
+  # collide. Same service name = clean in-place recreate.
+  app:
     build: .
     image: hq-portal:latest
     container_name: hq-portal
