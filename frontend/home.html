@@ -1866,15 +1866,24 @@ class Component extends DCLogic {
   }
   sendAI(text){
     const st=this.state; const msg=String(text!=null?text:st.aiInput).trim(); if(!msg||st.aiThinking) return;
-    const reply=this._aiReply(msg);
+    const prod=PRODUCTS[st.product]; const at=st.tab;
+    const context = prod.name+' · '+st.workspace+' · '+at.module+' · '+at.tab+' ('+at.kind+')';
+    const history = st.aiMsgs.map(m=>({ role: m.role==='ai'?'assistant':'user', text: m.text }));
     this.set(s=>({ aiMsgs:[...s.aiMsgs,{role:'user',text:msg}], aiInput:'', aiThinking:true, aiTokens: s.aiTokens + Math.max(6, Math.round(msg.length/4)) }));
     setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },40);
     clearTimeout(this._aiT);
-    this._aiT=setTimeout(()=>{
-      this.set(s=>({ aiMsgs:[...s.aiMsgs,{role:'ai',text:reply}], aiThinking:false, aiTokens: s.aiTokens + Math.round(reply.length/4) + 24 }));
-      setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },40);
-      setTimeout(()=>this._saveCurrent(),60);
-    }, 620);
+    fetch('/api/ai/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message:msg, history:history, context:context, model:st.aiModel, mode:st.aiMode }) })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
+      .then(data => {
+        const reply = (data && data.reply) ? data.reply : "Sorry, I couldn't generate a response.";
+        this.set(s=>({ aiMsgs:[...s.aiMsgs,{role:'ai',text:reply}], aiThinking:false, aiTokens: s.aiTokens + Math.round(reply.length/4) + 24 }));
+        setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },40);
+        setTimeout(()=>this._saveCurrent(),60);
+      })
+      .catch(() => {
+        this.set(s=>({ aiMsgs:[...s.aiMsgs,{role:'ai',text:"I couldn't reach the AI service — please try again."}], aiThinking:false }));
+        setTimeout(()=>{ if(this._aiScroll) this._aiScroll.scrollTop=this._aiScroll.scrollHeight; },40);
+      });
   }
   clearAI(){ clearTimeout(this._aiT); this.set({ aiMsgs:[], aiThinking:false, aiInput:'', aiSessionId:null }); }
   startAIDrag(e){

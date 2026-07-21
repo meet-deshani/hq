@@ -16,8 +16,10 @@ from backend.schemas import (
     ProductResponse, ProductCreate, ProductUpdate,
     WorkspaceResponse, WorkspaceCreate, WorkspaceUpdate, ApiCatalogResponse, ApiCatalogItem,
     CliCatalogResponse, CliCommandItem, FeedbackCreate, FeedbackResponse, FeedbackUpdate,
-    NotificationCreate, NotificationResponse, NotificationUpdate
+    NotificationCreate, NotificationResponse, NotificationUpdate,
+    AiChatRequest, AiChatResponse
 )
+import requests as _http
 from backend.auth import (
     verify_password, get_password_hash, create_access_token, get_current_user
 )
@@ -779,6 +781,71 @@ def delete_notification(
     db.commit()
     return {"detail": "Notification deleted successfully"}
 
+# AI assistant — proxies to a real LLM. Provider + key come from env, so nothing
+# secret is committed, and it degrades gracefully when no key is configured.
+AI_SYSTEM = (
+    "You are the AI assistant embedded in the Z9S-AI HQ portal — an internal "
+    "operations platform with workspaces for HQ (dashboard), Config (organisations, "
+    "products, workspaces, users, roles, permissions, feedback) and Document (API and "
+    "CLI references). Be concise, accurate and genuinely helpful. When the user asks "
+    "about the current screen, use the page context provided."
+)
+
+def _ai_unconfigured(var: str) -> str:
+    return (f"The AI assistant isn't configured yet. Add {var} (and optionally AI_MODEL) "
+            f"to the server's .env and restart to enable live answers.")
+
+@app.post("/api/ai/chat", response_model=AiChatResponse)
+def ai_chat(req: AiChatRequest, current_user: User = Depends(get_current_user)):
+    provider = os.getenv("AI_PROVIDER", "anthropic").strip().lower()
+    system = AI_SYSTEM + (("\n\nCurrent page — " + req.context) if req.context else "")
+    history = [(m.role if m.role in ("user", "assistant") else "user", m.text)
+               for m in (req.history or [])]
+
+    if provider == "openai":
+        key = os.getenv("OPENAI_API_KEY")
+        model = os.getenv("AI_MODEL", "gpt-4o-mini")
+        if not key:
+            return AiChatResponse(reply=_ai_unconfigured("OPENAI_API_KEY"), model="none", configured=False)
+        try:
+            msgs = [{"role": "system", "content": system}]
+            msgs += [{"role": r, "content": t} for r, t in history]
+            msgs.append({"role": "user", "content": req.message})
+            base = os.getenv("AI_BASE_URL", "https://api.openai.com").rstrip("/")
+            resp = _http.post(
+                base + "/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={"model": model, "messages": msgs, "max_tokens": 1024}, timeout=60,
+            )
+            resp.raise_for_status()
+            reply = resp.json()["choices"][0]["message"]["content"]
+            return AiChatResponse(reply=reply, model=model, configured=True)
+        except Exception as e:
+            logger.error(f"OpenAI call failed: {e}")
+            return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
+
+    # Default provider: Anthropic (Claude).
+    key = os.getenv("ANTHROPIC_API_KEY")
+    model = os.getenv("AI_MODEL", "claude-3-5-sonnet-20241022")
+    if not key:
+        return AiChatResponse(reply=_ai_unconfigured("ANTHROPIC_API_KEY"), model="none", configured=False)
+    try:
+        msgs = [{"role": r, "content": t} for r, t in history]
+        msgs.append({"role": "user", "content": req.message})
+        base = os.getenv("AI_BASE_URL", "https://api.anthropic.com").rstrip("/")
+        resp = _http.post(
+            base + "/v1/messages",
+            headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": model, "max_tokens": 1024, "system": system, "messages": msgs}, timeout=60,
+        )
+        resp.raise_for_status()
+        blocks = resp.json().get("content", [])
+        reply = "".join(b.get("text", "") for b in blocks if b.get("type") == "text") or "…"
+        return AiChatResponse(reply=reply, model=model, configured=True)
+    except Exception as e:
+        logger.error(f"Anthropic call failed: {e}")
+        return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
+
 # ── API CATALOG ──
 # A self-documenting reference of every endpoint on the platform. Public by
 # design so AI agents and CLIs can discover the full surface before authing.
@@ -995,10 +1062,16 @@ API_CATALOG = [
         "response": "{ \"detail\": \"Notification deleted successfully\" }",
     },
     {
+        "method": "POST", "path": "/api/ai/chat", "auth": "Bearer / Cookie",
+        "summary": "Chat with the AI assistant. Proxies to the configured LLM (AI_PROVIDER) with the current page as context; returns a canned notice until a key is set.",
+        "usage": "curl -X POST __BASE__/api/ai/chat \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"message\":\"What can I do on this page?\",\"context\":\"HQ · Config · Users\"}'",
+        "response": "{\n  \"reply\": \"On the Users page you can ...\",\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"configured\": true\n}",
+    },
+    {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
-        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 36,\n  \"endpoints\": [ ... ]\n}",
+        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 37,\n  \"endpoints\": [ ... ]\n}",
     },
 ]
 

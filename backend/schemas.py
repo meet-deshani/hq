@@ -258,3 +258,20 @@ class NotificationResponse(BaseModel):
 class NotificationUpdate(BaseModel):
     read: Optional[bool] = None
 
+# AI assistant Schemas
+class AiMessage(BaseModel):
+    role: str            # "user" | "assistant"
+    text: str
+
+class AiChatRequest(BaseModel):
+    message: str
+    history: Optional[List[AiMessage]] = []
+    context: Optional[str] = None      # current page context
+    model: Optional[str] = None        # UI-selected model label (informational)
+    mode: Optional[str] = None
+
+class AiChatResponse(BaseModel):
+    reply: str
+    model: str
+    configured: bool
+
