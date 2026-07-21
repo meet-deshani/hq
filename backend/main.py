@@ -21,7 +21,8 @@ from backend.schemas import (
 )
 import requests as _http
 from backend.auth import (
-    verify_password, get_password_hash, create_access_token, get_current_user
+    verify_password, get_password_hash, create_access_token, get_current_user,
+    get_user_from_token
 )
 
 # Setup logging
@@ -1268,21 +1269,27 @@ HOME_FILE = os.path.join(BASE_DIR, "frontend", "home.html")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/login", response_class=HTMLResponse)
-def serve_login(request: Request):
-    # Check if user already logged in via cookie
+def serve_login(request: Request, db: Session = Depends(get_db)):
+    # Redirect into the app only for a VALID session. Checking mere cookie
+    # presence here — while the client redirects to /login on any 401 — created
+    # an infinite /login <-> dashboard reload loop for expired/invalid tokens.
     token = request.cookies.get("access_token")
-    if token:
+    if token and get_user_from_token(token, db):
         return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
-        
+
     with open(LOGIN_FILE, "r", encoding="utf-8") as f:
         html_content = f.read()
-    return HTMLResponse(content=html_content)
+    response = HTMLResponse(content=html_content)
+    if token:
+        # Clear the stale/invalid cookie so it stops bouncing on every request.
+        response.delete_cookie("access_token")
+    return response
 
 @app.get("/home", response_class=HTMLResponse)
 @app.get("/", response_class=HTMLResponse)
-def serve_home_redirect(request: Request):
+def serve_home_redirect(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("access_token")
-    if not token:
+    if not (token and get_user_from_token(token, db)):
         return RedirectResponse(url="/login")
     return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
 
@@ -1295,13 +1302,14 @@ def serve_portal_route(
     product: str,
     workspace: str,
     module: Optional[str] = None,
-    tab: Optional[str] = None
+    tab: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
-    # Enforce login redirect
+    # Enforce a VALID session (not just cookie presence) to avoid redirect loops.
     token = request.cookies.get("access_token")
-    if not token:
+    if not (token and get_user_from_token(token, db)):
         return RedirectResponse(url="/login")
-        
+
     with open(HOME_FILE, "r", encoding="utf-8") as f:
         html_content = f.read()
     return HTMLResponse(content=html_content)

@@ -37,6 +37,28 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def get_user_from_token(token: Optional[str], db: Session) -> Optional[User]:
+    """Resolve a JWT ('<jwt>' or 'Bearer <jwt>') to its User, or None if the token
+    is missing, malformed, expired, or names a user that no longer exists.
+
+    Shared by get_current_user (the API dependency) and the HTML route guards so
+    both agree on who is signed in. Gating a page on cookie *presence* while the
+    API checks token *validity* is what caused the infinite login<->app redirect
+    loop for expired/invalid tokens — routing both through this keeps them in sync.
+    """
+    if not token:
+        return None
+    if token.startswith("Bearer "):
+        token = token.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+    except JWTError:
+        return None
+    if not email:
+        return None
+    return db.query(User).filter(User.email == email).first()
+
 # Custom hybrid dependency to resolve token from Authorization header OR cookie
 async def get_current_user(
     request: Request,
@@ -47,33 +69,13 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
-    token = None
-    
-    # 1. Try to read from Authorization header
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        
-    # 2. Try to read from Cookie if header not found (for browser convenience)
-    if not token:
-        token = request.cookies.get("access_token")
-        if token and token.startswith("Bearer "):
-            token = token.split(" ")[1]
 
-    if not token:
-        raise credentials_exception
-        
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-        
-    user = db.query(User).filter(User.email == email).first()
+    # Prefer the Authorization header (CLI / API clients); fall back to the cookie
+    # (browser convenience). get_user_from_token strips the optional "Bearer ".
+    token = request.headers.get("Authorization") or request.cookies.get("access_token")
+
+    user = get_user_from_token(token, db)
     if user is None:
         raise credentials_exception
-        
+
     return user
