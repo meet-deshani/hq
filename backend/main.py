@@ -11,9 +11,10 @@ from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import User, Role, Permission, Organisation, Product, Workspace
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
-    RoleResponse, RoleCreate, PermissionResponse, DashboardStatsResponse, StatItem,
-    OrganisationResponse, OrganisationCreate, ProductResponse, ProductCreate,
-    WorkspaceResponse, WorkspaceCreate, ApiCatalogResponse, ApiCatalogItem,
+    RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
+    OrganisationResponse, OrganisationCreate, OrganisationUpdate,
+    ProductResponse, ProductCreate, ProductUpdate,
+    WorkspaceResponse, WorkspaceCreate, WorkspaceUpdate, ApiCatalogResponse, ApiCatalogItem,
     CliCatalogResponse, CliCommandItem
 )
 from backend.auth import (
@@ -268,6 +269,31 @@ def create_user(
     db.refresh(db_user)
     return db_user
 
+@app.patch("/api/users/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_data.name is not None:
+        user.name = user_data.name
+    if user_data.status is not None:
+        user.status = user_data.status
+    if user_data.organisation_id is not None:
+        user.organisation_id = user_data.organisation_id
+    if user_data.role_name is not None:
+        role = db.query(Role).filter(Role.name == user_data.role_name).first()
+        if not role:
+            raise HTTPException(status_code=400, detail=f"Role '{user_data.role_name}' not found")
+        user.role_id = role.id
+    db.commit()
+    db.refresh(user)
+    return user
+
 @app.delete("/api/users/{user_id}")
 def delete_user(
     user_id: int,
@@ -317,6 +343,35 @@ def create_organisation(
     db.refresh(db_org)
     return db_org
 
+@app.patch("/api/organisations/{org_id}", response_model=OrganisationResponse)
+def update_organisation(
+    org_id: int,
+    org_data: OrganisationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    org = db.query(Organisation).filter(Organisation.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    for field, value in org_data.model_dump(exclude_unset=True).items():
+        setattr(org, field, value)
+    db.commit()
+    db.refresh(org)
+    return org
+
+@app.delete("/api/organisations/{org_id}")
+def delete_organisation(
+    org_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    org = db.query(Organisation).filter(Organisation.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    db.delete(org)
+    db.commit()
+    return {"detail": "Organisation deleted successfully"}
+
 # Products
 @app.get("/api/products", response_model=List[ProductResponse])
 def list_products(
@@ -347,6 +402,35 @@ def create_product(
     db.refresh(db_product)
     return db_product
 
+@app.patch("/api/products/{product_id}", response_model=ProductResponse)
+def update_product(
+    product_id: int,
+    product_data: ProductUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    for field, value in product_data.model_dump(exclude_unset=True).items():
+        setattr(product, field, value)
+    db.commit()
+    db.refresh(product)
+    return product
+
+@app.delete("/api/products/{product_id}")
+def delete_product(
+    product_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(product)
+    db.commit()
+    return {"detail": "Product deleted successfully"}
+
 # Workspaces
 @app.get("/api/workspaces", response_model=List[WorkspaceResponse])
 def list_workspaces(
@@ -373,6 +457,35 @@ def create_workspace(
     db.commit()
     db.refresh(db_workspace)
     return db_workspace
+
+@app.patch("/api/workspaces/{workspace_id}", response_model=WorkspaceResponse)
+def update_workspace(
+    workspace_id: int,
+    workspace_data: WorkspaceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    for field, value in workspace_data.model_dump(exclude_unset=True).items():
+        setattr(workspace, field, value)
+    db.commit()
+    db.refresh(workspace)
+    return workspace
+
+@app.delete("/api/workspaces/{workspace_id}")
+def delete_workspace(
+    workspace_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    db.delete(workspace)
+    db.commit()
+    return {"detail": "Workspace deleted successfully"}
 
 # Roles
 @app.get("/api/roles", response_model=List[RoleResponse])
@@ -407,6 +520,35 @@ def create_role(
     db.commit()
     db.refresh(db_role)
     return db_role
+
+@app.patch("/api/roles/{role_id}", response_model=RoleResponse)
+def update_role(
+    role_id: int,
+    role_data: RoleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    for field, value in role_data.model_dump(exclude_unset=True).items():
+        setattr(role, field, value)
+    db.commit()
+    db.refresh(role)
+    return role
+
+@app.delete("/api/roles/{role_id}")
+def delete_role(
+    role_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    db.delete(role)
+    db.commit()
+    return {"detail": "Role deleted successfully"}
 
 # Permissions
 @app.get("/api/permissions", response_model=List[PermissionResponse])
@@ -496,6 +638,12 @@ API_CATALOG = [
         "response": "{\n  \"id\": 2, \"email\": \"jane@acme.com\",\n  \"name\": \"Jane\", \"status\": \"Active\"\n}",
     },
     {
+        "method": "PATCH", "path": "/api/users/{user_id}", "auth": "Bearer / Cookie",
+        "summary": "Update a user's name, status, role (by name), or organisation.",
+        "usage": "curl -X PATCH __BASE__/api/users/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"Disabled\",\"role_name\":\"Viewer\"}'",
+        "response": "{ \"id\": 2, \"status\": \"Disabled\", \"role\": { \"name\": \"Viewer\" } }",
+    },
+    {
         "method": "DELETE", "path": "/api/users/{user_id}", "auth": "Bearer / Cookie",
         "summary": "Delete a user by id. You cannot delete your own account.",
         "usage": "curl -X DELETE __BASE__/api/users/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -514,6 +662,18 @@ API_CATALOG = [
         "response": "{\n  \"id\": 2, \"name\": \"Acme\", \"slug\": \"acme\"\n}",
     },
     {
+        "method": "PATCH", "path": "/api/organisations/{org_id}", "auth": "Bearer / Cookie",
+        "summary": "Update any organisation fields (name, slug, industry, color, ...).",
+        "usage": "curl -X PATCH __BASE__/api/organisations/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"industry\":\"Fintech\"}'",
+        "response": "{ \"id\": 2, \"name\": \"Acme\", \"industry\": \"Fintech\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/organisations/{org_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete an organisation (cascades to its products/workspaces/roles).",
+        "usage": "curl -X DELETE __BASE__/api/organisations/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Organisation deleted successfully\" }",
+    },
+    {
         "method": "GET", "path": "/api/products", "auth": "Bearer / Cookie",
         "summary": "List products. Optional ?organisation_id=<id> filter.",
         "usage": "curl \"__BASE__/api/products?organisation_id=1\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -524,6 +684,18 @@ API_CATALOG = [
         "summary": "Create a product. code must be unique.",
         "usage": "curl -X POST __BASE__/api/products \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"CRM\",\"code\":\"crm\",\"organisation_id\":1}'",
         "response": "{\n  \"id\": 2, \"name\": \"CRM\", \"code\": \"crm\"\n}",
+    },
+    {
+        "method": "PATCH", "path": "/api/products/{product_id}", "auth": "Bearer / Cookie",
+        "summary": "Update any product fields (name, code, status, description, ...).",
+        "usage": "curl -X PATCH __BASE__/api/products/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"Archived\"}'",
+        "response": "{ \"id\": 2, \"name\": \"CRM\", \"status\": \"Archived\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/products/{product_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a product by id.",
+        "usage": "curl -X DELETE __BASE__/api/products/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Product deleted successfully\" }",
     },
     {
         "method": "GET", "path": "/api/workspaces", "auth": "Bearer / Cookie",
@@ -538,6 +710,18 @@ API_CATALOG = [
         "response": "{\n  \"id\": 4, \"name\": \"Document\",\n  \"icon\": \"document\"\n}",
     },
     {
+        "method": "PATCH", "path": "/api/workspaces/{workspace_id}", "auth": "Bearer / Cookie",
+        "summary": "Update any workspace fields (name, slug, icon, status, ...).",
+        "usage": "curl -X PATCH __BASE__/api/workspaces/4 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"icon\":\"grid\"}'",
+        "response": "{ \"id\": 4, \"name\": \"Document\", \"icon\": \"grid\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/workspaces/{workspace_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a workspace by id.",
+        "usage": "curl -X DELETE __BASE__/api/workspaces/4 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Workspace deleted successfully\" }",
+    },
+    {
         "method": "GET", "path": "/api/roles", "auth": "Bearer / Cookie",
         "summary": "List roles. Optional ?organisation_id filter. Includes linked permissions.",
         "usage": "curl __BASE__/api/roles \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -548,6 +732,18 @@ API_CATALOG = [
         "summary": "Create a role. name is unique per organisation.",
         "usage": "curl -X POST __BASE__/api/roles \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Analyst\",\"description\":\"Read-only analytics\",\"organisation_id\":1}'",
         "response": "{\n  \"id\": 4, \"name\": \"Analyst\"\n}",
+    },
+    {
+        "method": "PATCH", "path": "/api/roles/{role_id}", "auth": "Bearer / Cookie",
+        "summary": "Update a role's name or description.",
+        "usage": "curl -X PATCH __BASE__/api/roles/4 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"description\":\"Read-only analytics access\"}'",
+        "response": "{ \"id\": 4, \"name\": \"Analyst\", \"description\": \"Read-only analytics access\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/roles/{role_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a role by id.",
+        "usage": "curl -X DELETE __BASE__/api/roles/4 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Role deleted successfully\" }",
     },
     {
         "method": "GET", "path": "/api/permissions", "auth": "Bearer / Cookie",
@@ -571,7 +767,7 @@ API_CATALOG = [
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
-        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 18,\n  \"endpoints\": [ ... ]\n}",
+        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 27,\n  \"endpoints\": [ ... ]\n}",
     },
 ]
 

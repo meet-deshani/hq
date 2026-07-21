@@ -118,9 +118,38 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
-    role_id: Optional[int] = None
+    role_name: Optional[str] = None
     organisation_id: Optional[int] = None
     status: Optional[str] = None
+
+# Update schemas (all fields optional — PATCH semantics)
+class OrganisationUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    industry: Optional[str] = None
+    initials: Optional[str] = None
+    color: Optional[str] = None
+    note: Optional[str] = None
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    organisation_id: Optional[int] = None
+
+class WorkspaceUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    icon: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    organisation_id: Optional[int] = None
+    product_id: Optional[int] = None
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 class UserResponse(UserBase):
     id: int

@@ -1715,6 +1715,7 @@ class Component extends DCLogic {
       org:orgId, product:pk, role:role0,
       open:{[ft.module]:true},
       tab:{module:ft.module, tab:ft.tab, kind:ft.kind},
+      me:null,
       collapsed: !!(this.props && this.props.startCollapsed),
       profileOpen:false,
       workspace: ws0,
@@ -1738,6 +1739,11 @@ class Component extends DCLogic {
     document.addEventListener('keydown', this._key);
     this.syncFromUrl();
     window.onpopstate = () => this.syncFromUrl();
+    // Load the real signed-in user for the profile chip.
+    fetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(me => { if (me) this.set({ me }); })
+      .catch(() => {});
   }
   componentWillUnmount(){ document.removeEventListener('keydown', this._key); }
 
@@ -2042,7 +2048,15 @@ class Component extends DCLogic {
     const activeWs = st.workspace || wsList[0].name;
     const roleList0 = rolesFor(st.product);
     const curRole = roleObj(st.product, st.role);
-    const sessionUser = curRole ? curRole.user : USER;
+    const baseUser = curRole ? curRole.user : USER;
+    // Prefer the real signed-in user (from /api/auth/me) once it loads.
+    const sessionUser = st.me ? {
+      name: st.me.name || baseUser.name,
+      email: st.me.email || baseUser.email,
+      initials: String(st.me.name || '?').trim().split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase() || 'U',
+      color: baseUser.color,
+      role: (st.me.role && st.me.role.name) ? st.me.role.name : (baseUser.role || '')
+    } : baseUser;
     const roleItems = (roleList0||[]).map(r=>({
       id:r.id, label:r.label, name:r.user.name, active:r.id===st.role,
       simpleStyle: `display:flex;align-items:center;gap:10px;width:100%;border:none;cursor:pointer;padding:9px 11px;border-radius:11px;background:${r.id===st.role?'#191924':'transparent'};text-align:left;margin-bottom:2px`,
