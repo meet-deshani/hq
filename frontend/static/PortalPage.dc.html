@@ -53,23 +53,70 @@
 
     <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
       <div style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
-        <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
-          <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:12px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
+          </div>
+          <sc-if value="{{ canCrud }}">
+            <button sc-camel-on-click="{{ onNew }}" style="display:flex;align-items:center;gap:6px;border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              {{ newLabel }}
+            </button>
+          </sc-if>
         </div>
-        <div style="display:grid;grid-template-columns:{{ gridCols }};padding:11px 18px;border-bottom:1px solid #EEEDE8">
+        <div style="display:grid;grid-template-columns:{{ gridColsX }};padding:11px 18px;border-bottom:1px solid #EEEDE8">
           <sc-for list="{{ columns }}" as="c" hint-placeholder-count="4">
             <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#918D82">{{ c }}</div>
           </sc-for>
+          <sc-if value="{{ canCrud }}"><div></div></sc-if>
         </div>
         <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
-          <div style="display:grid;grid-template-columns:{{ gridCols }};padding:13px 18px;border-bottom:1px solid #F3F2EE;align-items:center">
+          <div style="display:grid;grid-template-columns:{{ gridColsX }};padding:13px 18px;border-bottom:1px solid #F3F2EE;align-items:center">
             <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
               <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#3A3A44">{{ cell }}</div>
             </sc-for>
+            <sc-if value="{{ canCrud }}">
+              <div style="display:flex;gap:6px;justify-content:flex-end">
+                <button sc-camel-on-click="{{ row.onEdit }}" title="Edit" style="border:1px solid #E4E2DB;cursor:pointer;background:#fff;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:11.5px;font-weight:500;padding:5px 11px;border-radius:8px">Edit</button>
+                <button sc-camel-on-click="{{ row.onDelete }}" title="Delete" style="border:1px solid rgba(255,181,194,.6);cursor:pointer;background:rgba(255,181,194,.14);color:#a3324c;font-family:'Satoshi',sans-serif;font-size:11.5px;font-weight:500;padding:5px 11px;border-radius:8px">Del</button>
+              </div>
+            </sc-if>
           </div>
         </sc-for>
       </div>
+
+      <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ false }}">
+        <div sc-camel-on-click="{{ onFormClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 22px 20px;box-sizing:border-box">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:16px">{{ formTitle }}</div>
+          <div style="display:flex;flex-direction:column;gap:13px">
+            <sc-for list="{{ formFields }}" as="f" hint-placeholder-count="3">
+              <label style="display:block">
+                <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}</div>
+                <sc-if value="{{ f.isText }}">
+                  <input value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" placeholder="{{ f.ph }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+                </sc-if>
+                <sc-if value="{{ f.isSelect }}">
+                  <select value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+                    <option value="">—</option>
+                    <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="2">
+                      <option value="{{ o.v }}">{{ o.label }}</option>
+                    </sc-for>
+                  </select>
+                </sc-if>
+              </label>
+            </sc-for>
+          </div>
+          <sc-if value="{{ hasFormErr }}">
+            <div style="margin-top:13px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ formErr }}</div>
+          </sc-if>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button sc-camel-on-click="{{ onFormSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ submitLabel }}</button>
+            <button sc-camel-on-click="{{ onFormClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
+          </div>
+        </div>
+      </sc-if>
     </sc-if>
 
     <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
@@ -87,7 +134,7 @@
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
           <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden;width:100%">
             <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
-              <path d="M0,120 C80,110 140,78 200,72 C260,66 320,92 380,60 C440,38 500,26 600,16" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
+              <path d="{{ trendPath }}" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
             </svg>
           </div>
         </div>
@@ -189,14 +236,47 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:560},&quot;org&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;product&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;HQ&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;workspace&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;HQ&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;moduleName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Operations&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tabName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;form&quot;,&quot;table&quot;,&quot;dashboard&quot;,&quot;report&quot;,&quot;design&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C8B6FF&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+// ── CRUD field schema per table (which endpoint + which form fields) ──────────
+const ENTITIES = {
+  Organisations: { path: '/api/organisations', label: 'Organisation', fields: [
+    { k:'name', label:'Name', req:true }, { k:'slug', label:'Slug', req:true },
+    { k:'industry', label:'Industry' }, { k:'initials', label:'Initials' },
+    { k:'color', label:'Color', ph:'#C8B6FF' }, { k:'note', label:'Note' } ] },
+  Products: { path: '/api/products', label: 'Product', fields: [
+    { k:'name', label:'Name', req:true }, { k:'code', label:'Code', req:true },
+    { k:'organisation_id', label:'Organisation ID', num:true }, { k:'description', label:'Description' },
+    { k:'status', label:'Status', ph:'Active' } ] },
+  Workspaces: { path: '/api/workspaces', label: 'Workspace', fields: [
+    { k:'name', label:'Name', req:true }, { k:'slug', label:'Slug' }, { k:'icon', label:'Icon', ph:'grid' },
+    { k:'organisation_id', label:'Organisation ID', num:true }, { k:'product_id', label:'Product ID', num:true },
+    { k:'status', label:'Status', ph:'Active' } ] },
+  Users: { path: '/api/users', label: 'User', fields: [
+    { k:'name', label:'Name', req:true }, { k:'email', label:'Email', req:true, createOnly:true },
+    { k:'role_name', label:'Role', roleSelect:true }, { k:'status', label:'Status', select:['Active','Invited','Disabled'] } ] },
+  Roles: { path: '/api/roles', label: 'Role', fields: [
+    { k:'name', label:'Name', req:true }, { k:'description', label:'Description' } ] },
+};
+function entityForTab(tabName){
+  return ({ 'Organisations':'Organisations', 'Products':'Products', 'Workspaces':'Workspaces',
+    'Users':'Users', 'All Users':'Users', 'Roles':'Roles', 'Role List':'Roles' })[tabName] || null;
+}
+
 class Component extends DCLogic {
   state = {
     loading: true,
     rows: [],
     columns: [],
     stats: [],
+    trendPath: 'M0,140 L600,140',
     apis: [],
     cmds: [],
+    formOpen: false,
+    formMode: 'create',
+    editId: null,
+    form: {},
+    formErr: '',
+    busy: false,
+    roleOptions: [],
     previewValue: '—',
     previewLabel: 'Computed output'
   };
@@ -229,6 +309,8 @@ class Component extends DCLogic {
         endpoint = '/api/roles';
       } else if (tabName === 'Permissions') {
         endpoint = '/api/permissions';
+      } else if (tabName === 'Feedback') {
+        endpoint = '/api/feedback';
       }
 
       if (endpoint) {
@@ -248,32 +330,51 @@ class Component extends DCLogic {
             if (tabName === 'Organisations') {
               cols = ['ID', 'Name', 'Slug', 'Industry', 'Color', 'Created At'];
               rows = data.map(o => ({
+                id: o.id, record: o,
                 cells: [o.id, o.name, o.slug, o.industry || '—', o.color || '—', new Date(o.created_at).toLocaleDateString()]
               }));
             } else if (tabName === 'Products') {
               cols = ['ID', 'Name', 'Code', 'Org ID', 'Status', 'Created At'];
               rows = data.map(p => ({
+                id: p.id, record: p,
                 cells: [p.id, p.name, p.code, p.organisation_id || '—', p.status || 'Active', new Date(p.created_at).toLocaleDateString()]
               }));
             } else if (tabName === 'Workspaces') {
               cols = ['ID', 'Name', 'Slug', 'Icon', 'Org ID', 'Product ID', 'Status'];
               rows = data.map(w => ({
+                id: w.id, record: w,
                 cells: [w.id, w.name, w.slug || '—', w.icon || 'grid', w.organisation_id || '—', w.product_id || '—', w.status || 'Active']
               }));
             } else if (tabName === 'Users' || tabName === 'All Users') {
               cols = ['Name', 'Email', 'Role', 'Status'];
               rows = data.map(u => ({
+                id: u.id, record: u,
                 cells: [u.name, u.email, u.role ? u.role.name : 'None', u.status]
               }));
             } else if (tabName === 'Roles' || tabName === 'Role List') {
               cols = ['Role', 'Description', 'Created At'];
               rows = data.map(r => ({
+                id: r.id, record: r,
                 cells: [r.name, r.description || '', new Date(r.created_at).toLocaleDateString()]
               }));
             } else if (tabName === 'Permissions') {
               cols = ['Name', 'Code', 'Description'];
               rows = data.map(p => ({
+                id: p.id, record: p,
                 cells: [p.name, p.code, p.description || '']
+              }));
+            } else if (tabName === 'Feedback') {
+              cols = ['Category', 'Message', 'Submitted By', 'Page', 'Status', 'When'];
+              rows = data.map(f => ({
+                id: f.id, record: f,
+                cells: [
+                  f.category,
+                  (f.text || '').length > 64 ? (f.text.slice(0, 64) + '…') : (f.text || ''),
+                  f.user ? f.user.email : '—',
+                  f.path || '—',
+                  f.status,
+                  new Date(f.created_at).toLocaleDateString()
+                ]
               }));
             }
             
@@ -286,21 +387,26 @@ class Component extends DCLogic {
       }
     } else if (kind === 'dashboard') {
       this.setState({ loading: true });
-      fetch('/api/dashboard/stats')
-        .then(res => {
-          if (res.status === 401) {
-            window.location.href = '/login';
-            return { stats: [] };
-          }
+      Promise.all([
+        fetch('/api/dashboard/stats').then(res => {
+          if (res.status === 401) { window.location.href = '/login'; return { stats: [] }; }
           return res.json();
-        })
-        .then(data => {
-          this.setState({ stats: data.stats || [], loading: false });
-        })
-        .catch(err => {
-          console.error('Error fetching stats:', err);
-          this.setState({ loading: false });
-        });
+        }),
+        fetch('/api/dashboard/trend').then(res => res.ok ? res.json() : { points: [] }).catch(() => ({ points: [] }))
+      ]).then(([s, t]) => {
+        const pts = (t && t.points) || [];
+        const max = Math.max(1, ...pts.map(p => p.value));
+        const n = Math.max(1, pts.length - 1);
+        const path = pts.length ? pts.map((p, i) => {
+          const x = (i * (600 / n)).toFixed(1);
+          const y = (140 - (p.value / max) * 120).toFixed(1);
+          return (i === 0 ? 'M' : 'L') + x + ',' + y;
+        }).join(' ') : 'M0,140 L600,140';
+        this.setState({ stats: s.stats || [], trendPath: path, loading: false });
+      }).catch(err => {
+        console.error('Error fetching dashboard:', err);
+        this.setState({ loading: false });
+      });
     } else if (kind === 'api') {
       this.setState({ loading: true });
       const MC = { GET: '#A2D2FF', POST: '#B8E0D2', DELETE: '#FFB5C2', PUT: '#FFCDB2', PATCH: '#C8B6FF' };
@@ -346,6 +452,84 @@ class Component extends DCLogic {
     }
   }
 
+  // ── CRUD actions ────────────────────────────────────────────────────────
+  _entity() { return entityForTab(this.props.tabName); }
+
+  _ensureRoles(ent) {
+    if (ent !== 'Users' || (this.state.roleOptions && this.state.roleOptions.length)) return;
+    fetch('/api/roles').then(r => r.ok ? r.json() : []).then(rs =>
+      this.setState({ roleOptions: (rs || []).map(x => x.name) })).catch(() => {});
+  }
+
+  openCreate() {
+    const ent = this._entity(); if (!ent) return;
+    this.setState({ formOpen: true, formMode: 'create', editId: null, form: {}, formErr: '' });
+    this._ensureRoles(ent);
+  }
+
+  openEdit(row) {
+    const ent = this._entity(); if (!ent) return;
+    const rec = row.record || {};
+    const form = {};
+    ENTITIES[ent].fields.forEach(f => {
+      let v = f.k === 'role_name' ? (rec.role ? rec.role.name : '') : rec[f.k];
+      form[f.k] = (v == null ? '' : v);
+    });
+    this.setState({ formOpen: true, formMode: 'edit', editId: row.id, form: form, formErr: '' });
+    this._ensureRoles(ent);
+  }
+
+  closeForm() { this.setState({ formOpen: false, formErr: '' }); }
+  onFormField(k, v) { this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }) })); }
+
+  submitForm() {
+    const ent = this._entity(); if (!ent) return;
+    const cfg = ENTITIES[ent];
+    const mode = this.state.formMode;
+    for (const f of cfg.fields) {
+      if (mode === 'edit' && f.createOnly) continue;
+      if (f.req && !String(this.state.form[f.k] || '').trim()) {
+        this.setState({ formErr: f.label + ' is required' }); return;
+      }
+    }
+    const body = {};
+    cfg.fields.forEach(f => {
+      if (mode === 'edit' && f.createOnly) return;
+      let v = this.state.form[f.k];
+      if (v == null || String(v).trim() === '') return;
+      if (f.num) { v = parseInt(v, 10); if (isNaN(v)) return; }
+      body[f.k] = v;
+    });
+    if (ent === 'Users' && mode === 'create') {
+      body.password = 'changeme';
+      if (!body.status) body.status = 'Active';
+    }
+    this.setState({ busy: true, formErr: '' });
+    const url = mode === 'create' ? cfg.path : cfg.path + '/' + this.state.editId;
+    const method = mode === 'create' ? 'POST' : 'PATCH';
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(async r => {
+        if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (_) {} throw new Error(d || ('HTTP ' + r.status)); }
+        return r.json();
+      })
+      .then(() => { this.setState({ formOpen: false, busy: false }); this.fetchData(); })
+      .catch(e => this.setState({ busy: false, formErr: String(e.message || e) }));
+  }
+
+  doDelete(row) {
+    const ent = this._entity(); if (!ent) return;
+    const cfg = ENTITIES[ent];
+    const label = (row.record && (row.record.name || row.record.email)) || ('#' + row.id);
+    if (!window.confirm('Delete ' + cfg.label + ' "' + label + '"? This cannot be undone.')) return;
+    fetch(cfg.path + '/' + row.id, { method: 'DELETE' })
+      .then(async r => {
+        if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (_) {} throw new Error(d || ('HTTP ' + r.status)); }
+        return r.json();
+      })
+      .then(() => this.fetchData())
+      .catch(e => window.alert('Delete failed: ' + (e.message || e)));
+  }
+
   renderVals() {
     const p = this.props;
     const org = p.org || 'Z9S-AI';
@@ -366,9 +550,42 @@ class Component extends DCLogic {
 
     // Columns and rows from state
     const columns = this.state.columns || [];
-    const rows = this.state.rows || [];
+    const rawRows = this.state.rows || [];
+    const tableCount = `${rawRows.length} records`;
+
+    // CRUD: which entity does this table map to (null = read-only, e.g. Permissions)
+    const entity = kind === 'table' ? entityForTab(tabName) : null;
+    const canCrud = !!entity;
+    const entLabel = entity ? ENTITIES[entity].label : '';
     const gridCols = columns.map((c,i) => i === 0 ? '1.6fr' : '1fr').join(' ');
-    const tableCount = `${rows.length} records`;
+    const gridColsX = canCrud ? (gridCols + ' 108px') : gridCols;
+
+    // Rows carry per-row edit/delete handlers.
+    const rows = rawRows.map(r => ({
+      cells: r.cells,
+      id: r.id,
+      onEdit: () => this.openEdit(r),
+      onDelete: () => this.doDelete(r),
+    }));
+
+    // Modal form fields for the active entity.
+    const fmode = this.state.formMode;
+    const formFields = entity ? ENTITIES[entity].fields
+      .filter(f => !(fmode === 'edit' && f.createOnly))
+      .map(f => {
+        const val = this.state.form[f.k] != null ? String(this.state.form[f.k]) : '';
+        const isRole = !!f.roleSelect;
+        const opts = isRole ? (this.state.roleOptions || []) : (f.select || []);
+        const isSelect = isRole || !!f.select;
+        return {
+          label: f.label, ph: f.ph || '', value: val,
+          isSelect: isSelect, isText: !isSelect,
+          options: (opts || []).map(o => ({ v: o, label: o })),
+          onInput: (e) => this.onFormField(f.k, e && e.target ? e.target.value : ''),
+        };
+      }) : [];
+    const formTitle = (fmode === 'create' ? 'New ' : 'Edit ') + entLabel;
+    const submitLabel = this.state.busy ? 'Saving…' : (fmode === 'create' ? 'Create' : 'Save changes');
 
     // Stats from state
     const stats = this.state.stats || [];
@@ -394,7 +611,11 @@ class Component extends DCLogic {
       showCrumb: this.props.hideCrumb !== true,
       isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
       isReport: kind === 'report', isDesign: kind === 'design', isApi: kind === 'api', isCli: kind === 'cli',
-      fields: [], columns, rows, gridCols, tableCount, stats, reportLines: [],
+      fields: [], columns, rows, gridCols, gridColsX, tableCount, stats, trendPath: this.state.trendPath, reportLines: [],
+      canCrud, entLabel, newLabel: 'New ' + entLabel, onNew: () => this.openCreate(),
+      formOpen: this.state.formOpen, formTitle, formFields, submitLabel,
+      formErr: this.state.formErr, hasFormErr: !!this.state.formErr, busy: this.state.busy,
+      onFormClose: () => this.closeForm(), onFormSubmit: () => this.submitForm(),
       apis, apiCount, cmds, cliCount,
       previewValue: this.state.previewValue, previewLabel: this.state.previewLabel,
     };

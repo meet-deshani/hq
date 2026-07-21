@@ -118,9 +118,38 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
-    role_id: Optional[int] = None
+    role_name: Optional[str] = None
     organisation_id: Optional[int] = None
     status: Optional[str] = None
+
+# Update schemas (all fields optional — PATCH semantics)
+class OrganisationUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    industry: Optional[str] = None
+    initials: Optional[str] = None
+    color: Optional[str] = None
+    note: Optional[str] = None
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    organisation_id: Optional[int] = None
+
+class WorkspaceUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    icon: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    organisation_id: Optional[int] = None
+    product_id: Optional[int] = None
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 class UserResponse(UserBase):
     id: int
@@ -166,4 +195,83 @@ class CliCatalogResponse(BaseModel):
     base_command: str
     count: int
     commands: List[CliCommandItem]
+
+# Feedback Schemas
+class FeedbackCreate(BaseModel):
+    category: Optional[str] = "general"
+    text: str
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+
+class FeedbackUserBrief(BaseModel):
+    name: str
+    email: EmailStr
+
+    class Config:
+        from_attributes = True
+
+class FeedbackResponse(BaseModel):
+    id: int
+    category: str
+    text: str
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+    status: str
+    created_at: datetime
+    user: Optional[FeedbackUserBrief] = None
+
+    class Config:
+        from_attributes = True
+
+class FeedbackUpdate(BaseModel):
+    status: Optional[str] = None
+    category: Optional[str] = None
+
+# Notification Schemas
+class NotificationCreate(BaseModel):
+    user_id: int
+    title: str
+    category: Optional[str] = "update"
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+
+class NotificationResponse(BaseModel):
+    id: int
+    title: str
+    category: str
+    read: bool
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class NotificationUpdate(BaseModel):
+    read: Optional[bool] = None
+
+# AI assistant Schemas
+class AiMessage(BaseModel):
+    role: str            # "user" | "assistant"
+    text: str
+
+class AiChatRequest(BaseModel):
+    message: str
+    history: Optional[List[AiMessage]] = []
+    context: Optional[str] = None      # current page context
+    model: Optional[str] = None        # UI-selected model label (informational)
+    mode: Optional[str] = None
+
+class AiChatResponse(BaseModel):
+    reply: str
+    model: str
+    configured: bool
 

@@ -8,14 +8,18 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
-from backend.models import User, Role, Permission, Organisation, Product, Workspace
+from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
-    RoleResponse, RoleCreate, PermissionResponse, DashboardStatsResponse, StatItem,
-    OrganisationResponse, OrganisationCreate, ProductResponse, ProductCreate,
-    WorkspaceResponse, WorkspaceCreate, ApiCatalogResponse, ApiCatalogItem,
-    CliCatalogResponse, CliCommandItem
+    RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
+    OrganisationResponse, OrganisationCreate, OrganisationUpdate,
+    ProductResponse, ProductCreate, ProductUpdate,
+    WorkspaceResponse, WorkspaceCreate, WorkspaceUpdate, ApiCatalogResponse, ApiCatalogItem,
+    CliCatalogResponse, CliCommandItem, FeedbackCreate, FeedbackResponse, FeedbackUpdate,
+    NotificationCreate, NotificationResponse, NotificationUpdate,
+    AiChatRequest, AiChatResponse
 )
+import requests as _http
 from backend.auth import (
     verify_password, get_password_hash, create_access_token, get_current_user
 )
@@ -84,33 +88,26 @@ def seed_database():
         if db.query(Workspace).filter(Workspace.organisation_id == org.id).count() == 0:
             logger.info("Seeding default workspaces...")
             hq_ws = Workspace(
-                organisation_id=org.id,
-                product_id=product.id,
-                name="HQ",
-                slug="hq",
-                icon="grid",
-                description="HQ main workspace",
-                status="Active"
+                organisation_id=org.id, product_id=product.id,
+                name="HQ", slug="hq", icon="hq",
+                description="HQ main workspace", status="Active"
             )
             config_ws = Workspace(
-                organisation_id=org.id,
-                product_id=product.id,
-                name="Config",
-                slug="config",
-                icon="sliders",
-                description="Configuration workspace",
-                status="Active"
+                organisation_id=org.id, product_id=product.id,
+                name="Config", slug="config", icon="config",
+                description="Configuration workspace", status="Active"
             )
             users_ws = Workspace(
-                organisation_id=org.id,
-                product_id=product.id,
-                name="Users",
-                slug="users",
-                icon="users",
-                description="User management workspace",
-                status="Active"
+                organisation_id=org.id, product_id=product.id,
+                name="Users", slug="users", icon="admin",
+                description="User management workspace", status="Active"
             )
-            db.add_all([hq_ws, config_ws, users_ws])
+            document_ws = Workspace(
+                organisation_id=org.id, product_id=product.id,
+                name="Document", slug="document", icon="document",
+                description="API & CLI reference workspace", status="Active"
+            )
+            db.add_all([hq_ws, config_ws, users_ws, document_ws])
             db.commit()
             logger.info("Default workspaces seeded.")
 
@@ -179,6 +176,16 @@ def seed_database():
                 status="Active"
             )
             db.add(admin_user)
+            db.commit()
+            # Seed welcome notifications so the bell reflects real (DB-backed) data.
+            db.add_all([
+                Notification(user_id=admin_user.id, category="platform",
+                    title="Welcome to Z9S-AI HQ — your operating system is ready.",
+                    path="/hq/hq/dashboard", product="hq", module="HQ", tab="Dashboard"),
+                Notification(user_id=admin_user.id, category="update",
+                    title="Your Admin role has full access to every workspace.",
+                    path="/hq/config/roles", product="hq", module="Config", tab="Roles"),
+            ])
             db.commit()
             logger.info("Default Admin user 'meet@dotsai.in' successfully seeded.")
             
@@ -266,7 +273,38 @@ def create_user(
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    # Real notifications: tell admins a user joined, welcome the new user.
+    _notify(db, _admin_ids(db), f"New user {db_user.name} joined the platform",
+            category="update", path="/hq/config/users", product="hq", module="Config", tab="Users")
+    _notify(db, [db_user.id], "Welcome to Z9S-AI HQ — your account is ready.",
+            category="platform", path="/hq/hq/dashboard", product="hq", module="HQ", tab="Dashboard")
+    db.commit()
     return db_user
+
+@app.patch("/api/users/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_data.name is not None:
+        user.name = user_data.name
+    if user_data.status is not None:
+        user.status = user_data.status
+    if user_data.organisation_id is not None:
+        user.organisation_id = user_data.organisation_id
+    if user_data.role_name is not None:
+        role = db.query(Role).filter(Role.name == user_data.role_name).first()
+        if not role:
+            raise HTTPException(status_code=400, detail=f"Role '{user_data.role_name}' not found")
+        user.role_id = role.id
+    db.commit()
+    db.refresh(user)
+    return user
 
 @app.delete("/api/users/{user_id}")
 def delete_user(
@@ -317,6 +355,42 @@ def create_organisation(
     db.refresh(db_org)
     return db_org
 
+@app.patch("/api/organisations/{org_id}", response_model=OrganisationResponse)
+def update_organisation(
+    org_id: int,
+    org_data: OrganisationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    org = db.query(Organisation).filter(Organisation.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    for field, value in org_data.model_dump(exclude_unset=True).items():
+        setattr(org, field, value)
+    db.commit()
+    db.refresh(org)
+    return org
+
+@app.delete("/api/organisations/{org_id}")
+def delete_organisation(
+    org_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    org = db.query(Organisation).filter(Organisation.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    # Guard: don't orphan users (or nuke products/workspaces/roles) that still belong to it.
+    assigned = db.query(User).filter(User.organisation_id == org_id).count()
+    if assigned > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete organisation: {assigned} user(s) still belong to it. Reassign them first."
+        )
+    db.delete(org)
+    db.commit()
+    return {"detail": "Organisation deleted successfully"}
+
 # Products
 @app.get("/api/products", response_model=List[ProductResponse])
 def list_products(
@@ -347,6 +421,35 @@ def create_product(
     db.refresh(db_product)
     return db_product
 
+@app.patch("/api/products/{product_id}", response_model=ProductResponse)
+def update_product(
+    product_id: int,
+    product_data: ProductUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    for field, value in product_data.model_dump(exclude_unset=True).items():
+        setattr(product, field, value)
+    db.commit()
+    db.refresh(product)
+    return product
+
+@app.delete("/api/products/{product_id}")
+def delete_product(
+    product_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(product)
+    db.commit()
+    return {"detail": "Product deleted successfully"}
+
 # Workspaces
 @app.get("/api/workspaces", response_model=List[WorkspaceResponse])
 def list_workspaces(
@@ -373,6 +476,35 @@ def create_workspace(
     db.commit()
     db.refresh(db_workspace)
     return db_workspace
+
+@app.patch("/api/workspaces/{workspace_id}", response_model=WorkspaceResponse)
+def update_workspace(
+    workspace_id: int,
+    workspace_data: WorkspaceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    for field, value in workspace_data.model_dump(exclude_unset=True).items():
+        setattr(workspace, field, value)
+    db.commit()
+    db.refresh(workspace)
+    return workspace
+
+@app.delete("/api/workspaces/{workspace_id}")
+def delete_workspace(
+    workspace_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    db.delete(workspace)
+    db.commit()
+    return {"detail": "Workspace deleted successfully"}
 
 # Roles
 @app.get("/api/roles", response_model=List[RoleResponse])
@@ -407,6 +539,42 @@ def create_role(
     db.commit()
     db.refresh(db_role)
     return db_role
+
+@app.patch("/api/roles/{role_id}", response_model=RoleResponse)
+def update_role(
+    role_id: int,
+    role_data: RoleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    for field, value in role_data.model_dump(exclude_unset=True).items():
+        setattr(role, field, value)
+    db.commit()
+    db.refresh(role)
+    return role
+
+@app.delete("/api/roles/{role_id}")
+def delete_role(
+    role_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    # Guard: don't orphan users by deleting a role they're still assigned to.
+    assigned = db.query(User).filter(User.role_id == role_id).count()
+    if assigned > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete role: {assigned} user(s) are still assigned to it. Reassign them to another role first."
+        )
+    db.delete(role)
+    db.commit()
+    return {"detail": "Role deleted successfully"}
 
 # Permissions
 @app.get("/api/permissions", response_model=List[PermissionResponse])
@@ -460,6 +628,267 @@ def get_dashboard_stats(
         ]
     }
 
+# Global search — searches real DB entities (not the static nav tree).
+@app.get("/api/search")
+def search(
+    q: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    q = (q or "").strip()
+    if not q:
+        return {"results": []}
+    like = f"%{q}%"
+    results = []
+    for u in db.query(User).filter(User.name.ilike(like) | User.email.ilike(like)).limit(6).all():
+        results.append({"type": "User", "label": u.name, "sub": u.email, "product": "hq", "module": "Config", "tab": "Users"})
+    for o in db.query(Organisation).filter(Organisation.name.ilike(like) | Organisation.slug.ilike(like)).limit(4).all():
+        results.append({"type": "Organisation", "label": o.name, "sub": o.industry or o.slug, "product": "hq", "module": "Config", "tab": "Organisations"})
+    for p in db.query(Product).filter(Product.name.ilike(like) | Product.code.ilike(like)).limit(4).all():
+        results.append({"type": "Product", "label": p.name, "sub": p.code, "product": "hq", "module": "Config", "tab": "Products"})
+    for w in db.query(Workspace).filter(Workspace.name.ilike(like)).limit(4).all():
+        results.append({"type": "Workspace", "label": w.name, "sub": w.slug or "", "product": "hq", "module": "Config", "tab": "Workspaces"})
+    for r in db.query(Role).filter(Role.name.ilike(like)).limit(4).all():
+        results.append({"type": "Role", "label": r.name, "sub": r.description or "", "product": "hq", "module": "Config", "tab": "Roles"})
+    return {"results": results[:12]}
+
+# Dashboard trend — cumulative record growth over the last 6 months (from created_at).
+@app.get("/api/dashboard/trend")
+def dashboard_trend(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from datetime import datetime
+    now = datetime.utcnow()
+    seq = []
+    for i in range(5, -1, -1):
+        mm, yy = now.month - i, now.year
+        while mm <= 0:
+            mm += 12
+            yy -= 1
+        seq.append((yy, mm))
+    stamps = []
+    for model in (User, Organisation, Product, Workspace, Role, Feedback):
+        stamps += [row[0] for row in db.query(model.created_at).all() if row[0] is not None]
+    points = []
+    for (yy, mm) in seq:
+        nm, ny = (mm + 1, yy) if mm < 12 else (1, yy + 1)
+        boundary = datetime(ny, nm, 1)
+        points.append({"label": datetime(yy, mm, 1).strftime("%b"),
+                       "value": sum(1 for s in stamps if s < boundary)})
+    return {"points": points}
+
+# Feedback
+@app.post("/api/feedback", response_model=FeedbackResponse)
+def create_feedback(
+    fb: FeedbackCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    entry = Feedback(
+        user_id=current_user.id,
+        category=fb.category or "general",
+        text=fb.text,
+        path=fb.path,
+        product=fb.product,
+        module=fb.module,
+        tab=fb.tab,
+        status="Open"
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    # Real notification: alert admins that new feedback arrived.
+    _notify(db, _admin_ids(db), f"New {entry.category} feedback from {current_user.email}",
+            category="alert", path="/hq/config/feedback", product="hq", module="Config", tab="Feedback")
+    db.commit()
+    return entry
+
+@app.get("/api/feedback", response_model=List[FeedbackResponse])
+def list_feedback(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Feedback)
+    if status:
+        query = query.filter(Feedback.status == status)
+    return query.order_by(Feedback.created_at.desc()).all()
+
+@app.patch("/api/feedback/{feedback_id}", response_model=FeedbackResponse)
+def update_feedback(
+    feedback_id: int,
+    fb_data: FeedbackUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    for field, value in fb_data.model_dump(exclude_unset=True).items():
+        setattr(fb, field, value)
+    db.commit()
+    db.refresh(fb)
+    return fb
+
+@app.delete("/api/feedback/{feedback_id}")
+def delete_feedback(
+    feedback_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    db.delete(fb)
+    db.commit()
+    return {"detail": "Feedback deleted successfully"}
+
+# Notifications
+def _admin_ids(db: Session):
+    return [u.id for u in db.query(User).join(Role).filter(Role.name == "Admin").all()]
+
+def _notify(db: Session, user_ids, title, category="update", path=None, product=None, module=None, tab=None):
+    """Queue notifications for the given users. Caller commits."""
+    for uid in set(user_ids):
+        db.add(Notification(user_id=uid, title=title, category=category,
+                            path=path, product=product, module=module, tab=tab))
+
+@app.get("/api/notifications", response_model=List[NotificationResponse])
+def list_notifications(
+    unread: Optional[bool] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Notification).filter(Notification.user_id == current_user.id)
+    if unread is True:
+        query = query.filter(Notification.read == False)
+    return query.order_by(Notification.created_at.desc()).all()
+
+@app.post("/api/notifications", response_model=NotificationResponse)
+def create_notification(
+    data: NotificationCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    n = Notification(
+        user_id=data.user_id, title=data.title, category=data.category or "update",
+        path=data.path, product=data.product, module=data.module, tab=data.tab
+    )
+    db.add(n)
+    db.commit()
+    db.refresh(n)
+    return n
+
+@app.post("/api/notifications/read-all")
+def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    updated = db.query(Notification).filter(
+        Notification.user_id == current_user.id, Notification.read == False
+    ).update({"read": True})
+    db.commit()
+    return {"detail": f"{updated} notification(s) marked as read"}
+
+@app.patch("/api/notifications/{notification_id}", response_model=NotificationResponse)
+def update_notification(
+    notification_id: int,
+    data: NotificationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    n = db.query(Notification).filter(
+        Notification.id == notification_id, Notification.user_id == current_user.id
+    ).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if data.read is not None:
+        n.read = data.read
+    db.commit()
+    db.refresh(n)
+    return n
+
+@app.delete("/api/notifications/{notification_id}")
+def delete_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    n = db.query(Notification).filter(
+        Notification.id == notification_id, Notification.user_id == current_user.id
+    ).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    db.delete(n)
+    db.commit()
+    return {"detail": "Notification deleted successfully"}
+
+# AI assistant — proxies to a real LLM. Provider + key come from env, so nothing
+# secret is committed, and it degrades gracefully when no key is configured.
+AI_SYSTEM = (
+    "You are the AI assistant embedded in the Z9S-AI HQ portal — an internal "
+    "operations platform with workspaces for HQ (dashboard), Config (organisations, "
+    "products, workspaces, users, roles, permissions, feedback) and Document (API and "
+    "CLI references). Be concise, accurate and genuinely helpful. When the user asks "
+    "about the current screen, use the page context provided."
+)
+
+def _ai_unconfigured(var: str) -> str:
+    return (f"The AI assistant isn't configured yet. Add {var} (and optionally AI_MODEL) "
+            f"to the server's .env and restart to enable live answers.")
+
+@app.post("/api/ai/chat", response_model=AiChatResponse)
+def ai_chat(req: AiChatRequest, current_user: User = Depends(get_current_user)):
+    provider = os.getenv("AI_PROVIDER", "anthropic").strip().lower()
+    system = AI_SYSTEM + (("\n\nCurrent page — " + req.context) if req.context else "")
+    history = [(m.role if m.role in ("user", "assistant") else "user", m.text)
+               for m in (req.history or [])]
+
+    if provider == "openai":
+        key = os.getenv("OPENAI_API_KEY")
+        model = os.getenv("AI_MODEL", "gpt-4o-mini")
+        if not key:
+            return AiChatResponse(reply=_ai_unconfigured("OPENAI_API_KEY"), model="none", configured=False)
+        try:
+            msgs = [{"role": "system", "content": system}]
+            msgs += [{"role": r, "content": t} for r, t in history]
+            msgs.append({"role": "user", "content": req.message})
+            base = os.getenv("AI_BASE_URL", "https://api.openai.com").rstrip("/")
+            resp = _http.post(
+                base + "/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={"model": model, "messages": msgs, "max_tokens": 1024}, timeout=60,
+            )
+            resp.raise_for_status()
+            reply = resp.json()["choices"][0]["message"]["content"]
+            return AiChatResponse(reply=reply, model=model, configured=True)
+        except Exception as e:
+            logger.error(f"OpenAI call failed: {e}")
+            return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
+
+    # Default provider: Anthropic (Claude).
+    key = os.getenv("ANTHROPIC_API_KEY")
+    model = os.getenv("AI_MODEL", "claude-3-5-sonnet-20241022")
+    if not key:
+        return AiChatResponse(reply=_ai_unconfigured("ANTHROPIC_API_KEY"), model="none", configured=False)
+    try:
+        msgs = [{"role": r, "content": t} for r, t in history]
+        msgs.append({"role": "user", "content": req.message})
+        base = os.getenv("AI_BASE_URL", "https://api.anthropic.com").rstrip("/")
+        resp = _http.post(
+            base + "/v1/messages",
+            headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": model, "max_tokens": 1024, "system": system, "messages": msgs}, timeout=60,
+        )
+        resp.raise_for_status()
+        blocks = resp.json().get("content", [])
+        reply = "".join(b.get("text", "") for b in blocks if b.get("type") == "text") or "…"
+        return AiChatResponse(reply=reply, model=model, configured=True)
+    except Exception as e:
+        logger.error(f"Anthropic call failed: {e}")
+        return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
+
 # ── API CATALOG ──
 # A self-documenting reference of every endpoint on the platform. Public by
 # design so AI agents and CLIs can discover the full surface before authing.
@@ -496,6 +925,12 @@ API_CATALOG = [
         "response": "{\n  \"id\": 2, \"email\": \"jane@acme.com\",\n  \"name\": \"Jane\", \"status\": \"Active\"\n}",
     },
     {
+        "method": "PATCH", "path": "/api/users/{user_id}", "auth": "Bearer / Cookie",
+        "summary": "Update a user's name, status, role (by name), or organisation.",
+        "usage": "curl -X PATCH __BASE__/api/users/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"Disabled\",\"role_name\":\"Viewer\"}'",
+        "response": "{ \"id\": 2, \"status\": \"Disabled\", \"role\": { \"name\": \"Viewer\" } }",
+    },
+    {
         "method": "DELETE", "path": "/api/users/{user_id}", "auth": "Bearer / Cookie",
         "summary": "Delete a user by id. You cannot delete your own account.",
         "usage": "curl -X DELETE __BASE__/api/users/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -514,6 +949,18 @@ API_CATALOG = [
         "response": "{\n  \"id\": 2, \"name\": \"Acme\", \"slug\": \"acme\"\n}",
     },
     {
+        "method": "PATCH", "path": "/api/organisations/{org_id}", "auth": "Bearer / Cookie",
+        "summary": "Update any organisation fields (name, slug, industry, color, ...).",
+        "usage": "curl -X PATCH __BASE__/api/organisations/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"industry\":\"Fintech\"}'",
+        "response": "{ \"id\": 2, \"name\": \"Acme\", \"industry\": \"Fintech\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/organisations/{org_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete an organisation (cascades to its products/workspaces/roles).",
+        "usage": "curl -X DELETE __BASE__/api/organisations/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Organisation deleted successfully\" }",
+    },
+    {
         "method": "GET", "path": "/api/products", "auth": "Bearer / Cookie",
         "summary": "List products. Optional ?organisation_id=<id> filter.",
         "usage": "curl \"__BASE__/api/products?organisation_id=1\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -524,6 +971,18 @@ API_CATALOG = [
         "summary": "Create a product. code must be unique.",
         "usage": "curl -X POST __BASE__/api/products \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"CRM\",\"code\":\"crm\",\"organisation_id\":1}'",
         "response": "{\n  \"id\": 2, \"name\": \"CRM\", \"code\": \"crm\"\n}",
+    },
+    {
+        "method": "PATCH", "path": "/api/products/{product_id}", "auth": "Bearer / Cookie",
+        "summary": "Update any product fields (name, code, status, description, ...).",
+        "usage": "curl -X PATCH __BASE__/api/products/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"Archived\"}'",
+        "response": "{ \"id\": 2, \"name\": \"CRM\", \"status\": \"Archived\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/products/{product_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a product by id.",
+        "usage": "curl -X DELETE __BASE__/api/products/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Product deleted successfully\" }",
     },
     {
         "method": "GET", "path": "/api/workspaces", "auth": "Bearer / Cookie",
@@ -538,6 +997,18 @@ API_CATALOG = [
         "response": "{\n  \"id\": 4, \"name\": \"Document\",\n  \"icon\": \"document\"\n}",
     },
     {
+        "method": "PATCH", "path": "/api/workspaces/{workspace_id}", "auth": "Bearer / Cookie",
+        "summary": "Update any workspace fields (name, slug, icon, status, ...).",
+        "usage": "curl -X PATCH __BASE__/api/workspaces/4 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"icon\":\"grid\"}'",
+        "response": "{ \"id\": 4, \"name\": \"Document\", \"icon\": \"grid\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/workspaces/{workspace_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a workspace by id.",
+        "usage": "curl -X DELETE __BASE__/api/workspaces/4 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Workspace deleted successfully\" }",
+    },
+    {
         "method": "GET", "path": "/api/roles", "auth": "Bearer / Cookie",
         "summary": "List roles. Optional ?organisation_id filter. Includes linked permissions.",
         "usage": "curl __BASE__/api/roles \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -548,6 +1019,18 @@ API_CATALOG = [
         "summary": "Create a role. name is unique per organisation.",
         "usage": "curl -X POST __BASE__/api/roles \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Analyst\",\"description\":\"Read-only analytics\",\"organisation_id\":1}'",
         "response": "{\n  \"id\": 4, \"name\": \"Analyst\"\n}",
+    },
+    {
+        "method": "PATCH", "path": "/api/roles/{role_id}", "auth": "Bearer / Cookie",
+        "summary": "Update a role's name or description.",
+        "usage": "curl -X PATCH __BASE__/api/roles/4 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"description\":\"Read-only analytics access\"}'",
+        "response": "{ \"id\": 4, \"name\": \"Analyst\", \"description\": \"Read-only analytics access\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/roles/{role_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a role by id.",
+        "usage": "curl -X DELETE __BASE__/api/roles/4 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Role deleted successfully\" }",
     },
     {
         "method": "GET", "path": "/api/permissions", "auth": "Bearer / Cookie",
@@ -568,10 +1051,82 @@ API_CATALOG = [
         "response": "{\n  \"stats\": [\n    { \"l\": \"Total Users\", \"v\": \"1\", \"d\": \"↗ Active: 1\" }\n  ]\n}",
     },
     {
+        "method": "POST", "path": "/api/feedback", "auth": "Bearer / Cookie",
+        "summary": "Submit feedback. Automatically attributed to the signed-in user.",
+        "usage": "curl -X POST __BASE__/api/feedback \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"category\":\"bug\",\"text\":\"Export button 404s\",\"path\":\"/hq/config/users\"}'",
+        "response": "{\n  \"id\": 1, \"category\": \"bug\",\n  \"status\": \"Open\",\n  \"user\": { \"name\": \"Meet Deshani\", \"email\": \"meet@dotsai.in\" }\n}",
+    },
+    {
+        "method": "GET", "path": "/api/feedback", "auth": "Bearer / Cookie",
+        "summary": "List all feedback, newest first. Optional ?status=Open|Reviewed|Closed.",
+        "usage": "curl \"__BASE__/api/feedback?status=Open\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "[\n  {\n    \"id\": 1, \"category\": \"bug\",\n    \"text\": \"Export button 404s\",\n    \"status\": \"Open\",\n    \"user\": { \"name\": \"Meet Deshani\" }\n  }\n]",
+    },
+    {
+        "method": "PATCH", "path": "/api/feedback/{feedback_id}", "auth": "Bearer / Cookie",
+        "summary": "Update feedback status (Open / Reviewed / Closed) or category.",
+        "usage": "curl -X PATCH __BASE__/api/feedback/1 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"Reviewed\"}'",
+        "response": "{ \"id\": 1, \"status\": \"Reviewed\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/feedback/{feedback_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a feedback entry by id.",
+        "usage": "curl -X DELETE __BASE__/api/feedback/1 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Feedback deleted successfully\" }",
+    },
+    {
+        "method": "GET", "path": "/api/notifications", "auth": "Bearer / Cookie",
+        "summary": "List the signed-in user's notifications, newest first. Optional ?unread=true.",
+        "usage": "curl \"__BASE__/api/notifications?unread=true\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "[\n  {\n    \"id\": 3, \"title\": \"New user Jane joined the platform\",\n    \"category\": \"update\", \"read\": false,\n    \"path\": \"/hq/config/users\"\n  }\n]",
+    },
+    {
+        "method": "POST", "path": "/api/notifications", "auth": "Bearer / Cookie",
+        "summary": "Create a notification targeting a specific user.",
+        "usage": "curl -X POST __BASE__/api/notifications \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"user_id\":1,\"title\":\"Deploy finished\",\"category\":\"platform\"}'",
+        "response": "{ \"id\": 4, \"title\": \"Deploy finished\", \"read\": false }",
+    },
+    {
+        "method": "POST", "path": "/api/notifications/read-all", "auth": "Bearer / Cookie",
+        "summary": "Mark all of the signed-in user's notifications as read.",
+        "usage": "curl -X POST __BASE__/api/notifications/read-all \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"2 notification(s) marked as read\" }",
+    },
+    {
+        "method": "PATCH", "path": "/api/notifications/{notification_id}", "auth": "Bearer / Cookie",
+        "summary": "Mark one of your notifications read/unread.",
+        "usage": "curl -X PATCH __BASE__/api/notifications/3 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"read\":true}'",
+        "response": "{ \"id\": 3, \"read\": true }",
+    },
+    {
+        "method": "DELETE", "path": "/api/notifications/{notification_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete one of your notifications.",
+        "usage": "curl -X DELETE __BASE__/api/notifications/3 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Notification deleted successfully\" }",
+    },
+    {
+        "method": "GET", "path": "/api/search", "auth": "Bearer / Cookie",
+        "summary": "Search real DB entities (users, orgs, products, workspaces, roles) by ?q=.",
+        "usage": "curl \"__BASE__/api/search?q=meet\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"results\": [\n    { \"type\": \"User\", \"label\": \"Meet Deshani\", \"sub\": \"meet@dotsai.in\" }\n  ]\n}",
+    },
+    {
+        "method": "GET", "path": "/api/dashboard/trend", "auth": "Bearer / Cookie",
+        "summary": "Cumulative record growth over the last 6 months, derived from created_at.",
+        "usage": "curl __BASE__/api/dashboard/trend \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"points\": [\n    { \"label\": \"Feb\", \"value\": 0 },\n    { \"label\": \"Jul\", \"value\": 21 }\n  ]\n}",
+    },
+    {
+        "method": "POST", "path": "/api/ai/chat", "auth": "Bearer / Cookie",
+        "summary": "Chat with the AI assistant. Proxies to the configured LLM (AI_PROVIDER) with the current page as context; returns a canned notice until a key is set.",
+        "usage": "curl -X POST __BASE__/api/ai/chat \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"message\":\"What can I do on this page?\",\"context\":\"HQ · Config · Users\"}'",
+        "response": "{\n  \"reply\": \"On the Users page you can ...\",\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"configured\": true\n}",
+    },
+    {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
-        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 18,\n  \"endpoints\": [ ... ]\n}",
+        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 39,\n  \"endpoints\": [ ... ]\n}",
     },
 ]
 
