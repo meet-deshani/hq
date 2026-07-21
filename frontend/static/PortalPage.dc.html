@@ -158,6 +158,20 @@
           </div>
         </div>
       </sc-if>
+
+      <sc-if value="{{ credOpen }}" hint-placeholder-val="{{ false }}">
+        <div sc-camel-on-click="{{ onCredClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:97"></div>
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:98;padding:22px 22px 20px;box-sizing:border-box">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:6px">User created</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:13px;line-height:1.5;color:#6E6B62;margin-bottom:16px">Share this one-time password with {{ credEmail }} securely — it won't be shown again.</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Temporary password</div>
+          <div style="padding:12px 15px;border-radius:11px;background:#F6F5F1;border:1.5px solid #E8E6E0;font-family:'JetBrains Mono',monospace;font-size:15px;color:#191924;word-break:break-all">{{ credPassword }}</div>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button sc-camel-on-click="{{ onCredCopy }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ credCopyLabel }}</button>
+            <button sc-camel-on-click="{{ onCredClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Done</button>
+          </div>
+        </div>
+      </sc-if>
     </sc-if>
 
     <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
@@ -560,6 +574,12 @@ class Component extends DCLogic {
   closeForm() { this.setState({ formOpen: false, formErr: '' }); }
   onFormField(k, v) { this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }) })); }
 
+  closeCred() { this.setState({ createdCred: null, credCopied: false }); }
+  copyCred() {
+    const c = this.state.createdCred; if (!c) return;
+    try { navigator.clipboard.writeText(c.password); this.setState({ credCopied: true }); } catch (_) {}
+  }
+
   submitForm() {
     const ent = this.state.formEntity || this._entity(); if (!ent) return;
     const cfg = ENTITIES[ent];
@@ -579,7 +599,7 @@ class Component extends DCLogic {
       body[f.k] = v;
     });
     if (ent === 'Users' && mode === 'create') {
-      body.password = 'changeme';
+      // No password sent — the server mints a strong one and returns it once.
       if (!body.status) body.status = 'Active';
     }
     this.setState({ busy: true, formErr: '' });
@@ -590,7 +610,15 @@ class Component extends DCLogic {
         if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (_) {} throw new Error(d || ('HTTP ' + r.status)); }
         return r.json();
       })
-      .then(() => { this.setState({ formOpen: false, busy: false }); this.fetchData(); })
+      .then((rec) => {
+        // New users come back with a one-time generated password to share.
+        if (ent === 'Users' && mode === 'create' && rec && rec.initial_password) {
+          this.setState({ formOpen: false, busy: false, createdCred: { email: rec.email, password: rec.initial_password }, credCopied: false });
+        } else {
+          this.setState({ formOpen: false, busy: false });
+        }
+        this.fetchData();
+      })
       .catch(e => this.setState({ busy: false, formErr: String(e.message || e) }));
   }
 
@@ -715,6 +743,11 @@ class Component extends DCLogic {
       pwSubmitLabel: this.state.pwBusy ? 'Saving…' : 'Set password',
       onPwClose: () => this.closePw(), onPwInput: (e) => this.onPwField(e && e.target ? e.target.value : ''),
       onPwGen: () => this.genPw(), onPwSubmit: () => this.submitPw(),
+      credOpen: !!this.state.createdCred,
+      credEmail: this.state.createdCred ? this.state.createdCred.email : '',
+      credPassword: this.state.createdCred ? this.state.createdCred.password : '',
+      credCopyLabel: this.state.credCopied ? 'Copied ✓' : 'Copy password',
+      onCredCopy: () => this.copyCred(), onCredClose: () => this.closeCred(),
       apis, apiCount, cmds, cliCount,
       previewValue: this.state.previewValue, previewLabel: this.state.previewLabel,
     };

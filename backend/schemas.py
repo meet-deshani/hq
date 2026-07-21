@@ -112,7 +112,9 @@ class UserBase(BaseModel):
     organisation_id: Optional[int] = None
 
 class UserCreate(UserBase):
-    password: str
+    # Optional — if omitted (or blank) the server mints a strong random password
+    # and returns it once as `initial_password`. Supply one to set it explicitly.
+    password: Optional[str] = None
     role_name: Optional[str] = "Admin"
     organisation_id: Optional[int] = None
 
@@ -159,9 +161,15 @@ class UserResponse(UserBase):
     role_id: Optional[int] = None
     role: Optional[RoleBase] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+class UserCreateResponse(UserResponse):
+    # Returned ONLY by POST /api/users, and only when the server generated the
+    # password (None when the caller supplied their own). Never stored, never
+    # re-returned — surface it once so an admin can share it with the new user.
+    initial_password: Optional[str] = None
 
 # Dashboard Stats Schemas
 class StatItem(BaseModel):
