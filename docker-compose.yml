@@ -1,29 +1,32 @@
 services:
-  hq-portal:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  # Service key stays `app` to match the container deploy.sh first created —
+  # `deploy hq` runs a bare `compose up -d` (no --remove-orphans), so renaming
+  # the service would try to create a second container named hq-portal and
+  # collide. Same service name = clean in-place recreate.
+  app:
+    build: .
+    image: hq-portal:latest
     container_name: hq-portal
-    # Nginx reverse-proxies to this published port on the VPS; also used for
-    # local testing.
-    ports:
-      - "8005:8000"
+    # Nginx (on the shared services_services network) reverse-proxies to this
+    # container by hostname on port 8000. The port stays container-internal —
+    # it is NOT published to the host, so it can never collide with other apps.
+    expose:
+      - "8000"
+    # App secrets / DB config, loaded only if the file exists. Marked optional so
+    # a deploy succeeds before .env is provisioned (the app falls back to SQLite
+    # when DATABASE_URL is unset). To move HQ onto the shared Postgres, drop a
+    # /opt/apps/hq/.env on the VPS with:
+    #   DATABASE_URL=postgresql://USER:PASS@postgres:5432/hq
+    #   DB_REQUIRE=true
     env_file:
-      - .env
-    environment:
-      # In production, fail fast instead of silently falling back to SQLite if
-      # the database is unreachable (prevents accidental data loss).
-      DB_REQUIRE: "true"
-    # Join the shared network so this container can reach the central dotsai
-    # Postgres by hostname, e.g. DATABASE_URL=...@postgres:5432/hq  (set in .env).
-    networks:
-      - dotsai_net
-    restart: always
+      - path: .env
+        required: false
+    restart: unless-stopped
 
-# The shared dotsai Postgres container already lives on this network, so we
-# attach to it as external (this compose file does NOT create/own it).
-# If the network name differs on your VPS, change it here to match
-# (`docker network ls` shows the network the postgres container is on).
+# Shared VPS network: nginx and the central `postgres` container both live here,
+# so hq-portal is reachable by nginx and can reach Postgres by hostname. This
+# compose attaches to it as external — it does NOT create or own the network.
 networks:
-  dotsai_net:
+  default:
+    name: services_services
     external: true

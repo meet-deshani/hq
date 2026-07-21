@@ -24,5 +24,10 @@ jobs:
 
       - name: Trigger VPS Deploy Script
         run: |
-          ssh -i ~/.ssh/id_rsa root@72.62.229.16 'deploy hq'
+          # Force-align the VPS checkout to origin/main BEFORE deploying so a
+          # stale/locally-modified tracked file (e.g. docker-compose.yml written
+          # by deploy.sh at init) can never abort deploy.sh's `git pull --ff-only`.
+          # reset --hard only touches tracked files; untracked .env/.deploy.env
+          # are preserved. This makes deploys self-healing against config drift.
+          ssh -i ~/.ssh/id_rsa root@72.62.229.16 'git -C /opt/apps/hq fetch origin main && git -C /opt/apps/hq reset --hard origin/main && deploy hq'
 
