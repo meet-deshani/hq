@@ -122,6 +122,9 @@ class UserUpdate(BaseModel):
     organisation_id: Optional[int] = None
     status: Optional[str] = None
 
+class PasswordSet(BaseModel):
+    password: str
+
 # Update schemas (all fields optional — PATCH semantics)
 class OrganisationUpdate(BaseModel):
     name: Optional[str] = None

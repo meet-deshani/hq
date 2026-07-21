@@ -10,7 +10,7 @@ from typing import List, Optional
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
 from backend.schemas import (
-    LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
+    LoginRequest, Token, UserResponse, UserCreate, UserUpdate, PasswordSet,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, OrganisationUpdate,
     ProductResponse, ProductCreate, ProductUpdate,
@@ -329,6 +329,33 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"detail": "User deleted successfully"}
+
+@app.post("/api/users/{user_id}/password")
+def set_user_password(
+    user_id: int,
+    payload: PasswordSet,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Admin-only: setting another user's password is a privileged action, so it
+    # is gated on the Admin role rather than mere authentication.
+    if not (current_user.role and current_user.role.name == "Admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can change user passwords"
+        )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    new_password = (payload.password or "").strip()
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    return {"detail": f"Password updated for {user.email}"}
 
 # Organisations
 @app.get("/api/organisations", response_model=List[OrganisationResponse])
