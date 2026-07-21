@@ -196,3 +196,38 @@ class CliCatalogResponse(BaseModel):
     count: int
     commands: List[CliCommandItem]
 
+# Feedback Schemas
+class FeedbackCreate(BaseModel):
+    category: Optional[str] = "general"
+    text: str
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+
+class FeedbackUserBrief(BaseModel):
+    name: str
+    email: EmailStr
+
+    class Config:
+        from_attributes = True
+
+class FeedbackResponse(BaseModel):
+    id: int
+    category: str
+    text: str
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+    status: str
+    created_at: datetime
+    user: Optional[FeedbackUserBrief] = None
+
+    class Config:
+        from_attributes = True
+
+class FeedbackUpdate(BaseModel):
+    status: Optional[str] = None
+    category: Optional[str] = None
+

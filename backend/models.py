@@ -91,6 +91,7 @@ class User(Base):
     # Relationships
     role = relationship("Role", back_populates="users")
     organisation = relationship("Organisation", back_populates="users")
+    feedback = relationship("Feedback", back_populates="user", cascade="all, delete-orphan")
 
 class Permission(Base):
     __tablename__ = "permissions"
@@ -103,4 +104,21 @@ class Permission(Base):
     
     # Relationships
     roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Owned by the user who submitted it; removed with the user.
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    category = Column(String(50), default="general")   # bug | feature | improvement | general
+    text = Column(String(2000), nullable=False)
+    path = Column(String(255), nullable=True)          # slug path where it was raised
+    product = Column(String(150), nullable=True)
+    module = Column(String(150), nullable=True)
+    tab = Column(String(150), nullable=True)
+    status = Column(String(50), default="Open")        # Open | Reviewed | Closed
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="feedback")
 

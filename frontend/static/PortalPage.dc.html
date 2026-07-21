@@ -308,6 +308,8 @@ class Component extends DCLogic {
         endpoint = '/api/roles';
       } else if (tabName === 'Permissions') {
         endpoint = '/api/permissions';
+      } else if (tabName === 'Feedback') {
+        endpoint = '/api/feedback';
       }
 
       if (endpoint) {
@@ -359,6 +361,19 @@ class Component extends DCLogic {
               rows = data.map(p => ({
                 id: p.id, record: p,
                 cells: [p.name, p.code, p.description || '']
+              }));
+            } else if (tabName === 'Feedback') {
+              cols = ['Category', 'Message', 'Submitted By', 'Page', 'Status', 'When'];
+              rows = data.map(f => ({
+                id: f.id, record: f,
+                cells: [
+                  f.category,
+                  (f.text || '').length > 64 ? (f.text.slice(0, 64) + '…') : (f.text || ''),
+                  f.user ? f.user.email : '—',
+                  f.path || '—',
+                  f.status,
+                  new Date(f.created_at).toLocaleDateString()
+                ]
               }));
             }
             

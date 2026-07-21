@@ -1471,7 +1471,7 @@ const MODCOLOR = { 'Operations':'#B8E0D2', 'Analytics':'#C8B6FF', 'Chemical Stoc
 const PRODUCTS = {
   hq: { name:'HQ', tag:'Z9S-AI Operating System', modules:[
     {name:'HQ', tabs:[{t:'Dashboard',k:'dashboard'}]},
-    {name:'Config', tabs:[{t:'Users',k:'table'},{t:'Roles',k:'table'}]},
+    {name:'Config', tabs:[{t:'Users',k:'table'},{t:'Roles',k:'table'},{t:'Feedback',k:'table'}]},
     {name:'Users', tabs:[
       {module:'User', t:'All Users', k:'table'},
       {module:'Role', t:'Role List', k:'table'},
@@ -1529,7 +1529,8 @@ const PRODUCT_WS_TABS = {
       { tab: 'Workspaces', kind: 'table' },
       { tab: 'Users', kind: 'table' },
       { tab: 'Roles', kind: 'table' },
-      { tab: 'Permissions', kind: 'table' }
+      { tab: 'Permissions', kind: 'table' },
+      { tab: 'Feedback', kind: 'table' }
     ],
     Users: [
       { module: 'User', tab: 'All Users', kind: 'table' },
@@ -1891,12 +1892,19 @@ class Component extends DCLogic {
   onFbText(e){ const v = e&&e.target ? e.target.value : ''; this.set({ fbText:v }); }
   removeAnnotation(){ this._strokes=[]; this.set({ fbMode:'page', fbTarget:null, fbHasDrawing:false }); }
   sendFeedback(){
-    const st=this.state; if(!st.fbText.trim()) return;
-    const org=ORGS.find(o=>o.id===st.org); const prod=PRODUCTS[st.product]; const at=st.tab;
-    const entry={ ts:Date.now(), category:st.fbCat, text:st.fbText, org:org.name, product:prod.name, workspace:st.workspace, module:at.module, tab:at.tab, mode:st.fbMode, target:st.fbTarget||null, hasDrawing:!!st.fbHasDrawing };
-    try{ const arr=JSON.parse(localStorage.getItem('zeroone_feedback')||'[]'); arr.push(entry); localStorage.setItem('zeroone_feedback', JSON.stringify(arr)); }catch(_){}
-    this.set({ fbSent:true });
-    setTimeout(()=>{ this.set({ fbOpen:false, fbSent:false, fbText:'', fbCat:'general', fbMode:'page', fbTarget:null, fbHasDrawing:false }); this._strokes=[]; }, 1600);
+    const st=this.state; if(!st.fbText.trim()||st.fbBusy) return;
+    const prod=PRODUCTS[st.product]; const at=st.tab;
+    const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    const path = '/'+[prod.name, at.module, at.tab].map(slug).join('/');
+    const body = { category:st.fbCat, text:st.fbText, path:path, product:prod.name, module:at.module, tab:at.tab };
+    this.set({ fbBusy:true });
+    fetch('/api/feedback', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(() => {
+        this.set({ fbBusy:false, fbSent:true });
+        setTimeout(()=>{ this.set({ fbOpen:false, fbSent:false, fbText:'', fbCat:'general', fbMode:'page', fbTarget:null, fbHasDrawing:false }); this._strokes=[]; }, 1600);
+      })
+      .catch(() => { this.set({ fbBusy:false }); });
   }
   _fbLabel(el){
     if(!el) return 'Element';

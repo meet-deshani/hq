@@ -8,14 +8,14 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
-from backend.models import User, Role, Permission, Organisation, Product, Workspace
+from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, OrganisationUpdate,
     ProductResponse, ProductCreate, ProductUpdate,
     WorkspaceResponse, WorkspaceCreate, WorkspaceUpdate, ApiCatalogResponse, ApiCatalogItem,
-    CliCatalogResponse, CliCommandItem
+    CliCatalogResponse, CliCommandItem, FeedbackCreate, FeedbackResponse, FeedbackUpdate
 )
 from backend.auth import (
     verify_password, get_password_hash, create_access_token, get_current_user
@@ -368,6 +368,13 @@ def delete_organisation(
     org = db.query(Organisation).filter(Organisation.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
+    # Guard: don't orphan users (or nuke products/workspaces/roles) that still belong to it.
+    assigned = db.query(User).filter(User.organisation_id == org_id).count()
+    if assigned > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete organisation: {assigned} user(s) still belong to it. Reassign them first."
+        )
     db.delete(org)
     db.commit()
     return {"detail": "Organisation deleted successfully"}
@@ -546,6 +553,13 @@ def delete_role(
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+    # Guard: don't orphan users by deleting a role they're still assigned to.
+    assigned = db.query(User).filter(User.role_id == role_id).count()
+    if assigned > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete role: {assigned} user(s) are still assigned to it. Reassign them to another role first."
+        )
     db.delete(role)
     db.commit()
     return {"detail": "Role deleted successfully"}
@@ -601,6 +615,68 @@ def get_dashboard_stats(
             StatItem(l="Workspaces", v=str(total_workspaces), d="→ Resource Segments")
         ]
     }
+
+# Feedback
+@app.post("/api/feedback", response_model=FeedbackResponse)
+def create_feedback(
+    fb: FeedbackCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    entry = Feedback(
+        user_id=current_user.id,
+        category=fb.category or "general",
+        text=fb.text,
+        path=fb.path,
+        product=fb.product,
+        module=fb.module,
+        tab=fb.tab,
+        status="Open"
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+@app.get("/api/feedback", response_model=List[FeedbackResponse])
+def list_feedback(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Feedback)
+    if status:
+        query = query.filter(Feedback.status == status)
+    return query.order_by(Feedback.created_at.desc()).all()
+
+@app.patch("/api/feedback/{feedback_id}", response_model=FeedbackResponse)
+def update_feedback(
+    feedback_id: int,
+    fb_data: FeedbackUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    for field, value in fb_data.model_dump(exclude_unset=True).items():
+        setattr(fb, field, value)
+    db.commit()
+    db.refresh(fb)
+    return fb
+
+@app.delete("/api/feedback/{feedback_id}")
+def delete_feedback(
+    feedback_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    db.delete(fb)
+    db.commit()
+    return {"detail": "Feedback deleted successfully"}
 
 # ── API CATALOG ──
 # A self-documenting reference of every endpoint on the platform. Public by
@@ -764,10 +840,34 @@ API_CATALOG = [
         "response": "{\n  \"stats\": [\n    { \"l\": \"Total Users\", \"v\": \"1\", \"d\": \"↗ Active: 1\" }\n  ]\n}",
     },
     {
+        "method": "POST", "path": "/api/feedback", "auth": "Bearer / Cookie",
+        "summary": "Submit feedback. Automatically attributed to the signed-in user.",
+        "usage": "curl -X POST __BASE__/api/feedback \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"category\":\"bug\",\"text\":\"Export button 404s\",\"path\":\"/hq/config/users\"}'",
+        "response": "{\n  \"id\": 1, \"category\": \"bug\",\n  \"status\": \"Open\",\n  \"user\": { \"name\": \"Meet Deshani\", \"email\": \"meet@dotsai.in\" }\n}",
+    },
+    {
+        "method": "GET", "path": "/api/feedback", "auth": "Bearer / Cookie",
+        "summary": "List all feedback, newest first. Optional ?status=Open|Reviewed|Closed.",
+        "usage": "curl \"__BASE__/api/feedback?status=Open\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "[\n  {\n    \"id\": 1, \"category\": \"bug\",\n    \"text\": \"Export button 404s\",\n    \"status\": \"Open\",\n    \"user\": { \"name\": \"Meet Deshani\" }\n  }\n]",
+    },
+    {
+        "method": "PATCH", "path": "/api/feedback/{feedback_id}", "auth": "Bearer / Cookie",
+        "summary": "Update feedback status (Open / Reviewed / Closed) or category.",
+        "usage": "curl -X PATCH __BASE__/api/feedback/1 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"status\":\"Reviewed\"}'",
+        "response": "{ \"id\": 1, \"status\": \"Reviewed\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/feedback/{feedback_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a feedback entry by id.",
+        "usage": "curl -X DELETE __BASE__/api/feedback/1 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Feedback deleted successfully\" }",
+    },
+    {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
-        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 27,\n  \"endpoints\": [ ... ]\n}",
+        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 31,\n  \"endpoints\": [ ... ]\n}",
     },
 ]
 
