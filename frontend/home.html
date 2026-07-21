@@ -1151,7 +1151,7 @@ small, .caption {
     <div sc-camel-on-click="{{ stop }}" style="width:min(560px,94vw);max-height:70vh;background:#fff;border:1px solid #E4E2DB;border-radius:16px;box-shadow:0 30px 80px rgba(25,25,36,.26);display:flex;flex-direction:column;overflow:hidden">
      <div style="display:flex;align-items:center;gap:11px;padding:15px 17px;border-bottom:1px solid #EEEDE8;flex:none">
       <svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input ref="{{ searchRef }}" value="{{ searchQuery }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search organisations, products, modules, tabs…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:15px;color:#191924">
+      <input ref="{{ searchRef }}" value="{{ searchQuery }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search users, organisations, products, workspaces, roles…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:15px;color:#191924">
       <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#B4B0A6;flex:none;border:1px solid #E4E2DB;border-radius:5px;padding:2px 6px">ESC</span>
      </div>
      <div class="z-scroll" style="flex:1;overflow:auto;padding:8px;min-height:0">
@@ -1737,7 +1737,7 @@ class Component extends DCLogic {
       workspace: ws0,
       dismissed:{},
       width:272, dragging:false,
-      navOpen:null, searchQuery:'', searchOpen:false,
+      navOpen:null, searchQuery:'', searchResults:[], searchOpen:false,
       notifs:[], notifOpen:false, notifFilter:'all', notifSort:'newest', notifCat:'all', notifCatOpen:false, notifRead:{},
       fbOpen:false, fbCat:'general', fbText:'', fbMode:'page', fbTarget:null, fbHasDrawing:false, fbSent:false, fbBusy:false,
       aiOpen:false, aiMin:false, aiMax:false, aiPos:null, aiSize:{w:432,h:566}, aiPrevPos:null, aiPrevSize:null, aiDragging:false,
@@ -2061,10 +2061,26 @@ class Component extends DCLogic {
   toggleNav(key){ clearTimeout(this._navT); this.set(s=>({ navOpen: s.navOpen===key?null:key, searchOpen:false })); }
   openNav(key){ clearTimeout(this._navT); this.set({ navOpen:key }); }
   closeNavSoon(){ clearTimeout(this._navT); this._navT = setTimeout(()=>this.set({ navOpen:null }), 200); }
-  onSearch(e){ const v = e && e.target ? e.target.value : ''; this.set({ searchQuery:v, searchOpen:true, navOpen:null }); }
+  onSearch(e){
+    const v = e && e.target ? e.target.value : '';
+    this.set({ searchQuery:v, searchOpen:true, navOpen:null });
+    const q = v.trim();
+    clearTimeout(this._searchT);
+    if(!q){ this.set({ searchResults:[] }); return; }
+    this._searchT = setTimeout(()=>{
+      fetch('/api/search?q='+encodeURIComponent(q))
+        .then(r=>r.ok?r.json():{results:[]})
+        .then(d=>{ if((this.state.searchQuery||'').trim()===q) this.set({ searchResults: d.results||[] }); })
+        .catch(()=>{});
+    }, 160);
+  }
   openSearch(){ this.set({ searchOpen:true, navOpen:null, notifOpen:false }); }
   closeSearch(){ this.set({ searchOpen:false }); }
-  gotoSearch(h){ this.set(s=>({ product:h.product, tab:{module:h.module,tab:h.tab,kind:h.kind}, open:{...s.open,[h.module]:true}, searchOpen:false, searchQuery:'' })); }
+  gotoSearch(h){
+    const product = h.product || this.state.product, module = h.module, tab = h.tab, kind = h.kind || 'table';
+    this.set(s=>({ product:product, workspace:module, tab:{module:module,tab:tab,kind:kind}, open:{...s.open,[module]:true}, searchOpen:false, searchQuery:'', searchResults:[] }));
+    updateBrowserUrl(this.state.org, product, module, module, tab);
+  }
   toggleNotif(){ this.set(s=>({ notifOpen:!s.notifOpen, navOpen:null, searchOpen:false })); if(!this.state.notifOpen) this._loadNotifs(); }
   openNotifPanel(){ this.set({ notifOpen:true, navOpen:null, searchOpen:false, profileOpen:false }); this._loadNotifs(); }
   markRead(id){
@@ -2230,20 +2246,14 @@ class Component extends DCLogic {
       onClick:()=>this.toggleNav(c.key),
     }));
 
-    // ── global search (command palette) ────────────────────────
-    const q = (st.searchQuery||'').trim().toLowerCase();
-    let hits = [];
-    org.products.forEach(pk=>{
-      const pr = PRODUCTS[pk];
-      pr.modules.forEach(m=>{
-        m.tabs.forEach(tb=>{
-          const hay = (tb.t+' '+m.name+' '+pr.name).toLowerCase();
-          if (!q || hay.includes(q)) hits.push({ product:pk, module:m.name, tab:tb.t, kind:tb.k, label:tb.t, path:pr.name+' · '+m.name, tileBg:tint(MODCOLOR[m.name]||'#C8B6FF',.3) });
-        });
-      });
-    });
-    if (!q) hits = hits.filter(h=>h.product===st.product);
-    const searchHits = hits.slice(0,9).map(h=>({ ...h, onClick:()=>this.gotoSearch(h) }));
+    // ── global search (command palette) — results come from /api/search ──
+    const q = (st.searchQuery||'').trim();
+    const searchHits = (st.searchResults||[]).map(h=>({
+      product:h.product, module:h.module, tab:h.tab, kind:'table',
+      label:h.label, path: h.type + (h.sub ? (' · ' + h.sub) : ''),
+      tileBg: tint('#C8B6FF', .3),
+      onClick:()=>this.gotoSearch({ product:h.product, module:h.module, tab:h.tab, kind:'table' }),
+    }));
     const searchOpen = st.searchOpen;
     const searchHasHits = searchOpen && searchHits.length>0;
     const searchNoHits = searchOpen && q.length>0 && searchHits.length===0;

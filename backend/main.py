@@ -88,33 +88,26 @@ def seed_database():
         if db.query(Workspace).filter(Workspace.organisation_id == org.id).count() == 0:
             logger.info("Seeding default workspaces...")
             hq_ws = Workspace(
-                organisation_id=org.id,
-                product_id=product.id,
-                name="HQ",
-                slug="hq",
-                icon="grid",
-                description="HQ main workspace",
-                status="Active"
+                organisation_id=org.id, product_id=product.id,
+                name="HQ", slug="hq", icon="hq",
+                description="HQ main workspace", status="Active"
             )
             config_ws = Workspace(
-                organisation_id=org.id,
-                product_id=product.id,
-                name="Config",
-                slug="config",
-                icon="sliders",
-                description="Configuration workspace",
-                status="Active"
+                organisation_id=org.id, product_id=product.id,
+                name="Config", slug="config", icon="config",
+                description="Configuration workspace", status="Active"
             )
             users_ws = Workspace(
-                organisation_id=org.id,
-                product_id=product.id,
-                name="Users",
-                slug="users",
-                icon="users",
-                description="User management workspace",
-                status="Active"
+                organisation_id=org.id, product_id=product.id,
+                name="Users", slug="users", icon="admin",
+                description="User management workspace", status="Active"
             )
-            db.add_all([hq_ws, config_ws, users_ws])
+            document_ws = Workspace(
+                organisation_id=org.id, product_id=product.id,
+                name="Document", slug="document", icon="document",
+                description="API & CLI reference workspace", status="Active"
+            )
+            db.add_all([hq_ws, config_ws, users_ws, document_ws])
             db.commit()
             logger.info("Default workspaces seeded.")
 
@@ -635,6 +628,56 @@ def get_dashboard_stats(
         ]
     }
 
+# Global search — searches real DB entities (not the static nav tree).
+@app.get("/api/search")
+def search(
+    q: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    q = (q or "").strip()
+    if not q:
+        return {"results": []}
+    like = f"%{q}%"
+    results = []
+    for u in db.query(User).filter(User.name.ilike(like) | User.email.ilike(like)).limit(6).all():
+        results.append({"type": "User", "label": u.name, "sub": u.email, "product": "hq", "module": "Config", "tab": "Users"})
+    for o in db.query(Organisation).filter(Organisation.name.ilike(like) | Organisation.slug.ilike(like)).limit(4).all():
+        results.append({"type": "Organisation", "label": o.name, "sub": o.industry or o.slug, "product": "hq", "module": "Config", "tab": "Organisations"})
+    for p in db.query(Product).filter(Product.name.ilike(like) | Product.code.ilike(like)).limit(4).all():
+        results.append({"type": "Product", "label": p.name, "sub": p.code, "product": "hq", "module": "Config", "tab": "Products"})
+    for w in db.query(Workspace).filter(Workspace.name.ilike(like)).limit(4).all():
+        results.append({"type": "Workspace", "label": w.name, "sub": w.slug or "", "product": "hq", "module": "Config", "tab": "Workspaces"})
+    for r in db.query(Role).filter(Role.name.ilike(like)).limit(4).all():
+        results.append({"type": "Role", "label": r.name, "sub": r.description or "", "product": "hq", "module": "Config", "tab": "Roles"})
+    return {"results": results[:12]}
+
+# Dashboard trend — cumulative record growth over the last 6 months (from created_at).
+@app.get("/api/dashboard/trend")
+def dashboard_trend(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from datetime import datetime
+    now = datetime.utcnow()
+    seq = []
+    for i in range(5, -1, -1):
+        mm, yy = now.month - i, now.year
+        while mm <= 0:
+            mm += 12
+            yy -= 1
+        seq.append((yy, mm))
+    stamps = []
+    for model in (User, Organisation, Product, Workspace, Role, Feedback):
+        stamps += [row[0] for row in db.query(model.created_at).all() if row[0] is not None]
+    points = []
+    for (yy, mm) in seq:
+        nm, ny = (mm + 1, yy) if mm < 12 else (1, yy + 1)
+        boundary = datetime(ny, nm, 1)
+        points.append({"label": datetime(yy, mm, 1).strftime("%b"),
+                       "value": sum(1 for s in stamps if s < boundary)})
+    return {"points": points}
+
 # Feedback
 @app.post("/api/feedback", response_model=FeedbackResponse)
 def create_feedback(
@@ -1062,6 +1105,18 @@ API_CATALOG = [
         "response": "{ \"detail\": \"Notification deleted successfully\" }",
     },
     {
+        "method": "GET", "path": "/api/search", "auth": "Bearer / Cookie",
+        "summary": "Search real DB entities (users, orgs, products, workspaces, roles) by ?q=.",
+        "usage": "curl \"__BASE__/api/search?q=meet\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"results\": [\n    { \"type\": \"User\", \"label\": \"Meet Deshani\", \"sub\": \"meet@dotsai.in\" }\n  ]\n}",
+    },
+    {
+        "method": "GET", "path": "/api/dashboard/trend", "auth": "Bearer / Cookie",
+        "summary": "Cumulative record growth over the last 6 months, derived from created_at.",
+        "usage": "curl __BASE__/api/dashboard/trend \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"points\": [\n    { \"label\": \"Feb\", \"value\": 0 },\n    { \"label\": \"Jul\", \"value\": 21 }\n  ]\n}",
+    },
+    {
         "method": "POST", "path": "/api/ai/chat", "auth": "Bearer / Cookie",
         "summary": "Chat with the AI assistant. Proxies to the configured LLM (AI_PROVIDER) with the current page as context; returns a canned notice until a key is set.",
         "usage": "curl -X POST __BASE__/api/ai/chat \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"message\":\"What can I do on this page?\",\"context\":\"HQ · Config · Users\"}'",
@@ -1071,7 +1126,7 @@ API_CATALOG = [
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
-        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 37,\n  \"endpoints\": [ ... ]\n}",
+        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 39,\n  \"endpoints\": [ ... ]\n}",
     },
 ]
 

@@ -134,7 +134,7 @@
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
           <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden;width:100%">
             <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
-              <path d="M0,120 C80,110 140,78 200,72 C260,66 320,92 380,60 C440,38 500,26 600,16" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
+              <path d="{{ trendPath }}" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
             </svg>
           </div>
         </div>
@@ -267,6 +267,7 @@ class Component extends DCLogic {
     rows: [],
     columns: [],
     stats: [],
+    trendPath: 'M0,140 L600,140',
     apis: [],
     cmds: [],
     formOpen: false,
@@ -386,21 +387,26 @@ class Component extends DCLogic {
       }
     } else if (kind === 'dashboard') {
       this.setState({ loading: true });
-      fetch('/api/dashboard/stats')
-        .then(res => {
-          if (res.status === 401) {
-            window.location.href = '/login';
-            return { stats: [] };
-          }
+      Promise.all([
+        fetch('/api/dashboard/stats').then(res => {
+          if (res.status === 401) { window.location.href = '/login'; return { stats: [] }; }
           return res.json();
-        })
-        .then(data => {
-          this.setState({ stats: data.stats || [], loading: false });
-        })
-        .catch(err => {
-          console.error('Error fetching stats:', err);
-          this.setState({ loading: false });
-        });
+        }),
+        fetch('/api/dashboard/trend').then(res => res.ok ? res.json() : { points: [] }).catch(() => ({ points: [] }))
+      ]).then(([s, t]) => {
+        const pts = (t && t.points) || [];
+        const max = Math.max(1, ...pts.map(p => p.value));
+        const n = Math.max(1, pts.length - 1);
+        const path = pts.length ? pts.map((p, i) => {
+          const x = (i * (600 / n)).toFixed(1);
+          const y = (140 - (p.value / max) * 120).toFixed(1);
+          return (i === 0 ? 'M' : 'L') + x + ',' + y;
+        }).join(' ') : 'M0,140 L600,140';
+        this.setState({ stats: s.stats || [], trendPath: path, loading: false });
+      }).catch(err => {
+        console.error('Error fetching dashboard:', err);
+        this.setState({ loading: false });
+      });
     } else if (kind === 'api') {
       this.setState({ loading: true });
       const MC = { GET: '#A2D2FF', POST: '#B8E0D2', DELETE: '#FFB5C2', PUT: '#FFCDB2', PATCH: '#C8B6FF' };
@@ -605,7 +611,7 @@ class Component extends DCLogic {
       showCrumb: this.props.hideCrumb !== true,
       isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
       isReport: kind === 'report', isDesign: kind === 'design', isApi: kind === 'api', isCli: kind === 'cli',
-      fields: [], columns, rows, gridCols, gridColsX, tableCount, stats, reportLines: [],
+      fields: [], columns, rows, gridCols, gridColsX, tableCount, stats, trendPath: this.state.trendPath, reportLines: [],
       canCrud, entLabel, newLabel: 'New ' + entLabel, onNew: () => this.openCreate(),
       formOpen: this.state.formOpen, formTitle, formFields, submitLabel,
       formErr: this.state.formErr, hasFormErr: !!this.state.formErr, busy: this.state.busy,
