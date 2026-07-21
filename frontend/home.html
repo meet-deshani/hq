@@ -1731,7 +1731,7 @@ class Component extends DCLogic {
       org:orgId, product:pk, role:role0,
       open:{[ft.module]:true},
       tab:{module:ft.module, tab:ft.tab, kind:ft.kind},
-      me:null,
+      me:null, dbOrgs:[], dbProducts:[], dbWorkspaces:[],
       collapsed: !!(this.props && this.props.startCollapsed),
       profileOpen:false,
       workspace: ws0,
@@ -1761,6 +1761,17 @@ class Component extends DCLogic {
       .then(me => { if (me) this.set({ me }); })
       .catch(() => {});
     this._loadNotifs();
+    this._loadNav();
+  }
+  _loadNav(){
+    // Drive the org / product / workspace switcher from the database.
+    Promise.all([
+      fetch('/api/organisations').then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch('/api/products').then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch('/api/workspaces').then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]).then(([orgs, products, workspaces])=>{
+      this.set({ dbOrgs:orgs||[], dbProducts:products||[], dbWorkspaces:workspaces||[] });
+    }).catch(()=>{});
   }
   _loadNotifs(){
     fetch('/api/notifications')
@@ -2041,7 +2052,9 @@ class Component extends DCLogic {
     }
   }
   selectOrg(id){
-    const org = ORGS.find(o=>o.id===id); const pk = org.products[0];
+    const org = ORGS.find(o=>o.id===id);
+    // DB orgs not in the constants fall back to the default product structure.
+    const pk = (org && org.products[0]) || this.state.product || 'hq';
     const ws = workspacesFor(id, pk)[0].name; const role = firstRoleId(pk); const ft = firstTabOf(pk, ws, role);
     this.set({ org:id, product:pk, role, open:{[ft.module]:true}, tab:{module:ft.module,tab:ft.tab,kind:ft.kind}, workspace:ws, dismissed:{}, navOpen:null, searchOpen:false, searchQuery:'', notifRead:{} });
     updateBrowserUrl(id, pk, ws, ft.module, ft.tab);
@@ -2120,6 +2133,23 @@ class Component extends DCLogic {
 
     const wsList = workspacesFor(st.org, st.product);
     const activeWs = st.workspace || wsList[0].name;
+    // ── DB-driven switcher (falls back to constants until /api data loads) ──
+    const _dbOrgs = st.dbOrgs || [], _dbProducts = st.dbProducts || [], _dbWorkspaces = st.dbWorkspaces || [];
+    const curOrgRec = _dbOrgs.find(o=>o.slug===st.org) || null;
+    const curProdRec = _dbProducts.find(p=>p.code===st.product) || null;
+    const orgList = _dbOrgs.length
+      ? _dbOrgs.map(o=>({ id:o.slug, name:o.name, industry:o.industry||'', initials:o.initials||String(o.name||'?').slice(0,1).toUpperCase(), color:o.color||'#C8B6FF' }))
+      : ORGS.map(o=>({ id:o.id, name:o.name, industry:o.industry, initials:o.initials, color:o.color }));
+    const productList = _dbProducts.length
+      ? _dbProducts.filter(p=> !curOrgRec || p.organisation_id===curOrgRec.id).map(p=>({ key:p.code, name:p.name }))
+      : org.products.map(k=>({ key:k, name:PRODUCTS[k].name }));
+    const workspaceList = _dbWorkspaces.length
+      ? _dbWorkspaces.filter(w=> !curOrgRec || w.organisation_id===curOrgRec.id).map(w=>({ name:w.name, icon:w.icon||'grid' }))
+      : wsList;
+    const orgName = curOrgRec ? curOrgRec.name : org.name;
+    const orgColor = curOrgRec ? (curOrgRec.color||org.color) : org.color;
+    const orgIndustry = curOrgRec ? (curOrgRec.industry||'') : org.industry;
+    const prodName = curProdRec ? curProdRec.name : prod.name;
     const roleList0 = rolesFor(st.product);
     const curRole = roleObj(st.product, st.role);
     const baseUser = curRole ? curRole.user : USER;
@@ -2181,22 +2211,22 @@ class Component extends DCLogic {
       };
     });
 
-    const orgs = ORGS.map(o=>({
+    const orgs = orgList.map(o=>({
       id:o.id, name:o.name, industry:o.industry, initial:o.initials, tileColor:o.color, active:o.id===st.org,
       cardStyle: `display:flex;align-items:center;gap:11px;width:100%;border:1px solid ${o.id===st.org?'rgba(255,205,178,.85)':'transparent'};cursor:pointer;padding:9px 10px;border-radius:12px;background:${o.id===st.org?'rgba(255,205,178,.30)':'transparent'};text-align:left;margin-bottom:3px`,
       onClick: ()=>this.selectOrg(o.id),
     }));
 
-    const products = org.products.map(k=>({
-      key:k, name:PRODUCTS[k].name, active:k===st.product,
-      dot: k===st.product ? '#7FC9A3' : '#C9C5BB',
-      nameColor: k===st.product ? '#fff' : '#2A2A32',
-      simpleStyle: `display:flex;align-items:center;gap:10px;width:100%;border:none;cursor:pointer;padding:9px 11px;border-radius:11px;background:${k===st.product?'#191924':'transparent'};text-align:left;margin-bottom:2px`,
-      hoverStyle: k===st.product ? 'background:#2a2a35;' : 'background:rgba(25,25,36,.05);',
-      onClick: ()=>this.selectProduct(k),
+    const products = productList.map(p=>({
+      key:p.key, name:p.name, active:p.key===st.product,
+      dot: p.key===st.product ? '#7FC9A3' : '#C9C5BB',
+      nameColor: p.key===st.product ? '#fff' : '#2A2A32',
+      simpleStyle: `display:flex;align-items:center;gap:10px;width:100%;border:none;cursor:pointer;padding:9px 11px;border-radius:11px;background:${p.key===st.product?'#191924':'transparent'};text-align:left;margin-bottom:2px`,
+      hoverStyle: p.key===st.product ? 'background:#2a2a35;' : 'background:rgba(25,25,36,.05);',
+      onClick: ()=>this.selectProduct(p.key),
     }));
 
-    const workspaces = wsList.map(w=>({
+    const workspaces = workspaceList.map(w=>({
       name:w.name, active:w.name===activeWs,
       isWork:w.icon==='work', isHq:w.icon==='hq', isChat:w.icon==='chat', isAnalytics:w.icon==='analytics', isDocument:w.icon==='document', isConfig:w.icon==='config', isAdmin:w.icon==='admin', isBilling:w.icon==='billing', isArchive:w.icon==='archive',
       iconColor: w.name===activeWs ? '#191924' : '#918D82',
@@ -2213,12 +2243,12 @@ class Component extends DCLogic {
 
     // ── top navbar breadcrumb ──────────────────────────────────
     const crumbDefs = [
-      {key:'org', label:org.name, dot:org.color, menuTitle:'Switch organisation',
-        options: ORGS.map(o=>({ name:o.name, sub:o.industry, dot:o.color, active:o.id===st.org, onClick:()=>this.selectOrg(o.id) }))},
-      {key:'product', label:prod.name, dot:'#7FC9A3', menuTitle:'Products',
-        options: org.products.map(k=>({ name:PRODUCTS[k].name, sub:PRODUCTS[k].tag, dot:k===st.product?'#7FC9A3':'#C9C5BB', active:k===st.product, onClick:()=>this.selectProduct(k) }))},
+      {key:'org', label:orgName, dot:orgColor, menuTitle:'Switch organisation',
+        options: orgList.map(o=>({ name:o.name, sub:o.industry, dot:o.color, active:o.id===st.org, onClick:()=>this.selectOrg(o.id) }))},
+      {key:'product', label:prodName, dot:'#7FC9A3', menuTitle:'Products',
+        options: productList.map(p=>({ name:p.name, sub:'', dot:p.key===st.product?'#7FC9A3':'#C9C5BB', active:p.key===st.product, onClick:()=>this.selectProduct(p.key) }))},
       {key:'workspace', label:activeWs, dot:'#A2D2FF', menuTitle:'Workspaces',
-        options: wsList.map(w=>({ name:w.name, sub:'', dot:w.name===activeWs?'#7FC9A3':'#C9C5BB', active:w.name===activeWs, onClick:()=>this.selectWorkspace(w.name) }))},
+        options: workspaceList.map(w=>({ name:w.name, sub:'', dot:w.name===activeWs?'#7FC9A3':'#C9C5BB', active:w.name===activeWs, onClick:()=>this.selectWorkspace(w.name) }))},
     ];
     if(curGroup && !activeStandalone){
       crumbDefs.push({key:'module', label:at.module, dot:navColor(at.module), menuTitle:'Modules',
@@ -2340,14 +2370,14 @@ class Component extends DCLogic {
     const fbSendStyle = `width:100%;border:none;cursor:${fbCanSend?'pointer':'not-allowed'};font-family:'Satoshi',sans-serif;font-size:15px;font-weight:700;padding:15px;border-radius:14px;background:${fbCanSend?'#FFCDB2':'#F1EFEA'};color:${fbCanSend?'#7a4a28':'#B4B0A6'}`;
 
     return {
-      orgName:org.name, orgIndustry:org.industry,
+      orgName:orgName, orgIndustry:orgIndustry,
       navItems, orgs, products, workspaces, updatesList, updatesEmpty, hasUpdates: showNotif,
       collapsed:st.collapsed, notCollapsed:!st.collapsed, profileOpen:st.profileOpen, dragging:st.dragging,
       notif: showNotif && updatesList.length>0, user:sessionUser,
       hasRoles: !!roleList0, roleItems, roleLabel: curRole ? curRole.label : '',
       railW: st.collapsed ? '72px' : (st.width + 'px'),
       onResizeStart: (e)=>this.startResize(e),
-      cOrg:org.name, cProduct:prod.name, cWorkspace:activeWs,
+      cOrg:orgName, cProduct:prodName, cWorkspace:activeWs,
       cModule:at.module, cTab:at.tab, cKind:at.kind, cAccent: navColor(at.module, at.kind),
       isCustomersView: (st.product==='hq' && at.module==='Customers'), isPortalView: !(st.product==='hq' && at.module==='Customers'),
       onCollapse: ()=>this.toggleCollapse(),
