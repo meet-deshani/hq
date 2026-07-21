@@ -7,6 +7,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("db_connection")
 
+# When true, refuse to fall back to SQLite if the configured database is
+# unreachable — fail fast instead of silently losing data in production.
+DB_REQUIRE = os.getenv("DB_REQUIRE", "").strip().lower() in ("1", "true", "yes", "on")
+
 # Get connection parameters
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -33,6 +37,12 @@ if DATABASE_URL:
         conn.close()
         logger.info("Successfully connected to PostgreSQL database.")
     except Exception as e:
+        if DB_REQUIRE:
+            logger.error(
+                f"Failed to connect to PostgreSQL database: {e}. "
+                "DB_REQUIRE is set — refusing to fall back to SQLite."
+            )
+            raise
         logger.warning(f"Failed to connect to PostgreSQL database: {e}. Falling back to SQLite.")
         engine = None
 
