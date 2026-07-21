@@ -10,8 +10,15 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import User
 
-# JWT config
-SECRET_KEY = os.getenv("SECRET_KEY", "z9s-ai-hq-super-secret-cryptographic-key-for-jwt-signing")
+# JWT config — the signing key MUST come from the environment. There is no
+# committed fallback: a hardcoded default would let anyone with the repo forge
+# valid session tokens. Fail fast at import if it is missing.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or not SECRET_KEY.strip():
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required (set it in the app's .env). "
+        "Refusing to start without a JWT signing key."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week token lifespan for ease of CLI operation
 

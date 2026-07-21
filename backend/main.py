@@ -165,12 +165,21 @@ def seed_database():
             
         # Check if default admin user is seeded
         if db.query(User).filter(User.email == "meet@dotsai.in").count() == 0:
+            # Admin password comes from the environment — never commit a real one
+            # to the repo. If unset, skip the seed rather than ship a weak default.
+            seed_admin_password = os.getenv("SEED_ADMIN_PASSWORD")
+            if not seed_admin_password or not seed_admin_password.strip():
+                logger.warning(
+                    "SEED_ADMIN_PASSWORD is not set — skipping default admin seed. "
+                    "Set it in the app's .env and restart to create meet@dotsai.in."
+                )
+                return
             logger.info("Seeding default admin user meet@dotsai.in...")
             admin_role = db.query(Role).filter(Role.name == "Admin", Role.organisation_id == org.id).first()
             admin_user = User(
                 email="meet@dotsai.in",
                 name="Meet Deshani",
-                password_hash=get_password_hash("meetdeshani123"),
+                password_hash=get_password_hash(seed_admin_password),
                 role_id=admin_role.id if admin_role else None,
                 organisation_id=org.id,
                 status="Active"
@@ -897,7 +906,7 @@ API_CATALOG = [
     {
         "method": "POST", "path": "/api/auth/login", "auth": "Public",
         "summary": "Authenticate with email + password. Returns a JWT and sets an httpOnly access_token cookie.",
-        "usage": "curl -X POST __BASE__/api/auth/login \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"meet@dotsai.in\",\"password\":\"meetdeshani123\"}'",
+        "usage": "curl -X POST __BASE__/api/auth/login \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"meet@dotsai.in\",\"password\":\"<your-password>\"}'",
         "response": "{\n  \"access_token\": \"<jwt>\",\n  \"token_type\": \"bearer\"\n}",
     },
     {
@@ -1155,7 +1164,7 @@ def get_api_catalog(request: Request):
 CLI_CATALOG = [
     {
         "group": "auth", "command": "hq-cli login",
-        "usage": "hq-cli login --email meet@dotsai.in --password meetdeshani123",
+        "usage": "hq-cli login --email meet@dotsai.in --password <your-password>",
         "description": "Authenticate with the HQ backend and cache the JWT at ~/.hq_token.",
         "output": "Successfully logged in! Token saved to ~/.hq_token",
     },
