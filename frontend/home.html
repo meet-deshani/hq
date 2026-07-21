@@ -9,6 +9,10 @@
 <script>window.__resources = {"./PortalPage.dc.html": "/static/PortalPage.dc.html"};</script>
 <script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
 
+<!-- Responsive / mobile layer (self-contained; see frontend/static/hq-responsive.*) -->
+<link rel="stylesheet" href="/static/hq-responsive.css">
+<script src="/static/hq-responsive.js" defer></script>
+
 </head>
 <body>
 
@@ -1308,7 +1312,7 @@ small, .caption {
   </sc-if>
 
   <sc-if value="{{ aiOpen }}">
-   <div style="{{ aiWinStyle }}">
+   <div class="hq-ai-win" style="{{ aiWinStyle }}">
     <div sc-camel-on-pointer-down="{{ onAIDrag }}" style="flex:none;display:flex;align-items:center;gap:11px;padding:13px 15px;border-bottom:1px solid #EAE8E2;background:#F5F3EE;cursor:grab">
      <span style="width:36px;height:36px;border-radius:10px;background:#191924;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="#C8B6FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.3L19 10l-5.1 1.7L12 17l-1.9-5.3L5 10l5.1-1.7z"></path><path d="M19 3v4"></path><path d="M21 5h-4"></path></svg></span>
      <div style="flex:1;min-width:0">
