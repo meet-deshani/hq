@@ -1,81 +1,78 @@
 # Database
 
-HQ runs on the VPS, so its FastAPI backend talks to PostgreSQL **directly** over
-the internal Docker network (SQLAlchemy) — HQ's own API *is* the data/API layer,
-so it does not need a PostgREST-style HTTPS data API in front (that pattern is
-for apps running *off* the VPS).
+HQ runs on the VPS and talks to PostgreSQL **directly** (SQLAlchemy) over the
+internal `dotsai_net` Docker network. Its own FastAPI is the data/API layer, so
+it does not need a PostgREST-style HTTPS API in front.
 
-## Topology — HQ owns its database
+## Where HQ's data lives
 
-Per the "each production app gets its own Postgres container" rule, `docker-compose.yml`
-bundles a dedicated database with the app:
+HQ uses the **shared dotsai PostgreSQL** container, but in its **own database
+`hq`** owned by a **dedicated least-privilege role `hq`** — *not* the `dotsai`
+superuser. This gives you one place to query everything (pgAdmin) while keeping
+HQ's blast radius scoped: a leaked `hq` credential can only reach the `hq`
+database, never authentik or the other databases in the instance.
 
+- HQ's DB is never exposed publicly — only `hq-portal` reaches it, internally.
+- On first boot the app **creates every table and seeds defaults**
+  (`Base.metadata.create_all` + the `seed_database` hook) — no manual schema or
+  seed step. `database/schema.sql` / `seed.sql` are kept only as reference.
+- `DB_REQUIRE=true` (set in `docker-compose.yml`) makes the app **fail fast**
+  instead of silently using the local SQLite fallback if the DB is unreachable.
+
+## One-time setup on the shared instance
+
+Run this **once** as the `dotsai` superuser (e.g. from pgAdmin, or
+`docker exec -it postgres psql -U dotsai`):
+
+```sql
+-- Dedicated login role for HQ (least privilege — owns only its own database)
+CREATE ROLE hq WITH LOGIN PASSWORD '<a strong random password>';
+
+-- HQ's own database, owned by that role so it can create its tables
+CREATE DATABASE hq OWNER hq;
 ```
-  nginx ──► hq-portal (:8005→8000)      FastAPI + SQLAlchemy
-                 │  private network: hq_net
-                 ▼
-             hq-db                       PostgreSQL 17-alpine
-                                         no host port · volume hq_pgdata
-```
 
-- `hq-db` publishes **no host port** — only `hq-portal` can reach it, on `hq_net`.
-- Data lives in the named volume `hq_pgdata`, so it survives rebuilds.
-- One set of credentials (`DB_USER` / `DB_PASSWORD` / `DB_NAME` in `.env`)
-  configures both the `hq-db` container and the app's connection to it.
-- On first boot the app **creates all 7 tables and seeds defaults**
-  (`Base.metadata.create_all` + the `seed_database` startup hook) — no manual
-  schema or seed step. `database/schema.sql` and `database/seed.sql` remain only
-  as reference.
-- `DB_REQUIRE=true` (set in compose) makes the app **fail fast** rather than
-  silently fall back to the local SQLite file if the database is unreachable.
+That's all the SQL HQ needs — it builds its own tables on first start.
 
-## Deploying it on the VPS
+## Deploy
 
-Only two things are needed — everything else is automatic:
-
-1. **Set the secrets** in `/opt/apps/hq/.env` (mode 600, never committed):
+1. Put the connection string in `/opt/apps/hq/.env` (mode 600, never committed):
 
    ```
-   DB_USER=hq
-   DB_PASSWORD=<a strong random password>
-   DB_NAME=hq
+   DATABASE_URL=postgresql://hq:<hq_role_password>@postgres:5432/hq
    SECRET_KEY=<a long random string>
    ```
 
-2. **Deploy** — brings up `hq-db` then `hq-portal`:
+   (`postgres` is the shared container's hostname on `dotsai_net`; use the actual
+   name if it differs.)
+
+2. Deploy:
 
    ```bash
-   deploy hq            # or: docker compose up -d --build
+   deploy hq          # or: docker compose up -d --build
    ```
 
-   The app waits for `hq-db` to be healthy (compose `depends_on` + healthcheck),
-   connects, creates the tables, and seeds defaults.
+   The app connects as `hq`, creates the 7 tables in the `hq` database, and seeds.
 
-### Verify
+### Verify (also browsable in pgAdmin under the `hq` database)
 
 ```bash
-docker compose -f /opt/apps/hq/docker-compose.yml ps    # hq-db healthy, hq-portal up
-docker logs hq-portal | grep -i postgres                #   Successfully connected to PostgreSQL database.
-docker exec hq-db psql -U hq -d hq -c '\dt'             # 7 tables
+docker logs hq-portal | grep -i postgres          #   Successfully connected to PostgreSQL database.
+docker exec postgres psql -U hq -d hq -c '\dt'    # 7 tables
 ```
 
 ## Notes
 
 - **Credentials never live in git.** `.env` is gitignored; the repo ships only
-  `.env.example` with placeholders. Rotate a password by editing `.env` and
-  running `docker compose up -d`.
-- **Backups:** if the VPS backup job (`pg_dumpall` per container) discovers
-  containers automatically, `hq-db` is included; otherwise add it to the backup
-  list.
-- **Using an external Postgres instead** (e.g. a shared instance): set
-  `DATABASE_URL=postgresql://<user>:<pass>@<host>:5432/<db>` in `.env` and drop
-  the `hq-db` service. The app path is identical.
+  `.env.example` with placeholders. Rotate with `ALTER ROLE hq PASSWORD '…';`
+  then update `.env` and `docker compose up -d`.
+- **Prefer not to share the instance?** Point `DATABASE_URL` at any other
+  Postgres (e.g. a dedicated container). The app code is identical.
 
 ## Verified
 
-The direct-connection path was validated end-to-end against a local
-**PostgreSQL 16** instance (the code is version-agnostic; PG17 behaves
-identically): the app built the connection URL from the `DB_*` parts, connected,
-auto-created all 7 tables, seeded the defaults, and login/reads/writes persisted.
-With `DB_REQUIRE=true` and an unreachable database, startup fails loudly instead
-of falling back to SQLite.
+The direct-connection path was validated end-to-end against a local PostgreSQL
+using a **non-superuser `hq` role owning an `hq` database** (mirroring the scoped
+setup above): the app connected, auto-created all 7 tables, seeded defaults, and
+login/reads/writes persisted. With `DB_REQUIRE=true` and an unreachable DB,
+startup fails loudly instead of falling back to SQLite.

@@ -11,44 +11,19 @@ services:
     env_file:
       - .env
     environment:
-      # Connect to the bundled dedicated Postgres by service hostname. The
-      # user/password/name come from .env (DB_USER / DB_PASSWORD / DB_NAME).
-      DB_HOST: hq-db
-      DB_PORT: "5432"
       # In production, fail fast instead of silently falling back to SQLite if
       # the database is unreachable (prevents accidental data loss).
       DB_REQUIRE: "true"
-    depends_on:
-      hq-db:
-        condition: service_healthy
+    # Join the shared network so this container can reach the central dotsai
+    # Postgres by hostname, e.g. DATABASE_URL=...@postgres:5432/hq  (set in .env).
     networks:
-      - hq_net
+      - dotsai_net
     restart: always
 
-  # HQ's own dedicated PostgreSQL 17 — per the "each production app gets its
-  # OWN Postgres container" rule. Publishes NO host port; only hq-portal can
-  # reach it, over the private hq_net network. Data persists in a named volume.
-  hq-db:
-    image: postgres:17-alpine
-    container_name: hq-db
-    environment:
-      POSTGRES_USER: ${DB_USER:-hq}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      POSTGRES_DB: ${DB_NAME:-hq}
-    volumes:
-      - hq_pgdata:/var/lib/postgresql/data
-    networks:
-      - hq_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-hq} -d ${DB_NAME:-hq}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-
+# The shared dotsai Postgres container already lives on this network, so we
+# attach to it as external (this compose file does NOT create/own it).
+# If the network name differs on your VPS, change it here to match
+# (`docker network ls` shows the network the postgres container is on).
 networks:
-  hq_net:
-    driver: bridge
-
-volumes:
-  hq_pgdata:
+  dotsai_net:
+    external: true
