@@ -1,4 +1,5 @@
 import os
+import secrets
 import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +11,7 @@ from typing import List, Optional
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
 from backend.schemas import (
-    LoginRequest, Token, UserResponse, UserCreate, UserUpdate, PasswordSet,
+    LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, OrganisationUpdate,
     ProductResponse, ProductCreate, ProductUpdate,
@@ -252,7 +253,7 @@ def list_users(
         query = query.join(Role).filter(Role.name == role)
     return query.all()
 
-@app.post("/api/users", response_model=UserResponse)
+@app.post("/api/users", response_model=UserCreateResponse)
 def create_user(
     user_data: UserCreate,
     current_user: User = Depends(get_current_user),
@@ -265,17 +266,22 @@ def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A user with this email already exists"
         )
-        
+
     # Get role
     role = db.query(Role).filter(Role.name == user_data.role_name).first()
     if not role:
         # Fallback to Admin or create it
         role = db.query(Role).filter(Role.name == "Admin").first()
-        
+
+    # Honour a caller-supplied password, else mint a strong random one so no
+    # account is ever created with a committed/guessable default.
+    supplied = (user_data.password or "").strip()
+    raw_password = supplied or secrets.token_urlsafe(12)
+
     db_user = User(
         email=user_data.email,
         name=user_data.name,
-        password_hash=get_password_hash("password123"),  # default password
+        password_hash=get_password_hash(raw_password),
         role_id=role.id if role else None,
         organisation_id=user_data.organisation_id,
         status=user_data.status
@@ -289,6 +295,9 @@ def create_user(
     _notify(db, [db_user.id], "Welcome to Z9S-AI HQ — your account is ready.",
             category="platform", path="/hq/hq/dashboard", product="hq", module="HQ", tab="Dashboard")
     db.commit()
+    # Surface the generated password ONCE (transient, never persisted) so an admin
+    # can share it. Stays None when the caller set their own password.
+    db_user.initial_password = None if supplied else raw_password
     return db_user
 
 @app.patch("/api/users/{user_id}", response_model=UserResponse)
@@ -957,9 +966,9 @@ API_CATALOG = [
     },
     {
         "method": "POST", "path": "/api/users", "auth": "Bearer / Cookie",
-        "summary": "Create a user. role_name defaults to Admin; a default password is assigned.",
+        "summary": "Create a user. role_name defaults to Admin. Omit \"password\" to auto-generate a strong one, returned once as initial_password.",
         "usage": "curl -X POST __BASE__/api/users \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"jane@acme.com\",\"name\":\"Jane\",\"role_name\":\"Operator\",\"status\":\"Active\"}'",
-        "response": "{\n  \"id\": 2, \"email\": \"jane@acme.com\",\n  \"name\": \"Jane\", \"status\": \"Active\"\n}",
+        "response": "{\n  \"id\": 2, \"email\": \"jane@acme.com\",\n  \"name\": \"Jane\", \"status\": \"Active\",\n  \"initial_password\": \"tqf7Kd2pRxM_\"\n}",
     },
     {
         "method": "PATCH", "path": "/api/users/{user_id}", "auth": "Bearer / Cookie",
@@ -1216,9 +1225,9 @@ CLI_CATALOG = [
     },
     {
         "group": "users", "command": "hq-cli users create",
-        "usage": "hq-cli users create --email jane@acme.com --name \"Jane\" --role Operator",
-        "description": "Create a new user (a default password is assigned).",
-        "output": "User Jane (jane@acme.com) created successfully with role Operator!",
+        "usage": "hq-cli users create --email jane@acme.com --name \"Jane\" --role Operator [--password ...]",
+        "description": "Create a new user. A strong password is auto-generated and printed once; pass --password to set your own.",
+        "output": "User Jane (jane@acme.com) created successfully with role Operator!\nInitial password (share securely): tqf7Kd2pRxM_",
     },
     {
         "group": "users", "command": "hq-cli users delete",

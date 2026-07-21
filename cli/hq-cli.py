@@ -124,14 +124,19 @@ def list_users(role):
 @click.option("--name", required=True, help="User display name")
 @click.option("--role", default="Admin", help="Role name (default: Admin)")
 @click.option("--status", default="Active", type=click.Choice(["Active", "Invited", "Disabled"]), help="User status")
-def create_user(email, name, role, status):
-    """Create a new user."""
+@click.option("--password", default=None, help="Set an explicit password (default: server auto-generates a strong one)")
+def create_user(email, name, role, status, password):
+    """Create a new user. A strong password is auto-generated unless --password is given."""
     try:
-        payload = {"email": email, "name": name, "role_name": role, "status": status, "password": "password123"}
+        payload = {"email": email, "name": name, "role_name": role, "status": status}
+        if password:
+            payload["password"] = password
         res = requests.post(f"{API_URL}/api/users", headers=get_headers(), json=payload)
         if res.status_code == 200:
             u = res.json()
             click.echo(f"User {u['name']} ({u['email']}) created successfully with role {role}!")
+            if u.get("initial_password"):
+                click.echo(f"Initial password (share securely): {u['initial_password']}")
         else:
             click.echo(f"Error: {res.json().get('detail')}", err=True)
     except Exception as e:
