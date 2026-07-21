@@ -8,14 +8,15 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
-from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback
+from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, OrganisationUpdate,
     ProductResponse, ProductCreate, ProductUpdate,
     WorkspaceResponse, WorkspaceCreate, WorkspaceUpdate, ApiCatalogResponse, ApiCatalogItem,
-    CliCatalogResponse, CliCommandItem, FeedbackCreate, FeedbackResponse, FeedbackUpdate
+    CliCatalogResponse, CliCommandItem, FeedbackCreate, FeedbackResponse, FeedbackUpdate,
+    NotificationCreate, NotificationResponse, NotificationUpdate
 )
 from backend.auth import (
     verify_password, get_password_hash, create_access_token, get_current_user
@@ -181,6 +182,16 @@ def seed_database():
             )
             db.add(admin_user)
             db.commit()
+            # Seed welcome notifications so the bell reflects real (DB-backed) data.
+            db.add_all([
+                Notification(user_id=admin_user.id, category="platform",
+                    title="Welcome to Z9S-AI HQ — your operating system is ready.",
+                    path="/hq/hq/dashboard", product="hq", module="HQ", tab="Dashboard"),
+                Notification(user_id=admin_user.id, category="update",
+                    title="Your Admin role has full access to every workspace.",
+                    path="/hq/config/roles", product="hq", module="Config", tab="Roles"),
+            ])
+            db.commit()
             logger.info("Default Admin user 'meet@dotsai.in' successfully seeded.")
             
     except Exception as e:
@@ -267,6 +278,12 @@ def create_user(
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    # Real notifications: tell admins a user joined, welcome the new user.
+    _notify(db, _admin_ids(db), f"New user {db_user.name} joined the platform",
+            category="update", path="/hq/config/users", product="hq", module="Config", tab="Users")
+    _notify(db, [db_user.id], "Welcome to Z9S-AI HQ — your account is ready.",
+            category="platform", path="/hq/hq/dashboard", product="hq", module="HQ", tab="Dashboard")
+    db.commit()
     return db_user
 
 @app.patch("/api/users/{user_id}", response_model=UserResponse)
@@ -636,6 +653,10 @@ def create_feedback(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+    # Real notification: alert admins that new feedback arrived.
+    _notify(db, _admin_ids(db), f"New {entry.category} feedback from {current_user.email}",
+            category="alert", path="/hq/config/feedback", product="hq", module="Config", tab="Feedback")
+    db.commit()
     return entry
 
 @app.get("/api/feedback", response_model=List[FeedbackResponse])
@@ -677,6 +698,86 @@ def delete_feedback(
     db.delete(fb)
     db.commit()
     return {"detail": "Feedback deleted successfully"}
+
+# Notifications
+def _admin_ids(db: Session):
+    return [u.id for u in db.query(User).join(Role).filter(Role.name == "Admin").all()]
+
+def _notify(db: Session, user_ids, title, category="update", path=None, product=None, module=None, tab=None):
+    """Queue notifications for the given users. Caller commits."""
+    for uid in set(user_ids):
+        db.add(Notification(user_id=uid, title=title, category=category,
+                            path=path, product=product, module=module, tab=tab))
+
+@app.get("/api/notifications", response_model=List[NotificationResponse])
+def list_notifications(
+    unread: Optional[bool] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Notification).filter(Notification.user_id == current_user.id)
+    if unread is True:
+        query = query.filter(Notification.read == False)
+    return query.order_by(Notification.created_at.desc()).all()
+
+@app.post("/api/notifications", response_model=NotificationResponse)
+def create_notification(
+    data: NotificationCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    n = Notification(
+        user_id=data.user_id, title=data.title, category=data.category or "update",
+        path=data.path, product=data.product, module=data.module, tab=data.tab
+    )
+    db.add(n)
+    db.commit()
+    db.refresh(n)
+    return n
+
+@app.post("/api/notifications/read-all")
+def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    updated = db.query(Notification).filter(
+        Notification.user_id == current_user.id, Notification.read == False
+    ).update({"read": True})
+    db.commit()
+    return {"detail": f"{updated} notification(s) marked as read"}
+
+@app.patch("/api/notifications/{notification_id}", response_model=NotificationResponse)
+def update_notification(
+    notification_id: int,
+    data: NotificationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    n = db.query(Notification).filter(
+        Notification.id == notification_id, Notification.user_id == current_user.id
+    ).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if data.read is not None:
+        n.read = data.read
+    db.commit()
+    db.refresh(n)
+    return n
+
+@app.delete("/api/notifications/{notification_id}")
+def delete_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    n = db.query(Notification).filter(
+        Notification.id == notification_id, Notification.user_id == current_user.id
+    ).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    db.delete(n)
+    db.commit()
+    return {"detail": "Notification deleted successfully"}
 
 # ── API CATALOG ──
 # A self-documenting reference of every endpoint on the platform. Public by
@@ -864,10 +965,40 @@ API_CATALOG = [
         "response": "{ \"detail\": \"Feedback deleted successfully\" }",
     },
     {
+        "method": "GET", "path": "/api/notifications", "auth": "Bearer / Cookie",
+        "summary": "List the signed-in user's notifications, newest first. Optional ?unread=true.",
+        "usage": "curl \"__BASE__/api/notifications?unread=true\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "[\n  {\n    \"id\": 3, \"title\": \"New user Jane joined the platform\",\n    \"category\": \"update\", \"read\": false,\n    \"path\": \"/hq/config/users\"\n  }\n]",
+    },
+    {
+        "method": "POST", "path": "/api/notifications", "auth": "Bearer / Cookie",
+        "summary": "Create a notification targeting a specific user.",
+        "usage": "curl -X POST __BASE__/api/notifications \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"user_id\":1,\"title\":\"Deploy finished\",\"category\":\"platform\"}'",
+        "response": "{ \"id\": 4, \"title\": \"Deploy finished\", \"read\": false }",
+    },
+    {
+        "method": "POST", "path": "/api/notifications/read-all", "auth": "Bearer / Cookie",
+        "summary": "Mark all of the signed-in user's notifications as read.",
+        "usage": "curl -X POST __BASE__/api/notifications/read-all \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"2 notification(s) marked as read\" }",
+    },
+    {
+        "method": "PATCH", "path": "/api/notifications/{notification_id}", "auth": "Bearer / Cookie",
+        "summary": "Mark one of your notifications read/unread.",
+        "usage": "curl -X PATCH __BASE__/api/notifications/3 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"read\":true}'",
+        "response": "{ \"id\": 3, \"read\": true }",
+    },
+    {
+        "method": "DELETE", "path": "/api/notifications/{notification_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete one of your notifications.",
+        "usage": "curl -X DELETE __BASE__/api/notifications/3 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Notification deleted successfully\" }",
+    },
+    {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
-        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 31,\n  \"endpoints\": [ ... ]\n}",
+        "response": "{\n  \"base_url\": \"__BASE__\",\n  \"count\": 36,\n  \"endpoints\": [ ... ]\n}",
     },
 ]
 

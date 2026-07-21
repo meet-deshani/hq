@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import Table, Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from backend.database import Base
@@ -92,6 +92,7 @@ class User(Base):
     role = relationship("Role", back_populates="users")
     organisation = relationship("Organisation", back_populates="users")
     feedback = relationship("Feedback", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 
 class Permission(Base):
     __tablename__ = "permissions"
@@ -121,4 +122,21 @@ class Feedback(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="feedback")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Each notification targets exactly one user; removed with the user.
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    category = Column(String(50), default="update")    # platform | update | alert | mention
+    read = Column(Boolean, default=False, nullable=False)
+    path = Column(String(255), nullable=True)          # where it links to
+    product = Column(String(150), nullable=True)
+    module = Column(String(150), nullable=True)
+    tab = Column(String(150), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="notifications")
 

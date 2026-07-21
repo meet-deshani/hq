@@ -1701,6 +1701,21 @@ function buildNotifs(org){
   ];
 }
 
+// Map a server notification (from /api/notifications) into the shape the bell UI uses.
+const NOTIF_DOT = { platform:'#FFCDB2', update:'#B8E0D2', alert:'#FF9F9F', mention:'#A2D2FF' };
+function mapNotif(n){
+  const module = n.module || 'HQ';
+  const tab = n.tab || 'Dashboard';
+  return {
+    id: n.id, cat: n.category || 'update', title: n.title,
+    dot: NOTIF_DOT[n.category] || '#C8B6FF',
+    path: n.product ? [n.module, n.tab].filter(Boolean).join(' · ') : (n.path || ''),
+    time: aiTimeAgo(new Date(n.created_at).getTime()),
+    read: !!n.read,
+    target: { product: n.product || 'hq', module: module, tab: tab, kind: 'dashboard' },
+  };
+}
+
 class Component extends DCLogic {
   logout = () => {
     fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login'; });
@@ -1723,7 +1738,7 @@ class Component extends DCLogic {
       dismissed:{},
       width:272, dragging:false,
       navOpen:null, searchQuery:'', searchOpen:false,
-      notifOpen:false, notifFilter:'all', notifSort:'newest', notifCat:'all', notifCatOpen:false, notifRead:{},
+      notifs:[], notifOpen:false, notifFilter:'all', notifSort:'newest', notifCat:'all', notifCatOpen:false, notifRead:{},
       fbOpen:false, fbCat:'general', fbText:'', fbMode:'page', fbTarget:null, fbHasDrawing:false, fbSent:false, fbBusy:false,
       aiOpen:false, aiMin:false, aiMax:false, aiPos:null, aiSize:{w:432,h:566}, aiPrevPos:null, aiPrevSize:null, aiDragging:false,
       aiMsgs:[], aiInput:'', aiModelOpen:false, aiModel:'Nova 2 Pro', aiMode:'Auto', aiModeOpen:false, aiFastMode:false, aiTokens:0, aiThinking:false,
@@ -1744,6 +1759,13 @@ class Component extends DCLogic {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
       .then(me => { if (me) this.set({ me }); })
+      .catch(() => {});
+    this._loadNotifs();
+  }
+  _loadNotifs(){
+    fetch('/api/notifications')
+      .then(r => r.ok ? r.json() : [])
+      .then(list => this.set({ notifs: (list || []).map(mapNotif) }))
       .catch(() => {});
   }
   componentWillUnmount(){ document.removeEventListener('keydown', this._key); }
@@ -2034,16 +2056,35 @@ class Component extends DCLogic {
   openSearch(){ this.set({ searchOpen:true, navOpen:null, notifOpen:false }); }
   closeSearch(){ this.set({ searchOpen:false }); }
   gotoSearch(h){ this.set(s=>({ product:h.product, tab:{module:h.module,tab:h.tab,kind:h.kind}, open:{...s.open,[h.module]:true}, searchOpen:false, searchQuery:'' })); }
-  toggleNotif(){ this.set(s=>({ notifOpen:!s.notifOpen, navOpen:null, searchOpen:false })); }
-  openNotifPanel(){ this.set({ notifOpen:true, navOpen:null, searchOpen:false, profileOpen:false }); }
-  markRead(id){ this.set(s=>({ notifRead:{ ...s.notifRead, [id]:true } })); }
+  toggleNotif(){ this.set(s=>({ notifOpen:!s.notifOpen, navOpen:null, searchOpen:false })); if(!this.state.notifOpen) this._loadNotifs(); }
+  openNotifPanel(){ this.set({ notifOpen:true, navOpen:null, searchOpen:false, profileOpen:false }); this._loadNotifs(); }
+  markRead(id){
+    this.set(s=>({ notifs: s.notifs.map(n=> n.id===id ? { ...n, read:true } : n) }));
+    fetch('/api/notifications/'+id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ read:true }) }).catch(()=>{});
+  }
+  deleteNotif(id){
+    this.set(s=>({ notifs: s.notifs.filter(n=> n.id!==id) }));
+    fetch('/api/notifications/'+id, { method:'DELETE' }).catch(()=>{});
+  }
   closeNotif(){ this.set({ notifOpen:false, notifCatOpen:false }); }
   setNotifFilter(f){ this.set({ notifFilter:f }); }
   toggleSort(){ this.set(s=>({ notifSort: s.notifSort==='newest'?'oldest':'newest' })); }
   toggleCat(){ this.set(s=>({ notifCatOpen:!s.notifCatOpen })); }
   setCat(c){ this.set({ notifCat:c, notifCatOpen:false }); }
-  markAllRead(){ const org = ORGS.find(o=>o.id===this.state.org); const m={...this.state.notifRead}; buildNotifs(org).forEach(n=>m[n.id]=true); this.set({ notifRead:m }); }
-  notifClick(n){ this.set(s=>({ product:n.target.product, workspace: workspacesFor(s.org, n.target.product)[0].name, tab:{module:n.target.module,tab:n.target.tab,kind:n.target.kind}, open:{...s.open,[n.target.module]:true}, notifRead:{...s.notifRead,[n.id]:true}, notifOpen:false })); }
+  markAllRead(){
+    this.set(s=>({ notifs: s.notifs.map(n=>({ ...n, read:true })) }));
+    fetch('/api/notifications/read-all', { method:'POST' }).catch(()=>{});
+  }
+  notifClick(n){
+    const t = n.target || {};
+    const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    // Mark read (local + remote) and navigate to the target via the URL router.
+    this.set(s=>({ notifs: s.notifs.map(x=> x.id===n.id ? { ...x, read:true } : x), notifOpen:false }));
+    fetch('/api/notifications/'+n.id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ read:true }) }).catch(()=>{});
+    const org = this.state.org;
+    const path = '/'+[org, t.product||'hq', t.module||'HQ', t.module||'HQ', t.tab||'Dashboard'].map(slug).join('/');
+    try{ window.history.pushState({}, '', path); this.syncFromUrl(); }catch(_){}
+  }
 
   renderVals(){
     const st = this.state;
@@ -2140,7 +2181,7 @@ class Component extends DCLogic {
       onClick: ()=>this.selectWorkspace(w.name),
     }));
 
-    const previewSeed = showNotif ? buildNotifs(org).map(n=>({ ...n, read:!!st.notifRead[n.id] })) : [];
+    const previewSeed = showNotif ? (st.notifs || []) : [];
     const previewUnread = previewSeed.filter(n=>!n.read);
     const updatesList = previewUnread.slice(0,2).map(n=>({ id:n.id, dot:n.dot, text:n.title, onClick:()=>this.openNotifPanel(), onMarkRead:()=>this.markRead(n.id) }));
     const updatesEmpty = showNotif && previewUnread.length===0;
@@ -2200,7 +2241,7 @@ class Component extends DCLogic {
     const searchSection = q ? 'Results' : 'Quick jump · '+prod.name;
 
     // ── notifications ──────────────────────────────────────────
-    const seed = buildNotifs(org).map(n=>({ ...n, read:!!st.notifRead[n.id] }));
+    const seed = st.notifs || [];
     let nf = seed;
     if (st.notifCat!=='all') nf = nf.filter(n=>n.cat===st.notifCat);
     if (st.notifFilter==='unread') nf = nf.filter(n=>!n.read);

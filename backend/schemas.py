@@ -231,3 +231,30 @@ class FeedbackUpdate(BaseModel):
     status: Optional[str] = None
     category: Optional[str] = None
 
+# Notification Schemas
+class NotificationCreate(BaseModel):
+    user_id: int
+    title: str
+    category: Optional[str] = "update"
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+
+class NotificationResponse(BaseModel):
+    id: int
+    title: str
+    category: str
+    read: bool
+    path: Optional[str] = None
+    product: Optional[str] = None
+    module: Optional[str] = None
+    tab: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class NotificationUpdate(BaseModel):
+    read: Optional[bool] = None
+
