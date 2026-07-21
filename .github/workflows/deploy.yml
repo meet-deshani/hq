@@ -6,21 +6,44 @@ on:
       - main
   workflow_dispatch:
 
+# Serialize deploys. Two merges landing seconds apart used to fire two concurrent
+# runs that hit the VPS sshd at the same instant — one won and the other's
+# ssh-keyscan/connect timed out and failed the job. This queues runs instead of
+# racing them. cancel-in-progress:false means we never abort a deploy mid-flight;
+# a superseded *pending* run is cancelled (grey), not failed (red). The VPS always
+# resets to origin/main, so a queued run still ships the latest commit.
+concurrency:
+  group: deploy-hq
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to Hostinger VPS
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure SSH Key
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 72.62.229.16 >> ~/.ssh/known_hosts
+          # ssh-keyscan defaults to a 5s timeout and, under `set -e`, a single
+          # transient miss (non-zero exit) killed the whole deploy job — the
+          # cause of the intermittent red runs. Retry, and never let a keyscan
+          # hiccup fail the deploy: host verification falls back to accept-new
+          # on the ssh call below if known_hosts ends up empty.
+          for i in 1 2 3 4 5; do
+            if ssh-keyscan -T 15 -H 72.62.229.16 >> ~/.ssh/known_hosts 2>/dev/null; then
+              echo "ssh-keyscan succeeded (attempt $i)"
+              break
+            fi
+            echo "ssh-keyscan attempt $i failed; retrying in 5s..."
+            sleep 5
+          done
 
       - name: Trigger VPS Deploy Script
         run: |
@@ -29,5 +52,8 @@ jobs:
           # by deploy.sh at init) can never abort deploy.sh's `git pull --ff-only`.
           # reset --hard only touches tracked files; untracked .env/.deploy.env
           # are preserved. This makes deploys self-healing against config drift.
-          ssh -i ~/.ssh/id_rsa root@72.62.229.16 'git -C /opt/apps/hq fetch origin main && git -C /opt/apps/hq reset --hard origin/main && deploy hq'
-
+          ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 \
+            root@72.62.229.16 \
+            'git -C /opt/apps/hq fetch origin main && git -C /opt/apps/hq reset --hard origin/main && deploy hq'
