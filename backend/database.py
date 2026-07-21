@@ -7,8 +7,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("db_connection")
 
-# When true, refuse to fall back to SQLite if the configured database is
-# unreachable — fail fast instead of silently losing data in production.
+# When true, NEVER run on SQLite — fail fast instead of silently losing data in
+# production. Covers BOTH failure modes: no database configured at all
+# (DATABASE_URL / DB_* unset) AND a configured database that is unreachable.
 DB_REQUIRE = os.getenv("DB_REQUIRE", "").strip().lower() in ("1", "true", "yes", "on")
 
 # Get connection parameters
@@ -23,6 +24,16 @@ if not DATABASE_URL:
     
     if db_user and db_pass and db_host and db_name:
         DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+
+# Production guard: if a real database is REQUIRED but none is configured, refuse
+# to start rather than silently create an ephemeral SQLite DB. Prod sets
+# DB_REQUIRE=true, so a missing/empty .env (no DATABASE_URL) crashes loudly here
+# instead of booting on throwaway SQLite that gets wiped on every deploy.
+if not DATABASE_URL and DB_REQUIRE:
+    raise RuntimeError(
+        "DB_REQUIRE is set but no database is configured (DATABASE_URL / DB_* "
+        "environment variables are unset). Refusing to fall back to SQLite."
+    )
 
 # Setup engine and fallback if connection fails
 is_sqlite = False
