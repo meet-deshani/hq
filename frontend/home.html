@@ -1081,14 +1081,16 @@ small, .caption {
        </sc-if>
       </div>
      </sc-if>
-     <button sc-camel-on-click="{{ onProfile }}" style="display:flex;align-items:center;gap:10px;width:100%;border:none;background:transparent;cursor:pointer;padding:6px;border-radius:12px;text-align:left" style-hover="background:rgba(25,25,36,.04)">
-      <span style="width:36px;height:36px;border-radius:50%;background:{{ user.color }};color:#0f2f22;font-family:'Chubbo',serif;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">{{ user.initials }}</span>
-      <span style="flex:1;min-width:0">
-       <span style="display:block;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ user.name }}</span>
-       <span style="display:block;font-family:'Satoshi',sans-serif;font-size:11px;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ user.email }} <sc-if value="{{ user.role }}">· {{ user.role }}</sc-if></span>
-      </span>
-      <span style="display:flex;color:#A7A399;flex:none"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></span>
-     </button>
+     <div style="display:flex;align-items:center;gap:6px;width:100%">
+      <button sc-camel-on-click="{{ onProfile }}" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;border:none;background:transparent;cursor:pointer;padding:6px;border-radius:12px;text-align:left" style-hover="background:rgba(25,25,36,.04)">
+       <span style="width:36px;height:36px;border-radius:50%;background:{{ user.color }};color:#0f2f22;font-family:'Chubbo',serif;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">{{ user.initials }}</span>
+       <span style="flex:1;min-width:0">
+        <span style="display:block;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;color:#191924;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ user.name }}</span>
+        <span style="display:block;font-family:'Satoshi',sans-serif;font-size:11px;color:#918D82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ user.email }} <sc-if value="{{ user.role }}">· {{ user.role }}</sc-if></span>
+       </span>
+      </button>
+      <button sc-camel-on-click="{{ onLogout }}" title="Sign out" aria-label="Sign out" style="display:flex;align-items:center;justify-content:center;color:#A7A399;flex:none;border:none;background:transparent;cursor:pointer;padding:8px;border-radius:10px" style-hover="background:rgba(217,138,78,.12);color:#D98A4E"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
+     </div>
     </div>
     <div style="padding:9px;border-top:1px solid #EAE8E2;text-align:center;flex:none"><span style="font-family:'Satoshi',sans-serif;font-size:10.5px;color:#B4B0A6">Made by <a href="https://dotsai.in" target="_blank" rel="noopener noreferrer" style="color:#6E6B62;font-weight:600;text-decoration:none" style-hover="color:#5b3fa0;text-decoration:underline">ZeroOne DOTS AI</a></span></div>
    </div>
@@ -2386,6 +2388,7 @@ class Component extends DCLogic {
       isCustomersView: (st.product==='hq' && at.module==='Customers'), isPortalView: !(st.product==='hq' && at.module==='Customers'),
       onCollapse: ()=>this.toggleCollapse(),
       onProfile: ()=>this.toggleProfile(),
+      onLogout: ()=>this.logout(),
       crumbs,
       searchQuery: st.searchQuery, searchOpen, searchHits, searchHasHits, searchNoHits, searchSection,
       onSearch:(e)=>this.onSearch(e), onSearchFocus:()=>this.openSearch(), onSearchClose:()=>this.closeSearch(),
