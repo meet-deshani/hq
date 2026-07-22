@@ -59,8 +59,9 @@
             <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
           </div>
           <sc-if value="{{ canCrud }}">
-            <button sc-camel-on-click="{{ onCreateMenu }}" title="Create…" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #E4E2DB;cursor:pointer;background:#fff;color:#4A4842;border-radius:9px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+            <button sc-camel-on-click="{{ onCreateNew }}" title="Create new" style="display:flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:none;cursor:pointer;background:#191924;color:#fff;border-radius:9px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600" style-hover="background:#2D1B4E">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              New {{ entLabel }}
             </button>
           </sc-if>
         </div>
@@ -121,14 +122,6 @@
       <sc-if value="{{ menuOpen }}">
         <div sc-camel-on-click="{{ onCloseMenus }}" style="position:fixed;inset:0;z-index:80"></div>
         <div style="position:fixed;left:{{ menuLeft }};top:{{ menuTop }};z-index:81;min-width:190px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);padding:6px;box-sizing:border-box">
-          <sc-if value="{{ menuIsCreate }}">
-            <sc-for list="{{ createItems }}" as="ci" hint-placeholder-count="4">
-              <button sc-camel-on-click="{{ ci.onClick }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                {{ ci.label }}
-              </button>
-            </sc-for>
-          </sc-if>
           <sc-if value="{{ menuIsRow }}">
             <button sc-camel-on-click="{{ onMenuEdit }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Edit</button>
             <sc-if value="{{ menuRowShowPassword }}">
@@ -715,7 +708,6 @@ class Component extends DCLogic {
     const cliCount = this.state.cliCount || (cmds.length + ' commands');
 
     const menu = this.state.menu;
-    const menuIsCreate = !!(menu && menu.type === 'create');
     const menuIsRow = !!(menu && menu.type === 'row');
 
     return {
@@ -724,14 +716,11 @@ class Component extends DCLogic {
       isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
       isReport: kind === 'report', isDesign: kind === 'design', isApi: kind === 'api', isCli: kind === 'cli',
       fields: [], columns, rows, gridCols, gridColsX, tableCount, stats, trendPath: this.state.trendPath, reportLines: [],
-      canCrud, entLabel, onCreateMenu: (e) => this.openMenu('create', e),
-      createItems: ['Organisations', 'Products', 'Workspaces', 'Users', 'Roles'].map(k => ({
-        label: 'New ' + ENTITIES[k].label, onClick: () => this.openCreateEntity(k),
-      })),
+      canCrud, entLabel, onCreateNew: () => this.openCreateEntity(),
       formOpen: this.state.formOpen, formTitle, formFields, submitLabel,
       formErr: this.state.formErr, hasFormErr: !!this.state.formErr, busy: this.state.busy,
       onFormClose: () => this.closeForm(), onFormSubmit: () => this.submitForm(),
-      menuOpen: !!menu, menuIsCreate: menuIsCreate, menuIsRow: menuIsRow,
+      menuOpen: !!menu, menuIsRow: menuIsRow,
       menuLeft: menu ? (menu.x + 'px') : '0px', menuTop: menu ? (menu.y + 'px') : '0px',
       menuRowShowPassword: menuIsRow && entity === 'Users',
       onCloseMenus: () => this.closeMenus(),
