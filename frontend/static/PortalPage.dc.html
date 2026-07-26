@@ -181,6 +181,81 @@
       </sc-if>
     </sc-if>
 
+    <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:0;width:100%;height:calc(100vh - 210px);min-height:420px;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-sizing:border-box">
+
+        <!-- pane 1 · channels -->
+        <div style="flex:0 0 190px;min-width:150px;border-right:1px solid #EEEDE8;background:#FBFAF7;display:flex;flex-direction:column">
+          <div style="padding:14px 16px 10px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Channels</div>
+          <sc-for list="{{ inboxChannels }}" as="ch" hint-placeholder-count="3">
+            <button sc-camel-on-click="{{ ch.onPick }}" style="{{ ch.style }}">
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">{{ ch.name }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ ch.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- pane 2 · threads -->
+        <div style="flex:0 0 288px;min-width:220px;border-right:1px solid #EEEDE8;display:flex;flex-direction:column;overflow:hidden">
+          <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 14px;height:52px;border-bottom:1px solid #EEEDE8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+            <input value="{{ searchValue }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search threads…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924">
+          </div>
+          <div class="zsc" style="flex:1;overflow-y:auto">
+            <sc-for list="{{ inboxThreads }}" as="th" hint-placeholder-count="5">
+              <div sc-camel-on-click="{{ th.onOpen }}" style="{{ th.style }}">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                  <span style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ th.name }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#918D82;white-space:nowrap">{{ th.when }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:12px;color:#6E6B62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ th.preview }}</span>
+                  <span style="{{ th.unreadStyle }}">{{ th.unread }}</span>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noThreads }}">
+              <div style="padding:22px 16px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399;line-height:1.5">{{ noThreadsText }}</div>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- pane 3 · messages -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+          <sc-if value="{{ hasThread }}">
+            <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 18px;height:52px;border-bottom:1px solid #EEEDE8;background:rgba(253,252,250,.9)">
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ threadName }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:#918D82;margin-top:1px">{{ threadMeta }}</div>
+              </div>
+              <sc-if value="{{ threadHasCustomer }}">
+                <button sc-camel-on-click="{{ onOpenCustomer }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;border-radius:999px;white-space:nowrap">View customer</button>
+              </sc-if>
+            </div>
+            <div class="zsc" style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px;background:#FDFCFA">
+              <sc-for list="{{ threadMessages }}" as="m" hint-placeholder-count="4">
+                <div style="{{ m.rowStyle }}">
+                  <div style="{{ m.bubbleStyle }}">
+                    <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;line-height:1.5;color:#191924;white-space:pre-wrap;word-break:break-word">{{ m.body }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#918D82;margin-top:5px">{{ m.meta }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:0 0 auto;display:flex;gap:9px;padding:12px 16px;border-top:1px solid #EEEDE8;background:#fff">
+              <input value="{{ replyDraft }}" sc-camel-on-change="{{ onReplyInput }}" placeholder="{{ replyPlaceholder }}" style="flex:1;min-width:0;box-sizing:border-box;padding:10px 14px;border-radius:999px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
+              <button sc-camel-on-click="{{ onReplySubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 20px;border-radius:999px;white-space:nowrap">{{ replyLabel }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noThreadPicked }}">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center">
+              <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#A7A399;line-height:1.6;max-width:320px">{{ emptyPaneText }}</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
       <div style="width:100%">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
@@ -591,6 +666,7 @@ class Component extends DCLogic {
     previewValue: '—',
     previewLabel: 'Computed output',
     menu: null,
+    inboxChannel: null, inboxThread: null, inboxMessages: [], replyDraft: '', replyBusy: false,
     pwOpen: false, pwUserId: null, pwUserName: '', pwValue: '', pwErr: '', pwBusy: false,
     createdCred: null, credCopied: false
   };
@@ -647,6 +723,7 @@ class Component extends DCLogic {
       if (ent) return this.state.detailId ? this._fetchDetail(ent) : this._fetchList(ent);
       return this._fetchLegacy();
     }
+    if (kind === 'inbox') return this._fetchInbox();
     if (kind === 'dashboard') return this._fetchDashboard();
     if (kind === 'api') return this._fetchApiCatalog();
     if (kind === 'cli') return this._fetchCliCatalog();
@@ -706,6 +783,69 @@ class Component extends DCLogic {
                         total: rows.length, loading: false });
       })
       .catch(e => { console.error('legacy list failed', e); this.setState({ loading:false }); });
+  }
+
+  // ── inbox ─────────────────────────────────────────────────────────────────
+  _fetchInbox(){
+    this.setState({ loading: true });
+    const qs = this.state.search ? ('&q=' + encodeURIComponent(this.state.search)) : '';
+    Promise.all([
+      fetch('/api/channels?limit=50').then(r => r.ok ? r.json() : { rows: [] }),
+      fetch('/api/conversations?limit=200' + qs).then(r => {
+        if(!this._authed(r)) return { rows: [] };
+        return r.ok ? r.json() : { rows: [] };
+      }),
+    ]).then(([channels, convos]) => {
+      const rows = convos.rows || [];
+      this.setState({ channels: channels.rows || [], rows, total: convos.total || rows.length,
+                      loading: false }, () => {
+        // Open the first thread so the pane is never pointlessly empty.
+        const visible = this._visibleThreads();
+        if(!this.state.inboxThread && visible.length) this.openThread(visible[0].id);
+      });
+    }).catch(e => { console.error('inbox failed', e); this.setState({ loading:false }); });
+  }
+
+  _visibleThreads(){
+    const ch = this.state.inboxChannel;
+    return (this.state.rows || []).filter(t => !ch || t.channel_id === ch);
+  }
+
+  openThread(id){
+    this.setState({ inboxThread: id, inboxMessages: [], replyDraft: '' });
+    fetch('/api/conversations/' + id + '/thread')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if(!d) return;
+        this.setState({ inboxMessages: d.messages || [], inboxThreadData: d });
+        // Opening a thread is reading it.
+        if(d.unread_count) {
+          fetch('/api/conversations/' + id + '/read', { method:'POST' })
+            .then(() => this.setState(st => ({
+              rows: (st.rows||[]).map(r => r.id === id ? Object.assign({}, r, { unread_count: 0 }) : r)
+            })))
+            .catch(() => {});
+        }
+      })
+      .catch(e => console.error('thread failed', e));
+  }
+
+  pickChannel(id){ this.setState({ inboxChannel: id, inboxThread: null }, () => {
+    const v = this._visibleThreads(); if(v.length) this.openThread(v[0].id);
+  }); }
+
+  onReplyInput(v){ this.setState({ replyDraft: v }); }
+  submitReply(){
+    const id = this.state.inboxThread;
+    const body = (this.state.replyDraft || '').trim();
+    if(!id || !body || this.state.replyBusy) return;
+    this.setState({ replyBusy: true });
+    fetch('/api/conversations/' + id + '/messages', {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ body })
+    })
+      .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
+      .then(() => { this.setState({ replyDraft:'', replyBusy:false }); this.openThread(id); })
+      .catch(e => { this.setState({ replyBusy:false }); window.alert('Could not record the reply: ' + (e.message||e)); });
   }
 
   _fetchDashboard(){
@@ -1092,6 +1232,67 @@ class Component extends DCLogic {
       });
     }
 
+    // ── inbox ───────────────────────────────────────────────────────────────
+    const isInbox = kind === 'inbox';
+    let inboxChannels = [], inboxThreads = [], threadMessages = [];
+    let threadName = '', threadMeta = '', threadHasCustomer = false;
+    if(isInbox){
+      const chans = this.state.channels || [];
+      const all = this.state.rows || [];
+      const activeCh = this.state.inboxChannel;
+      const chipStyle = (on) => 'display:flex;align-items:center;gap:8px;width:100%;border:none;cursor:pointer;'
+        + 'background:' + (on ? 'rgba(184,224,210,.34)' : 'transparent')
+        + ";font-family:'Satoshi',sans-serif;font-size:13px;font-weight:" + (on ? '600' : '500')
+        + ';color:#2A2A32;padding:9px 16px;text-align:left;';
+
+      inboxChannels = [{
+        name: 'All conversations', count: String(all.length),
+        onPick: () => this.pickChannel(null), style: chipStyle(!activeCh),
+      }].concat(chans.map(c => ({
+        name: c.name,
+        count: String(all.filter(t => t.channel_id === c.id).length),
+        onPick: () => this.pickChannel(c.id),
+        style: chipStyle(activeCh === c.id),
+      })));
+
+      const visible = this._visibleThreads();
+      inboxThreads = visible.map(t => {
+        const on = t.id === this.state.inboxThread;
+        const unread = t.unread_count || 0;
+        return {
+          name: t.contact_name || t.contact_identifier,
+          preview: (t._refs && t._refs.party_id) || t.contact_identifier || '',
+          when: fmtWhen(t.last_message_at),
+          unread: unread ? String(unread) : '',
+          unreadStyle: unread
+            ? "font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;background:#191924;color:#fff;padding:1px 7px;border-radius:999px;"
+            : 'display:none;',
+          onOpen: () => this.openThread(t.id),
+          style: 'padding:11px 14px;border-bottom:1px solid #F3F2EE;cursor:pointer;'
+            + (on ? 'background:rgba(184,224,210,.22);box-shadow:inset 3px 0 0 ' + accent + ';' : ''),
+        };
+      });
+
+      const data = this.state.inboxThreadData;
+      if(data && data.id === this.state.inboxThread){
+        threadName = data.contact_name || data.contact_identifier || '';
+        threadMeta = [data.channel, data.party || 'Not linked to a customer'].filter(Boolean).join(' · ');
+        threadHasCustomer = !!data.party_id;
+      }
+      threadMessages = (this.state.inboxMessages || []).map(m => {
+        const out = m.direction === 'outbound';
+        return {
+          body: m.body || '',
+          meta: (out ? 'Sent' : 'Received') + ' · ' + fmtWhen(m.sent_at)
+                + (m.delivery_status ? ' · ' + m.delivery_status : ''),
+          rowStyle: 'display:flex;justify-content:' + (out ? 'flex-end' : 'flex-start') + ';width:100%',
+          bubbleStyle: 'max-width:min(560px,78%);padding:11px 14px;border-radius:14px;'
+            + (out ? 'background:' + tint(accent, 0.3) + ';border:1px solid ' + tint(accent, 0.5) + ';'
+                   : 'background:#fff;border:1px solid #E8E6E0;'),
+        };
+      });
+    }
+
     // ── form ────────────────────────────────────────────────────────────────
     const fmode = this.state.formMode;
     const formFields = this._formFieldsFor(ent)
@@ -1128,6 +1329,10 @@ class Component extends DCLogic {
       cli: 'Every hq-cli command — with a copy-paste invocation and example output. Point it at any host with the HQ_API_URL env var.',
     };
     let sub = SUBS[kind] || SUBS.report;
+    if(isInbox){
+      sub = 'Every client message, on one thread per contact per channel. '
+          + 'Inbound messages attach themselves to the right customer where the address is known.';
+    }
     if(inDetail){
       const bits = [];
       if(detail.kind) bits.push(String(detail.kind).replace(/_/g,' '));
@@ -1149,6 +1354,26 @@ class Component extends DCLogic {
       crumb, moduleName, tabName, sub, accent, accentSoft: tint(accent, 0.16),
       showCrumb: this.props.hideCrumb !== true,
       isForm: kind === 'form',
+      isInbox,
+      inboxChannels, inboxThreads, threadMessages, threadName, threadMeta, threadHasCustomer,
+      hasThread: isInbox && !!this.state.inboxThread,
+      noThreadPicked: isInbox && !this.state.inboxThread,
+      noThreads: isInbox && !inboxThreads.length && !this.state.loading,
+      noThreadsText: this.state.search
+        ? 'No threads match that search.'
+        : 'No conversations yet. Messages arrive through the carrier webhook — see Document \u00b7 API for POST /api/comms/inbound.',
+      emptyPaneText: inboxThreads.length
+        ? 'Pick a thread on the left.'
+        : 'Nothing to show yet. Once a channel is wired up, client messages land here automatically and attach themselves to the right customer.',
+      replyDraft: this.state.replyDraft,
+      replyLabel: this.state.replyBusy ? 'Saving\u2026' : 'Record',
+      replyPlaceholder: 'Record what you sent\u2026',
+      onReplyInput: (e) => this.onReplyInput(e && e.target ? e.target.value : ''),
+      onReplySubmit: () => this.submitReply(),
+      onOpenCustomer: () => {
+        const d = this.state.inboxThreadData;
+        if(d && d.party_id) window.location.href = '/z9s-ai/hq/crm/customers/customers?id=' + d.party_id;
+      },
       isTable: kind === 'table' && !inDetail,
       isDetail: inDetail,
       isDashboard: kind === 'dashboard', isReport: kind === 'report', isDesign: kind === 'design',

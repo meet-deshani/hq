@@ -10,10 +10,11 @@ from typing import List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
+from backend.crm_models import Conversation
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, crud, dashboards, permissions, registry, seed_crm, zoho, zoho_sync
+from backend import audit, comms, crud, dashboards, permissions, registry, seed_crm, zoho, zoho_sync
 from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
@@ -1005,6 +1006,125 @@ def ai_chat(req: AiChatRequest, current_user: User = Depends(get_current_user)):
         logger.error(f"Anthropic call failed: {e}")
         return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
 
+# ── COMMUNICATION ──
+
+@app.post("/api/comms/inbound")
+def comms_inbound(payload: dict, request: Request, db: Session = Depends(get_db)):
+    """Carrier webhook — land a message against its thread.
+
+    Authenticated with a shared secret rather than a JWT, because the WhatsApp
+    bot is a service, not a person. It FAILS CLOSED: with no COMMS_WEBHOOK_TOKEN
+    set the route refuses everything, so an unconfigured deployment cannot
+    accept anonymous writes into the message store.
+    """
+    expected = comms.webhook_token()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="Inbound messaging is not configured. Set COMMS_WEBHOOK_TOKEN in the "
+                   "server environment and send it as the X-HQ-Webhook-Token header.",
+        )
+    if request.headers.get("X-HQ-Webhook-Token", "") != expected:
+        # Deliberately not saying which part was wrong.
+        raise HTTPException(status_code=401, detail="Invalid webhook token.")
+
+    org = db.query(Organisation).filter(Organisation.slug == "z9s-ai").first()
+    if org is None:
+        raise HTTPException(status_code=503, detail="Organisation not initialised.")
+
+    try:
+        message, conversation, created = comms.ingest(db, org.id, payload or {})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    db.commit()
+    return {
+        "created": created,
+        "duplicate": not created,
+        "message_id": message.id,
+        "conversation_id": conversation.id,
+        "party_id": conversation.party_id,
+        "linked": conversation.party_id is not None,
+    }
+
+
+@app.get("/api/conversations/{conversation_id}/thread")
+def comms_thread(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """A conversation with its messages, oldest first."""
+    permissions.require(current_user, "conversations", "read")
+    data = comms.thread(db, current_user.organisation_id, conversation_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return data
+
+
+@app.post("/api/conversations/{conversation_id}/messages")
+def comms_reply(
+    conversation_id: int,
+    payload: dict,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Record an outbound message on a thread.
+
+    This RECORDS what was sent; it does not itself send. Wiring the send to the
+    WhatsApp bot is a separate step, and claiming delivery HQ cannot guarantee
+    would make the thread lie about what the client actually received.
+    """
+    permissions.require(current_user, "conversations", "update")
+    convo = db.query(Conversation).filter(
+        Conversation.organisation_id == current_user.organisation_id,
+        Conversation.id == conversation_id,
+    ).first()
+    if convo is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    body = (payload or {}).get("body", "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="'body' is required")
+
+    message, _, _ = comms.ingest(db, current_user.organisation_id, {
+        "channel_id": convo.channel_id,
+        "from": convo.contact_identifier,
+        "direction": "outbound",
+        "body": body,
+        "author_id": current_user.id,
+        "external_id": (payload or {}).get("external_id"),
+        "delivery_status": "recorded",
+    })
+    db.commit()
+    audit.record(
+        db, action="reply", entity_type="conversations", entity_id=convo.id,
+        entity_label=convo.contact_name, actor=current_user, request=request,
+        changes={"message": {"from": None, "to": body[:500]}},
+        organisation_id=convo.organisation_id, commit=True,
+    )
+    return {"id": message.id, "conversation_id": convo.id, "sent_at": message.sent_at.isoformat() + "Z"}
+
+
+@app.post("/api/conversations/{conversation_id}/read")
+def comms_mark_read(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    permissions.require(current_user, "conversations", "update")
+    convo = db.query(Conversation).filter(
+        Conversation.organisation_id == current_user.organisation_id,
+        Conversation.id == conversation_id,
+    ).first()
+    if convo is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    comms.mark_read(db, convo)
+    db.commit()
+    return {"detail": "Marked read", "id": convo.id}
+
+
 # ── ZOHO BOOKS ──
 # One-directional: HQ reads Zoho and mirrors it. There is deliberately no route
 # here that writes anything back — Zoho Books is where an invoice is raised.
@@ -1351,6 +1471,42 @@ API_CATALOG = [
         "summary": "The hq-cli command reference.",
         "usage": "curl __BASE__/api/cli",
         "response": "{ \"base_command\": \"hq-cli\", \"count\": 16, \"commands\": [ ... ] }",
+    },
+    {
+        "method": "POST", "path": "/api/comms/inbound", "auth": "X-HQ-Webhook-Token",
+        "summary": "Carrier webhook — land an inbound message against its thread. Authenticated "
+                   "with a shared secret, not a JWT, because the sender is a service. FAILS "
+                   "CLOSED: with no COMMS_WEBHOOK_TOKEN set it refuses everything. Idempotent on "
+                   "external_id, so a retried delivery is one row. An address that matches no "
+                   "customer still gets a thread rather than being dropped.",
+        "usage": "curl -X POST __BASE__/api/comms/inbound \\\n  -H \"X-HQ-Webhook-Token: $HOOK\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"channel_type\":\"whatsapp\",\"from\":\"919825115308\",\n"
+                 "       \"body\":\"Revised scope attached.\",\"external_id\":\"wa-1\"}'",
+        "response": "{\n  \"created\": true, \"duplicate\": false, \"message_id\": 1,\n"
+                    "  \"conversation_id\": 1, \"party_id\": 1, \"linked\": true\n}",
+    },
+    {
+        "method": "GET", "path": "/api/conversations/{conversation_id}/thread", "auth": "Bearer / Cookie",
+        "summary": "One conversation with its messages, oldest first, plus the customer it belongs to.",
+        "usage": "curl __BASE__/api/conversations/1/thread \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"contact_name\": \"Hemish\", \"party\": \"NeoNir Engineering\",\n"
+                    "  \"messages\": [ { \"direction\": \"inbound\", \"body\": \"...\" } ]\n}",
+    },
+    {
+        "method": "POST", "path": "/api/conversations/{conversation_id}/messages", "auth": "Bearer / Cookie",
+        "summary": "Record an outbound message on a thread. RECORDS what was sent; it does not "
+                   "itself send — claiming a delivery HQ cannot guarantee would make the thread "
+                   "lie about what the client received.",
+        "usage": "curl -X POST __BASE__/api/conversations/1/messages \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"body\":\"Thanks, reviewing now.\"}'",
+        "response": "{ \"id\": 2, \"conversation_id\": 1, \"sent_at\": \"...Z\" }",
+    },
+    {
+        "method": "POST", "path": "/api/conversations/{conversation_id}/read", "auth": "Bearer / Cookie",
+        "summary": "Clear a thread's unread count.",
+        "usage": "curl -X POST __BASE__/api/conversations/1/read \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Marked read\", \"id\": 1 }",
     },
     {
         "method": "GET", "path": "/api/zoho/status", "auth": "Bearer / Cookie",

@@ -289,6 +289,91 @@ def run(base, email, password):
     api.call("DELETE", "/api/contracts/%s" % contract["id"], expect=200)
     api.call("DELETE", "/api/tickets/%s" % ticket["id"], expect=200)
 
+    # ── message ingestion ───────────────────────────────────────────────────
+    section("Communication ingestion")
+    hook = os.environ.get("COMMS_WEBHOOK_TOKEN", "local-webhook-secret")
+
+    def inbound(body, token=hook):
+        req = urllib.request.Request(base + "/api/comms/inbound",
+                                     data=json.dumps(body).encode(), method="POST")
+        req.add_header("Content-Type", "application/json")
+        if token is not None:
+            req.add_header("X-HQ-Webhook-Token", token)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return resp.status, json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode()
+            try:
+                return exc.code, json.loads(raw)
+            except ValueError:
+                return exc.code, raw
+
+    st, _ = inbound({"channel_type": "whatsapp", "from": "919999911111", "body": "x"}, token=None)
+    check("the webhook refuses an unauthenticated message", st == 401, "got %s" % st)
+    st, _ = inbound({"channel_type": "whatsapp", "from": "919999911111", "body": "x"}, token="wrong")
+    check("the webhook refuses a bad token", st == 401, "got %s" % st)
+
+    # A number formatted differently from the one on record must still resolve —
+    # the same person is "+91-98251 15308" in one system and "919825115308"
+    # in another.
+    st, first = inbound({
+        "channel_type": "whatsapp", "from": "+91-98251 15308", "contact_name": "Hemish",
+        "body": "Smoke: revised scope attached.", "external_id": "smoke-wa-1",
+    })
+    check("an inbound message creates a thread", st == 200 and first.get("created") is True,
+          "%s %s" % (st, first))
+    check("a differently-formatted number still resolves to its customer",
+          first.get("linked") is True, "party_id=%s" % first.get("party_id"))
+
+    st, replay = inbound({
+        "channel_type": "whatsapp", "from": "919825115308",
+        "body": "Smoke: revised scope attached.", "external_id": "smoke-wa-1",
+    })
+    check("a retried delivery is not stored twice",
+          replay.get("duplicate") is True and replay.get("message_id") == first["message_id"],
+          str(replay))
+
+    st, unknown = inbound({
+        "channel_type": "whatsapp", "from": "919000000123", "contact_name": "Nobody",
+        "body": "Smoke: who is this", "external_id": "smoke-wa-2",
+    })
+    check("an unrecognised number still gets a thread rather than being dropped",
+          unknown.get("conversation_id") and unknown.get("linked") is False, str(unknown))
+
+    convo_id = first["conversation_id"]
+    _, thread = api.call("GET", "/api/conversations/%s/thread" % convo_id, expect=200)
+    check("the thread reads back with its messages",
+          thread["messages"] and thread["messages"][0]["direction"] == "inbound",
+          str(thread)[:200])
+    check("the thread knows which customer it belongs to", bool(thread["party"]), str(thread)[:200])
+
+    before_count = len(thread["messages"])
+    _, reply = api.call("POST", "/api/conversations/%s/messages" % convo_id,
+                        {"body": "Smoke: thanks, reviewing now."}, expect=200)
+    _, thread2 = api.call("GET", "/api/conversations/%s/thread" % convo_id, expect=200)
+    # Counted as a delta, not an absolute: this number resolves against a real
+    # phone number, so an existing thread for it is a legitimate starting state.
+    check("a reply is appended to the thread as outbound",
+          len(thread2["messages"]) == before_count + 1
+          and thread2["messages"][-1]["direction"] == "outbound"
+          and thread2["messages"][-1]["body"] == "Smoke: thanks, reviewing now.",
+          "was %d, now %s" % (before_count, [m["direction"] for m in thread2["messages"]]))
+    check("replying clears the unread count", thread2["unread_count"] == 0,
+          "unread=%s" % thread2["unread_count"])
+
+    # A client replying to a closed thread reopens it — they neither know nor
+    # care that someone marked it done.
+    api.call("PATCH", "/api/conversations/%s" % convo_id, {"status": "closed"}, expect=200)
+    inbound({"channel_type": "whatsapp", "from": "919825115308",
+             "body": "Smoke: one more thing", "external_id": "smoke-wa-3"})
+    _, thread3 = api.call("GET", "/api/conversations/%s/thread" % convo_id, expect=200)
+    check("an inbound reply reopens a closed thread", thread3["status"] == "open",
+          "status=%s" % thread3["status"])
+
+    for cid in {convo_id, unknown["conversation_id"]}:
+        api.call("DELETE", "/api/conversations/%s" % cid)
+
     # ── CRUD round trip ─────────────────────────────────────────────────────
     section("CRUD round trip")
     # A previous aborted run may have left this behind; a smoke test that cannot
