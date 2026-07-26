@@ -24,9 +24,10 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend import audit, registry
+from backend import audit, permissions, registry
 from backend.auth import get_current_user
 from backend.crm_models import Activity, Attachment, AuditLog, Comment, Lead, Party
 from backend.database import get_db
@@ -258,6 +259,25 @@ def _get_row(db, ent, row_id):
     return obj
 
 
+def _commit(db, ent, what="save"):
+    """Commit, turning a constraint violation into a 409 instead of a 500.
+
+    Most violations here are a duplicate natural key — a second customer with
+    the same name, a second lead source called the same thing. That is a
+    conflict the caller can act on, not a server fault.
+    """
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        detail = "That %s conflicts with an existing record." % ent["label"].lower()
+        raw = str(getattr(exc, "orig", exc))
+        if "UNIQUE" in raw.upper():
+            detail = ("A %s with those details already exists. "
+                      "Names must be unique within the organisation." % ent["label"].lower())
+        raise HTTPException(status_code=409, detail=detail)
+
+
 def _writable(ent):
     """Field keys that are real, writable columns.
 
@@ -352,10 +372,19 @@ def meta_entities(current_user: User = Depends(get_current_user)):
     to be public on a live domain. The UI (cookie), the CLI and agents all
     authenticate before reading it anyway.
     """
+    can = permissions.can_map(current_user)
+    entities = []
+    for e in registry.ENTITIES:
+        pub = registry.public(e)
+        # What THIS caller may do with it. The UI hides affordances it lacks;
+        # the routes enforce it regardless.
+        pub["can"] = can.get(e["key"], {})
+        entities.append(pub)
     return {
-        "count": len(registry.ENTITIES),
-        "entities": [registry.public(e) for e in registry.ENTITIES],
+        "count": len(entities),
+        "entities": entities,
         "refs": {"users": {"path": "/api/users", "title_field": "name"}},
+        "can": can,
     }
 
 
@@ -375,6 +404,7 @@ def audit_trail(
     db: Session = Depends(get_db),
 ):
     """The platform-wide change history — who changed what, when, from where."""
+    permissions.require(current_user, "audit", "read")
     entries = _audit_list(db, entity_type or None, entity_id, limit=limit, offset=offset)
     # `count` is how many came back, not how many were asked for — a client
     # paginating on the requested limit would never stop.
@@ -396,6 +426,7 @@ def list_rows(
     db: Session = Depends(get_db),
 ):
     ent = _get_entity(key)
+    permissions.require(current_user, key, "read")
     query = _apply_scope(db.query(ent["model"]), ent)
 
     if view:
@@ -437,6 +468,7 @@ def get_row(
     db: Session = Depends(get_db),
 ):
     ent = _get_entity(key)
+    permissions.require(current_user, key, "read")
     obj = _get_row(db, ent, row_id)
     labels = _resolve_refs(db, ent, [obj])
     data = serialize(obj, ent, labels)
@@ -479,6 +511,7 @@ def create_row(
     db: Session = Depends(get_db),
 ):
     ent = _get_entity(key)
+    permissions.require(current_user, key, "create")
     allowed = _writable(ent)
 
     values = {}
@@ -512,7 +545,7 @@ def create_row(
         obj.source = _source_of(request)
 
     db.add(obj)
-    db.commit()
+    _commit(db, ent)
     db.refresh(obj)
 
     audit.record(
@@ -533,6 +566,7 @@ def update_row(
     db: Session = Depends(get_db),
 ):
     ent = _get_entity(key)
+    permissions.require(current_user, key, "update")
     obj = _get_row(db, ent, row_id)
     allowed = _writable(ent)
     before = audit.snapshot(obj)
@@ -545,7 +579,7 @@ def update_row(
         obj.updated_by_id = current_user.id
 
     changes = audit.diff(before, audit.snapshot(obj))
-    db.commit()
+    _commit(db, ent)
     db.refresh(obj)
 
     if changes:
@@ -566,6 +600,7 @@ def delete_row(
     db: Session = Depends(get_db),
 ):
     ent = _get_entity(key)
+    permissions.require(current_user, key, "delete")
     obj = _get_row(db, ent, row_id)
     label = registry.label_for(obj, ent)
     org_id = getattr(obj, "organisation_id", None)
@@ -630,6 +665,7 @@ def list_remarks(
     db: Session = Depends(get_db),
 ):
     ent = _get_entity(key)
+    permissions.require(current_user, key, "read")
     _get_row(db, ent, row_id)
     return {"entity": key, "id": row_id, "remarks": _remark_list(db, ent, row_id)}
 
@@ -649,6 +685,7 @@ def add_remark(
     what was believed when stays readable.
     """
     ent = _get_entity(key)
+    permissions.require(current_user, key, "remark")
     obj = _get_row(db, ent, row_id)
     body = (payload or {}).get("body", "").strip()
     if not body:
@@ -738,6 +775,8 @@ def convert_lead(
     reason the lead existed. Converting twice returns the existing customer
     rather than creating a second one.
     """
+    permissions.require(current_user, "leads", "update")
+    permissions.require(current_user, "customers", "create")
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead %s not found" % lead_id)

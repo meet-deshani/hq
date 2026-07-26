@@ -9,7 +9,7 @@ and any field that board does not carry is left NULL rather than guessed.
 import logging
 import os
 import secrets
-from datetime import date
+from datetime import date, datetime
 
 from backend.crm_models import (
     Item, ItemCategory, LeadSource, LostReason, Party, PartyGroup, Pipeline,
@@ -30,11 +30,6 @@ TEAM = [
         "email": "hemish@neonir.com", "name": "Hemish Kapadia", "role": "Advisor",
         "env": "SEED_HEMISH_PASSWORD", "initials": "HK",
     },
-]
-
-ROLES = [
-    ("Partner", "Full operating access across customers, leads, projects and tasks."),
-    ("Advisor", "Full visibility across the platform; comments and tasks, no configuration."),
 ]
 
 PARTY_GROUPS = [
@@ -141,6 +136,40 @@ PROJECTS = [
      "https://supportdesk.dotsai.cloud/login"),
 ]
 
+# ── Zoho Books linkage ──────────────────────────────────────────────────────
+# Zoho Books (org 60078183686) is the system of record for money. These are the
+# real contacts and receivables read from it on 2026-07-26. HQ mirrors the
+# figure for display; it never writes an invoice.
+#
+# Only names that match unambiguously are linked. Two Zoho contacts look like
+# HQ customers under a different name — GOA TRADING & TECHNICAL SERVICES
+# (michael.martins@) vs "Michael Bhai", and KAJAL PARAG TELI (parag_teli@) vs
+# "Parag Kaka" — but that is an inference from a first name, and attaching the
+# wrong receivable to the wrong customer is a money error. They stay unlinked
+# until Meet confirms. See ZOHO_LIKELY_MATCHES below.
+# (hq_display_name, zoho_contact_name, email, phone, place_of_supply, receivable)
+ZOHO_LINKS = [
+    ("NeoNir Engineering", "NEO NIR ENGINEERING LLP", "hemish@neonir.com", "+91-9825115308", "Gujarat", 354000),
+    ("Pioneer Engineering", "PIONEER ENGINEERING", "subodh.gurjar@dorfketal.com", None, "Maharashtra", 0),
+    ("FeedAqua", "Feed Aqua Engineering Private Limited", "ajaysingh@feedaqua.com", None, "Uttar Pradesh", 47200),
+    ("Micro Chem", "Microchem Enterprises", None, None, "Tamil Nadu", 0),
+    ("Om Enterprises", "OM Enterprises", "ajay.kasture@omenterprises.co.in", None, "Maharashtra", 41300),
+    ("Water Whizz", "Water Whizz", None, None, "Gujarat", 0),
+]
+
+# Zoho contacts with no HQ customer at all — created so the books and the CRM
+# agree on who exists.
+ZOHO_ONLY_CUSTOMERS = [
+    ("S P Chemicals", "Professional Services", "SP", "sales@spchemicals.net", "+91-9850000966", "Maharashtra", 41300),
+    ("Bellway Consulting", "Professional Services", "BC", "sales@bellwayconsulting.com", None, "Uttar Pradesh", 47200),
+]
+
+# Recorded, not applied. Surfaced to Meet to confirm or reject.
+ZOHO_LIKELY_MATCHES = [
+    ("Michael Bhai", "GOA TRADING & TECHNICAL SERVICES", "michael.martins@gtandts.com", "Goa", 0),
+    ("Parag Kaka", "KAJAL PARAG TELI", "parag_teli@yahoo.com", "Gujarat", 11800),
+]
+
 # Standing work streams — the 00-Brain "Work" join, keyed by who is in them.
 WORK_STREAMS = [
     ("Meet x Nishant", "Standing partner stream — decisions, delivery and follow-ups.",
@@ -186,10 +215,8 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
         )
     db.flush()
 
-    # ── roles ───────────────────────────────────────────────────────────────
-    for name, description in ROLES:
-        _get_or_create(db, Role, {"description": description}, organisation_id=org_id, name=name)
-    db.flush()
+    # Roles and their grants are owned by backend/permissions.py, which runs
+    # before this. We only assign people to them here.
 
     # ── team ────────────────────────────────────────────────────────────────
     for spec in TEAM:
@@ -262,8 +289,35 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
              "created_by_id": admin.id, "updated_by_id": admin.id},
             organisation_id=org_id, display_name=name,
         )
+    for name, group, initials, email, phone, state, receivable in ZOHO_ONLY_CUSTOMERS:
+        grp = groups.get(group)
+        _get_or_create(
+            db, Party,
+            {"kind": "customer", "initials": initials, "party_group_id": grp.id if grp else None,
+             "email": email, "phone": phone, "owner_id": admin.id, "status": "Active",
+             "zoho_contact_name": name.upper(), "outstanding_amount": receivable,
+             "outstanding_synced_at": datetime.utcnow(),
+             "created_by_id": admin.id, "updated_by_id": admin.id},
+            organisation_id=org_id, display_name=name,
+        )
     db.flush()
     parties = {p.display_name: p for p in db.query(Party).filter(Party.organisation_id == org_id).all()}
+
+    # ── Zoho Books figures ──────────────────────────────────────────────────
+    # Only fills blanks — never overwrites a value Meet has edited by hand.
+    for hq_name, zoho_name, email, phone, state, receivable in ZOHO_LINKS:
+        party = parties.get(hq_name)
+        if not party:
+            continue
+        if not party.zoho_contact_name:
+            party.zoho_contact_name = zoho_name
+            party.outstanding_amount = receivable
+            party.outstanding_synced_at = datetime.utcnow()
+        if email and not party.email:
+            party.email = email
+        if phone and not party.phone:
+            party.phone = phone
+    db.flush()
 
     # ── projects ────────────────────────────────────────────────────────────
     for ref, name, customer, service, stage, action, action_date, owner_email, prod_url in PROJECTS:

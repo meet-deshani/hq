@@ -112,6 +112,16 @@ class Party(Base):
     credit_days = Column(Integer)
 
     industry = Column(String(150))
+
+    # Zoho Books is the system of record for money. HQ links to the contact and
+    # mirrors its receivable for display; it never writes an invoice.
+    # The names differ between the systems ("Michael Bhai" here is
+    # "GOA TRADING & TECHNICAL SERVICES" there), so the id is the only safe join.
+    zoho_contact_id = Column(String(60), index=True)
+    zoho_contact_name = Column(String(200))
+    outstanding_amount = Column(Numeric(14, 2))   # mirrored from Zoho, read-only
+    outstanding_synced_at = Column(DateTime)
+
     # Living summary — the 00-Brain "Summary callout" that gets updated over time.
     summary = Column(Text)
     notes = Column(Text)
@@ -444,6 +454,10 @@ class Milestone(Base):
     completed_on = Column(Date)
     amount = Column(Numeric(14, 2))
     status = Column(String(30), default="pending", nullable=False)  # pending|in_progress|completed|invoiced
+    # Stamped when this milestone is billed. Points at Zoho Books, which owns
+    # the invoice — HQ records only that it happened.
+    zoho_invoice_id = Column(String(60), index=True)
+    zoho_invoice_number = Column(String(60))
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

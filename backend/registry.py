@@ -75,6 +75,7 @@ entity(
         {"k": "gst_treatment", "label": "Treatment", "type": "text", "width": "1fr"},
         {"k": "owner_id", "label": "Z9S POC", "type": "ref", "ref": "users", "width": "1.2fr"},
         {"k": "party_group_id", "label": "Group", "type": "ref", "ref": "party-groups", "width": "1.1fr"},
+        {"k": "outstanding_amount", "label": "Outstanding", "type": "money", "width": "1.2fr", "align": "right"},
         {"k": "status", "label": "Status", "type": "badge", "width": "0.9fr"},
     ],
     fields=[
@@ -103,6 +104,14 @@ entity(
         {"k": "credit_limit", "label": "Credit limit", "type": "money", "group": "Commercials"},
         {"k": "credit_days", "label": "Credit days", "type": "number", "group": "Commercials"},
 
+        {"k": "zoho_contact_id", "label": "Zoho Books contact id", "type": "text", "group": "Zoho Books",
+         "help": "Links this customer to its Zoho Books contact. Names differ between "
+                 "the two systems, so the id is the only safe join."},
+        {"k": "zoho_contact_name", "label": "Name in Zoho Books", "type": "text", "group": "Zoho Books"},
+        {"k": "outstanding_amount", "label": "Outstanding", "type": "money", "group": "Zoho Books",
+         "help": "Mirrored from Zoho Books, which owns the invoices. Editable here only "
+                 "until the sync is connected."},
+
         {"k": "summary", "label": "Summary", "type": "textarea", "group": "Notes",
          "help": "The living one-paragraph answer to 'who are they'. Updated over time."},
         {"k": "notes", "label": "Notes", "type": "textarea", "group": "Notes"},
@@ -110,7 +119,7 @@ entity(
          "default": "Active", "group": "Notes"},
     ],
     # Archetype 1E — key facts pin to the right rail, sections stack left.
-    key_facts=["owner_id", "party_group_id", "credit_limit", "credit_days", "industry", "city"],
+    key_facts=["owner_id", "outstanding_amount", "party_group_id", "credit_limit", "credit_days", "industry"],
     relations=[
         {"key": "contacts", "label": "Contacts", "entity": "contacts", "fk": "party_id"},
         {"key": "projects", "label": "Projects", "entity": "projects", "fk": "party_id"},
@@ -505,6 +514,9 @@ entity(
         {"k": "amount", "label": "Amount", "type": "money"},
         {"k": "status", "label": "Status", "type": "select",
          "options": ["pending", "in_progress", "completed", "invoiced"], "default": "pending"},
+        {"k": "zoho_invoice_number", "label": "Zoho invoice no.", "type": "text",
+         "help": "The Zoho Books invoice this milestone was billed on, e.g. Z0/26-27/011."},
+        {"k": "zoho_invoice_id", "label": "Zoho invoice id", "type": "text"},
     ],
 )
 

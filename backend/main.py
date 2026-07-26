@@ -12,7 +12,7 @@ from backend.models import User, Role, Permission, Organisation, Product, Worksp
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, crud, seed_crm
+from backend import audit, crud, permissions, seed_crm
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
@@ -115,58 +115,12 @@ def seed_database():
             db.commit()
             logger.info("Default workspaces seeded.")
 
-        # Check if roles are seeded
-        if db.query(Role).filter(Role.organisation_id == org.id).count() == 0:
-            logger.info("Seeding default roles...")
-            admin_role = Role(
-                organisation_id=org.id,
-                name="Admin",
-                description="Administrator with full permissions across all workspaces"
-            )
-            operator_role = Role(
-                organisation_id=org.id,
-                name="Operator",
-                description="Standard operator with access to general operations"
-            )
-            viewer_role = Role(
-                organisation_id=org.id,
-                name="Viewer",
-                description="Read-only access to workspaces"
-            )
-            db.add_all([admin_role, operator_role, viewer_role])
-            db.commit()
-            
-            logger.info("Seeding default permissions...")
-            permissions_list = [
-                Permission(name="Read Users", code="users:read", description="Ability to list and view users"),
-                Permission(name="Create Users", code="users:write", description="Ability to create or modify users"),
-                Permission(name="Delete Users", code="users:delete", description="Ability to delete users"),
-                Permission(name="Read Roles", code="roles:read", description="Ability to view roles list"),
-                Permission(name="Write Roles", code="roles:write", description="Ability to create and manage roles"),
-                Permission(name="Read Permissions", code="permissions:read", description="Ability to view permissions list"),
-                Permission(name="Grant Permissions", code="permissions:grant", description="Ability to grant permissions to roles"),
-                Permission(name="Revoke Permissions", code="permissions:revoke", description="Ability to revoke permissions from roles"),
-                Permission(name="Read Dashboard", code="dashboard:read", description="Ability to view HQ dashboard metrics"),
-                Permission(name="Read Organisations", code="organisations:read", description="Ability to view organisations"),
-                Permission(name="Write Organisations", code="organisations:write", description="Ability to create and manage organisations"),
-                Permission(name="Read Products", code="products:read", description="Ability to view products"),
-                Permission(name="Write Products", code="products:write", description="Ability to create and manage products"),
-                Permission(name="Read Workspaces", code="workspaces:read", description="Ability to view workspaces"),
-                Permission(name="Write Workspaces", code="workspaces:write", description="Ability to create and manage workspaces")
-            ]
-            
-            for perm in permissions_list:
-                if not db.query(Permission).filter(Permission.code == perm.code).first():
-                    db.add(perm)
-            db.commit()
-            
-            # Fetch fresh objects to link
-            admin_role = db.query(Role).filter(Role.name == "Admin", Role.organisation_id == org.id).first()
-            all_perms = db.query(Permission).all()
-            admin_role.permissions.extend(all_perms)
-            db.commit()
-            logger.info("Database default roles and permissions successfully linked and seeded.")
-            
+        # Roles, the permission catalogue and every grant are derived from the
+        # entity registry in backend/permissions.py, so a new entity is covered
+        # automatically rather than silently shipping unprotected. Idempotent:
+        # it rebuilds the catalogue each boot, which also removes dead policies.
+        permissions.seed(db, org.id)
+
         # Check if default admin user is seeded
         if db.query(User).filter(User.email == "meet@dotsai.in").count() == 0:
             logger.info("Seeding default admin user meet@dotsai.in...")
@@ -247,9 +201,18 @@ def logout(response: Response):
     response.delete_cookie("access_token")
     return {"detail": "Logged out successfully"}
 
-@app.get("/api/auth/me", response_model=UserResponse)
+@app.get("/api/auth/me")
 def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    """The signed-in user, plus what they are allowed to do.
+
+    The UI gates its New / Edit / Delete affordances on `can`, so a button that
+    would 403 is never shown. The server still enforces every action — this is
+    for honesty in the interface, not security.
+    """
+    data = UserResponse.model_validate(current_user).model_dump()
+    data["permissions"] = sorted(permissions.permissions_for(current_user))
+    data["can"] = permissions.can_map(current_user)
+    return data
 
 # Users
 @app.get("/api/users", response_model=List[UserResponse])
@@ -258,6 +221,7 @@ def list_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "read")
     query = db.query(User)
     if role:
         query = query.join(Role).filter(Role.name == role)
@@ -269,6 +233,7 @@ def create_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "create")
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
@@ -309,6 +274,7 @@ def update_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "update")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -333,6 +299,7 @@ def delete_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "delete")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -356,6 +323,7 @@ def list_organisations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "read")
     return db.query(Organisation).all()
 
 @app.post("/api/organisations", response_model=OrganisationResponse)
@@ -364,6 +332,7 @@ def create_organisation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "create")
     existing_org = db.query(Organisation).filter(Organisation.slug == org_data.slug).first()
     if existing_org:
         raise HTTPException(
@@ -383,6 +352,7 @@ def update_organisation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "update")
     org = db.query(Organisation).filter(Organisation.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
@@ -398,6 +368,7 @@ def delete_organisation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "delete")
     org = db.query(Organisation).filter(Organisation.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
@@ -419,6 +390,7 @@ def list_products(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "read")
     query = db.query(Product)
     if organisation_id:
         query = query.filter(Product.organisation_id == organisation_id)
@@ -430,6 +402,7 @@ def create_product(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "create")
     existing_product = db.query(Product).filter(Product.code == product_data.code).first()
     if existing_product:
         raise HTTPException(
@@ -449,6 +422,7 @@ def update_product(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "update")
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -464,6 +438,7 @@ def delete_product(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "delete")
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -479,6 +454,7 @@ def list_workspaces(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "read")
     query = db.query(Workspace)
     if organisation_id:
         query = query.filter(Workspace.organisation_id == organisation_id)
@@ -492,6 +468,7 @@ def create_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "create")
     db_workspace = Workspace(**workspace_data.model_dump())
     db.add(db_workspace)
     db.commit()
@@ -505,6 +482,7 @@ def update_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "update")
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -520,6 +498,7 @@ def delete_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "delete")
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -534,6 +513,7 @@ def list_roles(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "read")
     query = db.query(Role)
     if organisation_id:
         query = query.filter(Role.organisation_id == organisation_id)
@@ -545,6 +525,7 @@ def create_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "create")
     # Check if role exists
     existing_role = db.query(Role).filter(
         Role.name == role_data.name,
@@ -568,6 +549,7 @@ def update_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "update")
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -583,6 +565,7 @@ def delete_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "delete")
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -603,6 +586,7 @@ def list_permissions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "permissions", "read")
     return db.query(Permission).all()
 
 @app.post("/api/roles/{role_id}/permissions")
@@ -612,6 +596,7 @@ def grant_permission_to_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "permissions", "update")
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -731,6 +716,7 @@ def list_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "read")
     query = db.query(Feedback)
     if status:
         query = query.filter(Feedback.status == status)
@@ -743,6 +729,7 @@ def update_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "update")
     fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
     if not fb:
         raise HTTPException(status_code=404, detail="Feedback not found")
@@ -758,6 +745,7 @@ def delete_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "delete")
     fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
     if not fb:
         raise HTTPException(status_code=404, detail="Feedback not found")
