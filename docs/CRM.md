@@ -457,9 +457,12 @@ Confidence means something specific:
   ≥75% shared significant words.
 * **`weak`** is 40–75% shared words. It exists to give a human a shortlist.
 
-**No proposal is auto-applied, and a weak one least of all.** The seed reflects
-this: the two rows above are recorded in `ZOHO_LIKELY_MATCHES` and left
-unlinked until Meet confirms them.
+**No proposal is auto-applied, and a weak one least of all.** The two rows above
+sat in `ZOHO_LIKELY_MATCHES` unlinked until Meet confirmed both on 2026-07-26;
+they are now ordinary entries in `ZOHO_LINKS`. That is the whole lifecycle — a
+name-only match waits in `ZOHO_LIKELY_MATCHES` for a human, and moves across
+once answered. Linking `KAJAL PARAG TELI` to Parag Kaka closes the ₹11,800
+difference between HQ's ₹5.31L and Zoho's ₹5.43L.
 
 ## Deviations from the Super-App module registry
 

@@ -142,12 +142,12 @@ PROJECTS = [
 # real contacts and receivables read from it on 2026-07-26. HQ mirrors the
 # figure for display; it never writes an invoice.
 #
-# Only names that match unambiguously are linked. Two Zoho contacts look like
-# HQ customers under a different name — GOA TRADING & TECHNICAL SERVICES
-# (michael.martins@) vs "Michael Bhai", and KAJAL PARAG TELI (parag_teli@) vs
-# "Parag Kaka" — but that is an inference from a first name, and attaching the
-# wrong receivable to the wrong customer is a money error. They stay unlinked
-# until Meet confirms. See ZOHO_LIKELY_MATCHES below.
+# Only names that match unambiguously are linked by machine. Two of these were
+# not machine-matchable at all — GOA TRADING & TECHNICAL SERVICES vs "Michael
+# Bhai", and KAJAL PARAG TELI vs "Parag Kaka" — because the only thing relating
+# them is a first name, and attaching the wrong receivable to the wrong customer
+# is a money error. Meet confirmed both on 2026-07-26; that confirmation is what
+# is recorded here, and it is the only reason they appear in this list.
 # (hq_display_name, zoho_contact_name, email, phone, place_of_supply, receivable)
 ZOHO_LINKS = [
     ("NeoNir Engineering", "NEO NIR ENGINEERING LLP", "hemish@neonir.com", "+91-9825115308", "Gujarat", 354000),
@@ -156,6 +156,10 @@ ZOHO_LINKS = [
     ("Micro Chem", "Microchem Enterprises", None, None, "Tamil Nadu", 0),
     ("Om Enterprises", "OM Enterprises", "ajay.kasture@omenterprises.co.in", None, "Maharashtra", 41300),
     ("Water Whizz", "Water Whizz", None, None, "Gujarat", 0),
+    # Confirmed by Meet 2026-07-26. Parag Kaka's 11,800 is the whole of the gap
+    # between HQ's 5.31L and Zoho's 5.43L; Michael Bhai's balance is nil.
+    ("Michael Bhai", "GOA TRADING & TECHNICAL SERVICES", "michael.martins@gtandts.com", None, "Goa", 0),
+    ("Parag Kaka", "KAJAL PARAG TELI", "parag_teli@yahoo.com", None, "Gujarat", 11800),
 ]
 
 # Zoho contacts with no HQ customer at all — created so the books and the CRM
@@ -165,11 +169,11 @@ ZOHO_ONLY_CUSTOMERS = [
     ("Bellway Consulting", "Professional Services", "BC", "sales@bellwayconsulting.com", None, "Uttar Pradesh", 47200),
 ]
 
-# Recorded, not applied. Surfaced to Meet to confirm or reject.
-ZOHO_LIKELY_MATCHES = [
-    ("Michael Bhai", "GOA TRADING & TECHNICAL SERVICES", "michael.martins@gtandts.com", "Goa", 0),
-    ("Parag Kaka", "KAJAL PARAG TELI", "parag_teli@yahoo.com", "Gujarat", 11800),
-]
+# Name-only matches waiting on a human. Empty because the two that were here
+# have been confirmed and moved into ZOHO_LINKS above — that is where a
+# confirmed match belongs. Anything the sync proposes and Meet has not answered
+# goes here, never straight into ZOHO_LINKS.
+ZOHO_LIKELY_MATCHES = []
 
 # Ticket categories — labelled "Job types" in the UI. Drawn from the kinds of
 # request the live platforms actually generate.
