@@ -348,12 +348,25 @@ def run(base, email, password):
           str(thread)[:200])
     check("the thread knows which customer it belongs to", bool(thread["party"]), str(thread)[:200])
 
-    before_count = len(thread["messages"])
-    _, reply = api.call("POST", "/api/conversations/%s/messages" % convo_id,
+    # ── replies ──────────────────────────────────────────────────────────────
+    # Every send test runs against a DELIBERATELY UNDIALABLE thread, and that is
+    # not an implementation detail — it is the only thing standing between this
+    # suite and a real WhatsApp message to a real client. The seeded threads
+    # resolve to actual customer numbers; against a server that has a bot token
+    # configured, replying on one of those genuinely delivers. '555000' is six
+    # digits, so whatsapp.dial_address refuses it and nothing can leave the
+    # building however the server is configured.
+    st, safe = inbound({
+        "channel_type": "whatsapp", "from": "555000", "contact_name": "Undialable (test)",
+        "body": "Smoke: reply fixture", "external_id": "smoke-wa-safe",
+    })
+    safe_id = safe["conversation_id"]
+    _, safe_thread = api.call("GET", "/api/conversations/%s/thread" % safe_id, expect=200)
+    before_count = len(safe_thread["messages"])
+
+    _, reply = api.call("POST", "/api/conversations/%s/messages" % safe_id,
                         {"body": "Smoke: thanks, reviewing now."}, expect=200)
-    _, thread2 = api.call("GET", "/api/conversations/%s/thread" % convo_id, expect=200)
-    # Counted as a delta, not an absolute: this number resolves against a real
-    # phone number, so an existing thread for it is a legitimate starting state.
+    _, thread2 = api.call("GET", "/api/conversations/%s/thread" % safe_id, expect=200)
     check("a reply is appended to the thread as outbound",
           len(thread2["messages"]) == before_count + 1
           and thread2["messages"][-1]["direction"] == "outbound"
@@ -362,22 +375,23 @@ def run(base, email, password):
     check("replying clears the unread count", thread2["unread_count"] == 0,
           "unread=%s" % thread2["unread_count"])
 
-    # The whole point of the send wiring: a reply says what actually happened to
-    # it. This server has no bot token, so the honest answer is "recorded" and
-    # delivered=False — never a bare 200 the UI would render as delivered.
+    # The point of the send wiring: a reply states what actually happened to it.
+    # These assert the CONTRACT, not the server's configuration — an unconfigured
+    # server records, a configured one refuses an undialable number, and neither
+    # is ever allowed to report a delivery.
     check("a reply reports its delivery status rather than implying success",
-          reply.get("delivery_status") in ("sent", "failed", "recorded"),
-          str(reply))
-    check("an unconfigured server admits nothing was sent",
-          reply.get("delivery_status") == "recorded" and reply.get("delivered") is False
-          and reply.get("detail"),
+          reply.get("delivery_status") in ("sent", "failed", "recorded"), str(reply))
+    check("an undeliverable reply never claims it was delivered",
+          reply.get("delivery_status") in ("failed", "recorded")
+          and reply.get("delivered") is False and reply.get("detail"),
           str(reply))
     check("the stored message carries the same status the reply claimed",
           thread2["messages"][-1]["delivery_status"] == reply["delivery_status"],
           "stored=%s reported=%s" % (thread2["messages"][-1]["delivery_status"],
                                      reply.get("delivery_status")))
     check("the thread tells the composer whether it can really send",
-          thread2.get("sending_enabled") is False, str(thread2.get("sending_enabled")))
+          isinstance(thread2.get("sending_enabled"), bool),
+          "expected a bool, got %r" % thread2.get("sending_enabled"))
 
     # A client replying to a closed thread reopens it — they neither know nor
     # care that someone marked it done.
@@ -388,7 +402,7 @@ def run(base, email, password):
     check("an inbound reply reopens a closed thread", thread3["status"] == "open",
           "status=%s" % thread3["status"])
 
-    for cid in {convo_id, unknown["conversation_id"]}:
+    for cid in {convo_id, unknown["conversation_id"], safe_id}:
         api.call("DELETE", "/api/conversations/%s" % cid)
 
     # ── CRUD round trip ─────────────────────────────────────────────────────
