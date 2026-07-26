@@ -29,7 +29,10 @@ jobs:
     # serves them before anything reaches production.
     services:
       postgres:
-        image: postgres:16-alpine
+        # Must track the production server's MAJOR version — hq.dotsai.in runs
+        # Postgres 17. Testing dialect-specific SQL against a different major
+        # than production is most of the way to not testing it at all.
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: hq_ci
           POSTGRES_PASSWORD: hq_ci_password

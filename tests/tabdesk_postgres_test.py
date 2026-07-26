@@ -15,6 +15,10 @@ green suite, they just do not get this coverage.
         python3 tests/tabdesk_postgres_test.py
 
 Point it ONLY at a throwaway database: setUp drops and recreates every table.
+
+Use the same MAJOR version as production (hq.dotsai.in runs Postgres 17). CI
+pins `postgres:17-alpine` for this reason — a dialect suite run against a
+different major than production is most of the way to not testing it at all.
 """
 
 import os
