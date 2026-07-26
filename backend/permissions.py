@@ -45,6 +45,12 @@ PLATFORM_ENTITIES = {
     "workspaces": "Workspaces",
     "feedback": "Feedback",
     "audit": "Audit log",
+    # TabDesk is one permissioned surface here, not one per user-defined table:
+    # tables are created at runtime, so a per-table permission row would mean
+    # writing to the catalogue on every table creation. This gate answers "may
+    # you use TabDesk, and may you make a table"; who may do what to a PARTICULAR
+    # table is per-table membership in backend/tabdesk_access.py.
+    "tabdesk": "TabDesk tables",
 }
 
 # Registry entities that configure the CRM rather than hold business records.
@@ -125,6 +131,12 @@ def _grants():
                 ["*:read", "*:remark"]
                 + ["%s:%s" % (k, a) for k in business for a in ("create", "update", "delete")]
                 + ["%s:%s" % (k, a) for k in config for a in ("create", "update")]
+                # TabDesk is a platform key, so the `business` sweep above misses
+                # it. Granted explicitly: a Partner runs the business and must be
+                # able to make and retire tables. Holding tabdesk:delete also
+                # makes them a manager on every table — the documented override
+                # for a table whose only manager has left.
+                + ["tabdesk:create", "tabdesk:update", "tabdesk:delete"]
             ),
         },
         "Advisor": {
@@ -142,6 +154,11 @@ def _grants():
             "patterns": (
                 ["*:read", "*:remark"]
                 + ["%s:%s" % (k, a) for k in business for a in ("create", "update")]
+                # Can make their own tables and manage the ones they own, but
+                # NOT delete — which also keeps them from becoming a manager on
+                # everyone else's tables. That distinction is the whole reason
+                # the override is keyed on tabdesk:delete.
+                + ["tabdesk:create", "tabdesk:update"]
             ),
         },
         "Viewer": {

@@ -242,6 +242,10 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
         ("Work", "work", "work", "Tasks and standing work streams"),
         ("Tickets", "tickets", "bell", "Client requests, job types and SLAs"),
         ("Comms", "comms", "chat", "Client conversations across WhatsApp and email"),
+        # TabDesk is the one workspace whose PAGES are not defined in the
+        # frontend — they are the user-defined tables in tabdesk_tables. This row
+        # only puts the workspace in the switcher; see docs/TABDESK.md.
+        ("TabDesk", "tabdesk", "grid", "Tables you define yourself — columns, entries, filters"),
         ("Accounting", "accounting", "billing", "Contracts, billing schedule and the Zoho Books mirror"),
     ]:
         _get_or_create(
