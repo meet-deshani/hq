@@ -189,6 +189,26 @@ def run(base, email, password):
     check("pagination caps the page", page["count"] == 5 and page["total"] > 5,
           "count=%s total=%s" % (page["count"], page["total"]))
 
+    # A silently-ignored filter is the sharpest edge for an agent: a typo'd
+    # "does this exist?" check would come back with the whole unfiltered list.
+    st, err = api.call("GET", "/api/customers?not_a_column=zzz")
+    check("an unknown filter is a 400, not silently ignored", st == 400, "got %s: %s" % (st, err))
+
+    # One column cannot equal two values, so ANDing repeats always returns zero.
+    _, ored = api.call("GET", "/api/projects?stage=Testing&stage=In+progress", expect=200)
+    stages = {r["stage"] for r in ored["rows"]}
+    check("a repeated filter means OR, not AND",
+          ored["total"] > 0 and stages <= {"Testing", "In progress"}, "stages=%s total=%s" % (stages, ored["total"]))
+
+    _, od_true = api.call("GET", "/api/tasks?overdue=true", expect=200)
+    _, od_false = api.call("GET", "/api/tasks?overdue=false", expect=200)
+    check("overdue respects its value instead of ignoring it",
+          od_true["total"] != od_false["total"] or od_true["total"] == 0,
+          "true=%s false=%s" % (od_true["total"], od_false["total"]))
+
+    check("the schema endpoint requires auth", Client(base).call("GET", "/api/meta/entities")[0] == 401,
+          "the full table layout must not be readable anonymously")
+
     # ── append-only remarks ─────────────────────────────────────────────────
     section("Remarks (append-only Owner Remark history)")
     api.call("POST", "/api/customers/%s/remarks" % cid, {"body": "First remark from the smoke test."}, expect=200)
@@ -308,6 +328,11 @@ def run(base, email, password):
     check("an agent's write is distinguishable in the audit log",
           any(e["actor_kind"] == "agent" for e in agent_trail["entries"]),
           str([e["actor_kind"] for e in agent_trail["entries"]]))
+
+    _, counted = api.call("GET", "/api/audit?limit=100", expect=200)
+    check("audit count reports rows returned, not the limit asked for",
+          counted["count"] == len(counted["entries"]),
+          "count=%s entries=%s" % (counted["count"], len(counted["entries"])))
 
     _, login_trail = api.call("GET", "/api/audit?entity_type=users", expect=200)
     check("logins are audited", any(e["action"] == "login" for e in login_trail["entries"]),

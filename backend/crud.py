@@ -35,7 +35,10 @@ from backend.models import User
 router = APIRouter()
 
 # Query parameters that control the request rather than filter a column.
-_CONTROL_PARAMS = {"q", "view", "limit", "offset", "order", "expand"}
+_CONTROL_PARAMS = {"q", "view", "limit", "offset", "order"}
+
+# Filters that are not a plain column comparison.
+_VIRTUAL_FILTERS = {"overdue"}
 
 
 # ── value coercion ──────────────────────────────────────────────────────────
@@ -165,33 +168,58 @@ def _apply_scope(query, ent):
     return query
 
 
+def _truthy(value):
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
 def _apply_filter(query, ent, name, value, me):
+    """Apply one filter. `value` may be a list — repeated params mean OR, not AND.
+
+    Raises 400 on an unknown filter name rather than ignoring it. A silently
+    dropped filter is the worst failure here: an agent asking "does this record
+    exist?" with a typo'd column would get the full unfiltered list back and
+    conclude yes.
+    """
     model = ent["model"]
 
-    # Cross-column filters that are not a plain column comparison.
     if name == "overdue":
         due = getattr(model, "due_date", None)
         status = getattr(model, "status", None)
         if due is None:
-            return query
-        query = query.filter(due < date.today())
-        if status is not None:
-            query = query.filter(~status.in_(["done", "cancelled"]))
+            raise HTTPException(status_code=400, detail="'%s' has no due_date to be overdue against" % ent["key"])
+        wanted = _truthy(value[0] if isinstance(value, list) else value)
+        if wanted:
+            query = query.filter(due < date.today())
+            if status is not None:
+                query = query.filter(~status.in_(["done", "cancelled"]))
+        else:
+            query = query.filter((due == None) | (due >= date.today()))  # noqa: E711
         return query
 
     col = getattr(model, name, None)
     if col is None or _column(ent, name) is None:
-        return query
+        valid = sorted(list(ent["model"].__table__.columns.keys()) + sorted(_VIRTUAL_FILTERS))
+        raise HTTPException(
+            status_code=400,
+            detail="Unknown filter '%s' for %s. Valid filters: %s" % (name, ent["key"], ", ".join(valid)),
+        )
 
-    if isinstance(value, list):
-        return query.filter(col.in_([_coerce(ent, name, v) for v in value]))
-    if value in (None, "null", "none"):
-        return query.filter(col.is_(None))
-    if value == "me":
-        return query.filter(col == (me.id if me else None))
-    if value == "today":
-        return query.filter(col == date.today())
-    return query.filter(col == _coerce(ent, name, value))
+    values = value if isinstance(value, list) else [value]
+
+    def one(v):
+        if v in (None, "null", "none", ""):
+            return col.is_(None)
+        if v == "me":
+            return col == (me.id if me else None)
+        if v == "today":
+            return col == date.today()
+        return col == _coerce(ent, name, v)
+
+    # Repeating a parameter means "any of these" — ANDing them would always
+    # return nothing, since one column cannot equal two values at once.
+    if len(values) == 1:
+        return query.filter(one(values[0]))
+    return query.filter(or_(*[one(v) for v in values]))
 
 
 def _apply_search(query, ent, term):
@@ -316,8 +344,14 @@ def validate_registry():
 
 
 @router.get("/api/meta/entities")
-def meta_entities():
-    """The registry, published. Everything else in the platform renders from this."""
+def meta_entities(current_user: User = Depends(get_current_user)):
+    """The registry, published. Everything else in the platform renders from this.
+
+    Authenticated, unlike /api/catalog: this exposes every field of every table
+    and the whole workspace layout, which is more than a discovery surface needs
+    to be public on a live domain. The UI (cookie), the CLI and agents all
+    authenticate before reading it anyway.
+    """
     return {
         "count": len(registry.ENTITIES),
         "entities": [registry.public(e) for e in registry.ENTITIES],
@@ -341,11 +375,10 @@ def audit_trail(
     db: Session = Depends(get_db),
 ):
     """The platform-wide change history — who changed what, when, from where."""
-    return {
-        "count": limit,
-        "offset": offset,
-        "entries": _audit_list(db, entity_type or None, entity_id, limit=limit, offset=offset),
-    }
+    entries = _audit_list(db, entity_type or None, entity_id, limit=limit, offset=offset)
+    # `count` is how many came back, not how many were asked for — a client
+    # paginating on the requested limit would never stop.
+    return {"count": len(entries), "limit": limit, "offset": offset, "entries": entries}
 
 
 # ── list ────────────────────────────────────────────────────────────────────
@@ -372,10 +405,13 @@ def list_rows(
         for name, value in (match.get("filters") or {}).items():
             query = _apply_filter(query, ent, name, value, current_user)
 
+    grouped = {}
     for name, value in request.query_params.multi_items():
         if name in _CONTROL_PARAMS:
             continue
-        query = _apply_filter(query, ent, name, value, current_user)
+        grouped.setdefault(name, []).append(value)
+    for name, values in grouped.items():
+        query = _apply_filter(query, ent, name, values, current_user)
 
     query = _apply_search(query, ent, q)
     total = query.count()
@@ -470,7 +506,9 @@ def create_row(
     for col in ("created_by_id", "updated_by_id"):
         if _column(ent, col) is not None:
             setattr(obj, col, current_user.id)
-    if _column(ent, "source") is not None and not values.get("source"):
+    # `source` is derived from the X-HQ-Client header, never from the body — a
+    # caller must not be able to claim a write came from somewhere it did not.
+    if _column(ent, "source") is not None:
         obj.source = _source_of(request)
 
     db.add(obj)

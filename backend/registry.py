@@ -424,10 +424,12 @@ entity(
     search=["name", "doc_no", "description", "next_action"],
     title_field="name",
     columns=[
-        {"k": "name", "label": "Project", "type": "text", "width": "2.4fr", "primary": True},
-        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.6fr"},
-        {"k": "stage", "label": "Stage", "type": "badge", "width": "1.3fr"},
-        {"k": "next_action", "label": "Next action", "type": "text", "width": "2.2fr"},
+        {"k": "name", "label": "Project", "type": "text", "width": "2.2fr", "primary": True},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.4fr"},
+        # Wide enough for the longest stage label ("Onboarding Completed") —
+        # a truncated status badge is worse than useless, it misreads.
+        {"k": "stage", "label": "Stage", "type": "badge", "width": "1.75fr"},
+        {"k": "next_action", "label": "Next action", "type": "text", "width": "2fr"},
         {"k": "next_action_date", "label": "By", "type": "date", "width": "1fr"},
         {"k": "next_action_owner_id", "label": "Owner", "type": "ref", "ref": "users", "width": "1.1fr"},
         {"k": "one_time_amount", "label": "One-time", "type": "money", "width": "1.1fr", "align": "right"},

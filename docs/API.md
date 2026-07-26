@@ -516,7 +516,8 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/
 `kind` is one of `remark`, `note`, `reply`, `correction`; anything else is a
 `400`. An empty or whitespace-only `body` is a `400`.
 
-Reading them back:
+Reading them back (a separate capture, after the dev database was re-seeded —
+different remarks, same shape):
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8077/api/customers/16/remarks
