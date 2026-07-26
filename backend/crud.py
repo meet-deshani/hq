@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from backend import audit, registry
 from backend.auth import get_current_user
-from backend.crm_models import Comment, Lead, Party
+from backend.crm_models import Activity, Attachment, AuditLog, Comment, Lead, Party
 from backend.database import get_db
 from backend.models import User
 
@@ -73,9 +73,24 @@ def _coerce(ent, name, value):
     return value
 
 
+def _iso(value):
+    """ISO-8601 with an explicit UTC marker.
+
+    The database stores naive UTC (datetime.utcnow). A naive ISO string with no
+    offset is parsed by browsers as LOCAL time, so in IST every timestamp came
+    back 5h30m in the past — a remark added a second ago rendered "6h ago".
+    Stamping the Z makes the wire format say what the value actually means.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat() + ("Z" if value.tzinfo is None else "")
+    return value.isoformat()
+
+
 def _plain(value):
     if isinstance(value, (datetime, date)):
-        return value.isoformat()
+        return _iso(value)
     if isinstance(value, Decimal):
         return float(value)
     return value
@@ -411,7 +426,9 @@ def get_row(
 
     data["_related"] = related
     data["_remarks"] = _remark_list(db, ent, row_id)
-    data["_audit"] = _audit_list(db, ent["entity_type"], row_id, limit=25)
+    data["_audit"] = _audit_list(
+        db, ent["entity_type"], row_id, limit=25, since=getattr(obj, "created_at", None)
+    )
     return data
 
 
@@ -516,6 +533,17 @@ def delete_row(
     org_id = getattr(obj, "organisation_id", None)
     before = audit.snapshot(obj)
 
+    # Polymorphic children are keyed by (entity_type, entity_id) with no FK, so
+    # nothing cascades them. Left behind, they resurface on the NEXT row that
+    # gets the same id — and databases do recycle ids. A new customer showing a
+    # deleted customer's remarks is both wrong and a disclosure.
+    # audit_logs is deliberately NOT purged: it is the record that the delete
+    # happened. get_row scopes it by the row's creation time instead.
+    for model in (Comment, Activity, Attachment):
+        db.query(model).filter(
+            model.entity_type == ent["entity_type"], model.entity_id == row_id
+        ).delete(synchronize_session=False)
+
     db.delete(obj)
     db.commit()
 
@@ -549,7 +577,7 @@ def _remark_list(db, ent, row_id):
             "id": c.id, "body": c.body, "kind": c.kind, "source": c.source,
             "author_id": c.author_id,
             "author": c.author.name if c.author else None,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "created_at": _iso(c.created_at),
             "external_ref": c.external_ref,
         }
         for c in rows
@@ -633,21 +661,24 @@ def add_remark(
 
 # ── audit trail ─────────────────────────────────────────────────────────────
 
-def _audit_list(db, entity_type, entity_id=None, limit=100, offset=0):
-    from backend.crm_models import AuditLog
-
+def _audit_list(db, entity_type, entity_id=None, limit=100, offset=0, since=None):
     query = db.query(AuditLog)
     if entity_type:
         query = query.filter(AuditLog.entity_type == entity_type)
     if entity_id is not None:
         query = query.filter(AuditLog.entity_id == entity_id)
+    if since is not None:
+        # A recycled id would otherwise show a previous row's history on this
+        # one. The global /api/audit view passes no `since` — there, seeing the
+        # full ledger for an id is the point.
+        query = query.filter(AuditLog.created_at >= since)
     rows = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit).all()
     return [
         {
             "id": a.id, "action": a.action, "entity_type": a.entity_type, "entity_id": a.entity_id,
             "entity_label": a.entity_label, "actor": a.actor_email, "actor_kind": a.actor_kind,
             "actor_id": a.actor_user_id, "changes": a.changes,
-            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "created_at": _iso(a.created_at),
         }
         for a in rows
     ]

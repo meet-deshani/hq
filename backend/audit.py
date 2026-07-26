@@ -28,7 +28,11 @@ _NOISE_FIELDS = {"updated_at", "created_at", "updated_by_id", "created_by_id"}
 
 def _plain(value):
     """Make a column value JSON-serialisable without losing meaning."""
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, datetime):
+        # Explicit UTC marker — the DB stores naive utcnow, and a bare ISO
+        # string is read as local time by every browser. See crud._iso.
+        return value.isoformat() + ("Z" if value.tzinfo is None else "")
+    if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, Decimal):
         return float(value)

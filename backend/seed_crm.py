@@ -15,7 +15,7 @@ from backend.crm_models import (
     Item, ItemCategory, LeadSource, LostReason, Party, PartyGroup, Pipeline,
     PipelineStage, Project, WorkStream, WorkStreamMember,
 )
-from backend.models import Organisation, Role, User
+from backend.models import Organisation, Product, Role, User, Workspace
 
 logger = logging.getLogger("seed_crm")
 
@@ -169,6 +169,22 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
     """Seed CRM config, the team, and the real book of work. Safe to re-run."""
     created_passwords = {}
     org_id = org.id
+
+    # ── workspaces ──────────────────────────────────────────────────────────
+    # The sidebar's tab tree is defined in the frontend, but the workspace
+    # switcher reads these rows, so the two must agree.
+    product = db.query(Product).filter(Product.code == "hq").first()
+    for name, slug, icon, description in [
+        ("CRM", "crm", "users", "Customers, leads, catalog and delivery projects"),
+        ("Work", "work", "work", "Tasks and standing work streams"),
+    ]:
+        _get_or_create(
+            db, Workspace,
+            {"slug": slug, "icon": icon, "description": description,
+             "product_id": product.id if product else None, "status": "Active"},
+            organisation_id=org_id, name=name,
+        )
+    db.flush()
 
     # ── roles ───────────────────────────────────────────────────────────────
     for name, description in ROLES:

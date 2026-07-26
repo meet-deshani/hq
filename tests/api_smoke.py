@@ -14,7 +14,7 @@ import json
 import sys
 import urllib.error
 import urllib.request
-from datetime import date
+from datetime import date, datetime
 
 PASSED = []
 FAILED = []
@@ -208,6 +208,17 @@ def run(base, email, password):
     st, _ = api.call("POST", "/api/customers/%s/remarks" % cid, {"body": "   "})
     check("an empty remark is rejected", st == 400, "got %s" % st)
 
+    # A naive ISO string with no offset is read as LOCAL time by browsers, which
+    # made every fresh timestamp render hours in the past in IST.
+    stamps = [r["created_at"] for r in remarks["remarks"]]
+    check("timestamps are marked UTC so clients cannot misread them",
+          all(s and (s.endswith("Z") or "+" in s[10:]) for s in stamps), str(stamps))
+    fresh = datetime.utcnow()
+    newest = datetime.strptime(stamps[-1][:19], "%Y-%m-%dT%H:%M:%S")
+    check("a just-written timestamp is within a minute of now",
+          abs((fresh - newest).total_seconds()) < 60,
+          "server said %s, utcnow is %s" % (stamps[-1], fresh.isoformat()))
+
     # There must be no way to edit or delete history.
     st_patch, _ = api.call("PATCH", "/api/customers/%s/remarks" % cid, {"body": "rewritten"})
     st_del, _ = api.call("DELETE", "/api/customers/%s/remarks" % cid)
@@ -322,6 +333,35 @@ def run(base, email, password):
           bool(del_entry and del_entry["changes"]
                and del_entry["changes"]["deleted"]["from"]["title"] == "Smoke test task"),
           str(del_entry)[:300])
+
+    # ── a recycled id must not inherit a dead row's history ─────────────────
+    section("Orphaned history after delete")
+    _, victim = api.call("POST", "/api/tasks", {"title": "Doomed task"}, expect=200)
+    victim_id = victim["id"]
+    api.call("POST", "/api/tasks/%s/remarks" % victim_id, {"body": "Secret note on the doomed task."}, expect=200)
+    api.call("DELETE", "/api/tasks/%s" % victim_id, expect=200)
+
+    # Recreate rows until one lands on the freed id (SQLite hands it straight back).
+    reused, made = None, []
+    for _ in range(6):
+        _, fresh = api.call("POST", "/api/tasks", {"title": "Fresh task"}, expect=200)
+        made.append(fresh["id"])
+        if fresh["id"] == victim_id:
+            reused = fresh
+            break
+    if reused:
+        _, detail = api.call("GET", "/api/tasks/%s" % victim_id, expect=200)
+        bodies = [r["body"] for r in detail["_remarks"]]
+        check("a reused id does not inherit the deleted row's remarks",
+              "Secret note on the doomed task." not in bodies, str(bodies))
+        actions = [e["action"] for e in detail["_audit"]]
+        check("a reused id does not inherit the deleted row's audit trail",
+              "delete" not in actions, str(actions))
+    else:
+        check("a reused id does not inherit the deleted row's remarks", True,
+              "id was not recycled on this backend; nothing to assert")
+    for tid in made:
+        api.call("DELETE", "/api/tasks/%s" % tid)
 
     # ── cleanup ─────────────────────────────────────────────────────────────
     api.call("DELETE", "/api/leads/%s" % lead["id"], expect=200)

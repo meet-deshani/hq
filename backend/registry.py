@@ -181,8 +181,8 @@ entity(
     model=m.PartyGroup,
     label="Customer group",
     plural="Customer groups",
-    workspace="CRM",
-    module="Config",
+    workspace="Config",
+    module="CRM setup",
     icon="sliders",
     accent="#A2D2FF",
     order_by="name",
@@ -273,7 +273,7 @@ entity(
 
 entity(
     key="lead-sources", entity_type="lead_sources", model=m.LeadSource,
-    label="Lead source", plural="Lead sources", workspace="CRM", module="Config",
+    label="Lead source", plural="Lead sources", workspace="Config", module="CRM setup",
     icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
     columns=[
         {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
@@ -289,7 +289,7 @@ entity(
 
 entity(
     key="pipelines", entity_type="pipelines", model=m.Pipeline,
-    label="Pipeline", plural="Pipelines", workspace="CRM", module="Config",
+    label="Pipeline", plural="Pipelines", workspace="Config", module="CRM setup",
     icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
     columns=[
         {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
@@ -306,7 +306,7 @@ entity(
 
 entity(
     key="pipeline-stages", entity_type="pipeline_stages", model=m.PipelineStage,
-    label="Pipeline stage", plural="Pipeline stages", workspace="CRM", module="Config",
+    label="Pipeline stage", plural="Pipeline stages", workspace="Config", module="CRM setup",
     icon="sliders", accent="#FFCDB2", order_by="sort_order", search=["name"], title_field="name",
     columns=[
         {"k": "sort_order", "label": "#", "type": "number", "width": "0.4fr"},
@@ -329,7 +329,7 @@ entity(
 
 entity(
     key="lost-reasons", entity_type="lost_reasons", model=m.LostReason,
-    label="Lost reason", plural="Lost reasons", workspace="CRM", module="Config",
+    label="Lost reason", plural="Lost reasons", workspace="Config", module="CRM setup",
     icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
     columns=[{"k": "name", "label": "Reason", "type": "text", "width": "1fr", "primary": True}],
     fields=[{"k": "name", "label": "Reason", "type": "text", "required": True}],
@@ -390,7 +390,7 @@ entity(
 
 entity(
     key="item-categories", entity_type="item_categories", model=m.ItemCategory,
-    label="Category", plural="Categories", workspace="CRM", module="Config",
+    label="Category", plural="Categories", workspace="Config", module="CRM setup",
     icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
     columns=[
         {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
