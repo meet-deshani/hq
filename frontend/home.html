@@ -1183,11 +1183,6 @@ small, .caption {
   </sc-if>
 
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;width:100%;height:100%">
-   <sc-if value="{{ isCustomersView }}" hint-placeholder-val="{{ false }}">
-    <div class="dc-slot" style="flex:1;min-width:0;display:flex;flex-direction:column;width:100%;height:100%">
-     <dc-import name="Customers" tab="{{ cTab }}" accent="{{ cAccent }}" hint-size="100%,100%"></dc-import>
-    </div>
-   </sc-if>
    <sc-if value="{{ isPortalView }}" hint-placeholder-val="{{ true }}">
     <div class="dc-slot" style="flex:1;min-width:0;display:flex;flex-direction:column;width:100%;height:100%">
      <dc-import name="PortalPage" org="{{ cOrg }}" product="{{ cProduct }}" workspace="{{ cWorkspace }}" module-name="{{ cModule }}" tab-name="{{ cTab }}" kind="{{ cKind }}" accent="{{ cAccent }}" hide-crumb="{{ hideCrumb }}" hint-size="100%,100%"></dc-import>
@@ -1517,6 +1512,11 @@ const WS_BASE = [
 function workspacesFor(orgId, productKey) {
   return [
     { name: 'HQ', icon: 'hq' },
+    { name: 'CRM', icon: 'users' },
+    { name: 'Work', icon: 'work' },
+    { name: 'Tickets', icon: 'bell' },
+    { name: 'Comms', icon: 'chat' },
+    { name: 'Accounting', icon: 'billing' },
     { name: 'Config', icon: 'config' },
     { name: 'Users', icon: 'admin' },
     { name: 'Document', icon: 'document' }
@@ -1529,14 +1529,52 @@ const PRODUCT_WS_TABS = {
     HQ: [
       { tab: 'Dashboard', kind: 'dashboard' }
     ],
+    // Tab names must match a registry entity's `plural` (or `label`), because
+    // PortalPage resolves the entity from workspace + tab. Renaming a tab here
+    // without renaming it in backend/registry.py detaches the page from its data.
+    CRM: [
+      { tab: 'Dashboard', kind: 'dashboard' },
+      { module: 'Customers', tab: 'Customers', kind: 'table' },
+      { module: 'Customers', tab: 'People', kind: 'table' },
+      { module: 'Leads', tab: 'Leads', kind: 'table' },
+      { module: 'Catalog', tab: 'Services', kind: 'table' },
+      { module: 'Catalog', tab: 'Products', kind: 'table' },
+      { module: 'Projects', tab: 'Projects', kind: 'table' },
+      { module: 'Projects', tab: 'Milestones', kind: 'table' },
+      { module: 'Projects', tab: 'Team', kind: 'table' }
+    ],
+    Work: [
+      { tab: 'Tasks', kind: 'table' },
+      { tab: 'Work streams', kind: 'table' }
+    ],
+    Tickets: [
+      { module: 'Helpdesk', tab: 'Tickets', kind: 'table' },
+      { module: 'Helpdesk', tab: 'Job types', kind: 'table' },
+      { module: 'Helpdesk', tab: 'SLA policies', kind: 'table' }
+    ],
+    Comms: [
+      { module: 'Inbox', tab: 'Conversations', kind: 'inbox' },
+      { module: 'Inbox', tab: 'Channels', kind: 'table' }
+    ],
+    Accounting: [
+      { module: 'Contracts', tab: 'Contracts', kind: 'table' },
+      { module: 'Contracts', tab: 'Billing schedule', kind: 'table' },
+      { module: 'Billing', tab: 'Invoices', kind: 'table' }
+    ],
     Config: [
-      { tab: 'Organisations', kind: 'table' },
-      { tab: 'Products', kind: 'table' },
-      { tab: 'Workspaces', kind: 'table' },
-      { tab: 'Users', kind: 'table' },
-      { tab: 'Roles', kind: 'table' },
-      { tab: 'Permissions', kind: 'table' },
-      { tab: 'Feedback', kind: 'table' }
+      { module: 'Platform', tab: 'Organisations', kind: 'table' },
+      { module: 'Platform', tab: 'Products', kind: 'table' },
+      { module: 'Platform', tab: 'Workspaces', kind: 'table' },
+      { module: 'Platform', tab: 'Users', kind: 'table' },
+      { module: 'Platform', tab: 'Roles', kind: 'table' },
+      { module: 'Platform', tab: 'Permissions', kind: 'table' },
+      { module: 'Platform', tab: 'Feedback', kind: 'table' },
+      { module: 'CRM setup', tab: 'Customer groups', kind: 'table' },
+      { module: 'CRM setup', tab: 'Lead sources', kind: 'table' },
+      { module: 'CRM setup', tab: 'Pipelines', kind: 'table' },
+      { module: 'CRM setup', tab: 'Pipeline stages', kind: 'table' },
+      { module: 'CRM setup', tab: 'Lost reasons', kind: 'table' },
+      { module: 'CRM setup', tab: 'Categories', kind: 'table' }
     ],
     Users: [
       { module: 'User', tab: 'All Users', kind: 'table' },
@@ -1551,7 +1589,19 @@ const PRODUCT_WS_TABS = {
 };
 
 function navColor(name, kind){
-  const M = { Client:'#A2D2FF', Clients:'#A2D2FF', Visits:'#B8E0D2', Planning:'#FFCDB2', Feedback:'#FFB5C2', Dashboard:'#A2D2FF', Users:'#FFB5C2', Config:'#FFCDB2', 'My Trips':'#A2D2FF', 'My Requests':'#B8E0D2', 'All Visits':'#B8E0D2', 'Request a new BM Trip':'#FFCDB2', 'User guide':'#FFF3B0', Operations:'#B8E0D2', Analytics:'#C8B6FF', 'Chemical Stock':'#FFCDB2', 'Performance Mgmt':'#A2D2FF', 'User Management':'#FFB5C2', Quotation:'#FFCDB2', 'Cx List':'#A2D2FF', Customers:'#A2D2FF', 'Add Customer':'#A2D2FF', Catalog:'#FFCDB2', Services:'#FFCDB2', 'Add Service':'#FFCDB2', Products:'#FFCDB2', 'Add Product':'#FFCDB2', Projects:'#B8E0D2', 'Add Project':'#B8E0D2', Timelines:'#B8E0D2', Billings:'#B8E0D2', Team:'#B8E0D2', Tickets:'#FFB5C2', 'Add Ticket':'#FFB5C2', 'Job Types':'#FFB5C2', Inbox:'#B8E0D2', Customer:'#B8E0D2', Channels:'#B8E0D2', Contract:'#C8B6FF', Contracts:'#C8B6FF', 'Add Contract':'#C8B6FF', 'Billing Schedule':'#C8B6FF', Invoice:'#C8B6FF', Invoices:'#C8B6FF', 'Add Invoice':'#C8B6FF', 'To Raise':'#C8B6FF', 'GST Returns':'#A2D2FF' };
+  const M = { Client:'#A2D2FF', Clients:'#A2D2FF', Visits:'#B8E0D2', Planning:'#FFCDB2', Feedback:'#FFB5C2', Dashboard:'#A2D2FF', Users:'#FFB5C2', Config:'#FFCDB2', 'My Trips':'#A2D2FF', 'My Requests':'#B8E0D2', 'All Visits':'#B8E0D2', 'Request a new BM Trip':'#FFCDB2', 'User guide':'#FFF3B0', Operations:'#B8E0D2', Analytics:'#C8B6FF', 'Chemical Stock':'#FFCDB2', 'Performance Mgmt':'#A2D2FF', 'User Management':'#FFB5C2', Quotation:'#FFCDB2', 'Cx List':'#A2D2FF', Customers:'#A2D2FF', 'Add Customer':'#A2D2FF', Catalog:'#FFCDB2', Services:'#FFCDB2', 'Add Service':'#FFCDB2', Products:'#FFCDB2', 'Add Product':'#FFCDB2', Projects:'#B8E0D2', 'Add Project':'#B8E0D2', Timelines:'#B8E0D2', Billings:'#B8E0D2', Team:'#B8E0D2', Tickets:'#FFB5C2', 'Add Ticket':'#FFB5C2', 'Job Types':'#FFB5C2', Inbox:'#B8E0D2', Customer:'#B8E0D2', Channels:'#B8E0D2', Contract:'#C8B6FF', Contracts:'#C8B6FF', 'Add Contract':'#C8B6FF', 'Billing Schedule':'#C8B6FF', Invoice:'#C8B6FF', Invoices:'#C8B6FF', 'Add Invoice':'#C8B6FF', 'To Raise':'#C8B6FF', 'GST Returns':'#A2D2FF',
+    // CRM spine. One hue per MODULE, and every tab inside it takes the same
+    // hue, so the sidebar rail, the nav row and the page accent agree.
+    CRM:'#A2D2FF', People:'#A2D2FF', 'Customer groups':'#A2D2FF',
+    Leads:'#FFCDB2', 'Lead sources':'#FFCDB2', Pipelines:'#FFCDB2',
+    'Pipeline stages':'#FFCDB2', 'Lost reasons':'#FFCDB2', Categories:'#FFCDB2',
+    Milestones:'#B8E0D2', Tasks:'#B8E0D2',
+    Work:'#C8B6FF', 'Work streams':'#C8B6FF',
+    Platform:'#FFB5C2', 'CRM setup':'#FFCDB2',
+    // Tickets · Communication · Accounting
+    Helpdesk:'#FFB5C2', 'Job types':'#FFB5C2', 'SLA policies':'#FFB5C2',
+    Comms:'#B8E0D2', Conversations:'#B8E0D2',
+    Accounting:'#C8B6FF', 'Billing schedule':'#C8B6FF', Billing:'#C8B6FF' };
   if(M[name]) return M[name];
   const K = { dashboard:'#A2D2FF', report:'#C8B6FF', table:'#B8E0D2', form:'#B8E0D2', design:'#FFCDB2', api:'#A2D2FF', cli:'#B8E0D2' };
   return K[kind] || '#C8B6FF';
@@ -1597,6 +1647,13 @@ const ICON_BY_NAME = {
   'Rep Performance':'bar','Visit ROI':'trend','Plan Visit':'calendar','Dosage':'sliders',
   'Organisations':'grid','Products':'package','Workspaces':'sliders','API':'code','CLI':'terminal',
   'Cx List':'list','Customers':'users','Add Customer':'plus','Catalog':'package','Services':'package','Add Service':'plus','Products':'package','Add Product':'plus','Projects':'clipboard','Add Project':'plus','Timelines':'calendar','Billings':'list','Team':'users','Tickets':'bell','Add Ticket':'plus','Job Types':'sliders','Inbox':'message','Customer':'message','Channels':'sliders','Contract':'file','Contracts':'file','Add Contract':'plus','Billing Schedule':'list','Invoice':'file','Invoices':'file','Add Invoice':'plus','To Raise':'list','GST Returns':'bar',
+  'CRM':'users','People':'users','Leads':'trend','Lead sources':'trend','Pipelines':'sliders',
+  'Pipeline stages':'sliders','Lost reasons':'sliders','Categories':'package','Customer groups':'users',
+  'Milestones':'calendar','Tasks':'clipboard','Work':'activity','Work streams':'activity',
+  'Platform':'sliders','CRM setup':'sliders',
+  'Helpdesk':'bell','Job types':'sliders','SLA policies':'gauge',
+  'Comms':'message','Conversations':'message','Accounting':'file','Billing':'file',
+  'Billing schedule':'list',
 };
 const ICON_BY_KIND = { dashboard:'grid', form:'edit', table:'list', report:'file', design:'sliders' };
 function navIconInner(name, kind){ return ICON[ICON_BY_NAME[name]] || ICON[ICON_BY_KIND[kind]] || ICON.file; }
@@ -2385,7 +2442,11 @@ class Component extends DCLogic {
       onResizeStart: (e)=>this.startResize(e),
       cOrg:orgName, cProduct:prodName, cWorkspace:activeWs,
       cModule:at.module, cTab:at.tab, cKind:at.kind, cAccent: navColor(at.module, at.kind),
-      isCustomersView: (st.product==='hq' && at.module==='Customers'), isPortalView: !(st.product==='hq' && at.module==='Customers'),
+      // Every tab renders through PortalPage. A previous special case sent the
+      // Customers module to a separate <dc-import name="Customers">, but that
+      // component is not in window.__resources, so the runtime resolved the name
+      // back to this page — a circular import that rendered the shell twice.
+      isPortalView: true,
       onCollapse: ()=>this.toggleCollapse(),
       onProfile: ()=>this.toggleProfile(),
       onLogout: ()=>this.logout(),

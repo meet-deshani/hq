@@ -52,7 +52,17 @@
     </sc-if>
 
     <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
-      <div style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;width:100%">
+        <sc-for list="{{ views }}" as="v" hint-placeholder-count="3">
+          <button sc-camel-on-click="{{ v.onPick }}" style="{{ v.style }}">{{ v.name }}</button>
+        </sc-for>
+        <div style="flex:1;min-width:12px"></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:#fff;border:1.5px solid #E8E6E0;min-width:min(240px,100%)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+          <input value="{{ searchValue }}" sc-camel-on-change="{{ onSearch }}" placeholder="{{ searchPlaceholder }}" style="flex:1;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;min-width:0">
+        </div>
+      </div>
+      <div class="hq-datagrid" style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:12px 18px;border-bottom:1px solid #E8E6E0;background:#F8F7F4">
           <div style="display:flex;align-items:center;gap:9px">
             <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
@@ -72,9 +82,9 @@
           <sc-if value="{{ canCrud }}"><div></div></sc-if>
         </div>
         <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
-          <div style="display:grid;grid-template-columns:{{ gridColsX }};padding:13px 18px;border-bottom:1px solid #F3F2EE;align-items:center">
+          <div sc-camel-on-click="{{ row.onOpen }}" style="{{ row.style }}">
             <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
-              <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#3A3A44">{{ cell }}</div>
+              <div style="{{ cell.cellStyle }}"><span style="{{ cell.inkStyle }}">{{ cell.v }}</span></div>
             </sc-for>
             <sc-if value="{{ canCrud }}">
               <div style="display:flex;justify-content:flex-end">
@@ -123,11 +133,15 @@
         <div sc-camel-on-click="{{ onCloseMenus }}" style="position:fixed;inset:0;z-index:80"></div>
         <div style="position:fixed;left:{{ menuLeft }};top:{{ menuTop }};z-index:81;min-width:190px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);padding:6px;box-sizing:border-box">
           <sc-if value="{{ menuIsRow }}">
+            <sc-if value="{{ menuShowEdit }}">
             <button sc-camel-on-click="{{ onMenuEdit }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Edit</button>
+            </sc-if>
             <sc-if value="{{ menuRowShowPassword }}">
               <button sc-camel-on-click="{{ onMenuPassword }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Change password</button>
             </sc-if>
+            <sc-if value="{{ menuShowDelete }}">
             <button sc-camel-on-click="{{ onMenuDelete }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#a3324c;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Delete</button>
+            </sc-if>
           </sc-if>
         </div>
       </sc-if>
@@ -167,6 +181,183 @@
       </sc-if>
     </sc-if>
 
+    <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+      <div class="hq-inbox" style="display:flex;gap:0;width:100%;height:calc(100vh - 210px);min-height:420px;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-sizing:border-box">
+
+        <!-- pane 1 · channels -->
+        <div class="hq-inbox-channels" style="flex:0 0 190px;min-width:150px;border-right:1px solid #EEEDE8;background:#FBFAF7;display:flex;flex-direction:column">
+          <div style="padding:14px 16px 10px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Channels</div>
+          <sc-for list="{{ inboxChannels }}" as="ch" hint-placeholder-count="3">
+            <button sc-camel-on-click="{{ ch.onPick }}" style="{{ ch.style }}">
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">{{ ch.name }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ ch.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- pane 2 · threads -->
+        <div class="hq-inbox-threads" style="flex:0 0 288px;min-width:220px;border-right:1px solid #EEEDE8;display:flex;flex-direction:column;overflow:hidden">
+          <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 14px;height:52px;border-bottom:1px solid #EEEDE8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+            <input value="{{ searchValue }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search threads…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924">
+          </div>
+          <div class="zsc" style="flex:1;overflow-y:auto">
+            <sc-for list="{{ inboxThreads }}" as="th" hint-placeholder-count="5">
+              <div sc-camel-on-click="{{ th.onOpen }}" style="{{ th.style }}">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                  <span style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ th.name }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#918D82;white-space:nowrap">{{ th.when }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:12px;color:#6E6B62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ th.preview }}</span>
+                  <span style="{{ th.unreadStyle }}">{{ th.unread }}</span>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noThreads }}">
+              <div style="padding:22px 16px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399;line-height:1.5">{{ noThreadsText }}</div>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- pane 3 · messages -->
+        <div class="hq-inbox-messages" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+          <sc-if value="{{ hasThread }}">
+            <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 18px;height:52px;border-bottom:1px solid #EEEDE8;background:rgba(253,252,250,.9)">
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ threadName }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:#918D82;margin-top:1px">{{ threadMeta }}</div>
+              </div>
+              <sc-if value="{{ threadHasCustomer }}">
+                <button sc-camel-on-click="{{ onOpenCustomer }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;border-radius:999px;white-space:nowrap">View customer</button>
+              </sc-if>
+            </div>
+            <div class="zsc" style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px;background:#FDFCFA">
+              <sc-for list="{{ threadMessages }}" as="m" hint-placeholder-count="4">
+                <div style="{{ m.rowStyle }}">
+                  <div style="{{ m.bubbleStyle }}">
+                    <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;line-height:1.5;color:#191924;white-space:pre-wrap;word-break:break-word">{{ m.body }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#918D82;margin-top:5px">{{ m.meta }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ replyError }}">
+              <div style="flex:0 0 auto;padding:9px 16px;border-top:1px solid #E9C4C0;background:#FDF3F2;font-family:'Satoshi',sans-serif;font-size:12px;line-height:1.45;color:#B4261B">{{ replyErrorText }}</div>
+            </sc-if>
+            <div style="flex:0 0 auto;display:flex;gap:9px;padding:12px 16px;border-top:1px solid #EEEDE8;background:#fff">
+              <input value="{{ replyDraft }}" sc-camel-on-change="{{ onReplyInput }}" placeholder="{{ replyPlaceholder }}" style="flex:1;min-width:0;box-sizing:border-box;padding:10px 14px;border-radius:999px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
+              <button sc-camel-on-click="{{ onReplySubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 20px;border-radius:999px;white-space:nowrap">{{ replyLabel }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noThreadPicked }}">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center">
+              <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#A7A399;line-height:1.6;max-width:320px">{{ emptyPaneText }}</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+          <button sc-camel-on-click="{{ onBack }}" style="display:flex;align-items:center;gap:6px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:7px 14px;border-radius:999px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            {{ backLabel }}
+          </button>
+          <div style="flex:1;min-width:8px"></div>
+          <button sc-camel-on-click="{{ onDetailEdit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:999px">Edit</button>
+        </div>
+
+        <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;width:100%">
+          <!-- sections column -->
+          <div style="flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:16px">
+            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Basic details</div>
+              <sc-for list="{{ detailBasics }}" as="b" hint-placeholder-count="5">
+                <div style="display:flex;align-items:flex-start;gap:16px;padding:9px 0;border-bottom:1px solid #F3F2EE">
+                  <div style="flex:0 0 40%;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#918D82">{{ b.l }}</div>
+                  <div style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;word-break:break-word">{{ b.v }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-for list="{{ detailRelated }}" as="rel" hint-placeholder-count="2">
+              <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;box-sizing:border-box">
+                <div style="display:flex;align-items:center;gap:9px;padding:13px 20px;border-bottom:1px solid #EEEDE8;background:#F8F7F4">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
+                  <span style="flex:1;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ rel.label }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ rel.count }}</span>
+                </div>
+                <sc-for list="{{ rel.rows }}" as="rr" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid #F3F2EE">
+                    <span style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ rr.title }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6E6B62;white-space:nowrap">{{ rr.meta }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ rel.isEmpty }}">
+                  <div style="padding:16px 20px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399">Nothing here yet.</div>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <!-- append-only remark history -->
+            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:6px">Remarks</div>
+              <div style="font-family:'Satoshi',sans-serif;font-size:12px;color:#A7A399;margin-bottom:14px">Append-only. A correction is a new remark — nothing is ever rewritten.</div>
+              <sc-for list="{{ detailRemarks }}" as="rm" hint-placeholder-count="2">
+                <div style="padding:11px 0;border-bottom:1px solid #F3F2EE">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+                    <span style="font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;color:#191924">{{ rm.author }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ rm.when }}</span>
+                    <span style="{{ rm.sourceStyle }}">{{ rm.source }}</span>
+                  </div>
+                  <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;line-height:1.55;color:#3A3A44;word-break:break-word">{{ rm.body }}</div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noRemarks }}">
+                <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399;padding-bottom:10px">No remarks yet.</div>
+              </sc-if>
+              <div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap">
+                <input value="{{ remarkDraft }}" sc-camel-on-change="{{ onRemarkInput }}" placeholder="Add a remark…" style="flex:1;min-width:180px;box-sizing:border-box;padding:10px 14px;border-radius:11px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
+                <button sc-camel-on-click="{{ onRemarkSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px">{{ remarkLabel }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- key facts rail -->
+          <div style="flex:0 1 300px;min-width:min(280px,100%);display:flex;flex-direction:column;gap:16px">
+            <div style="background:#fff;border:1px solid #E8E6E0;border-left:3px solid {{ accent }};border-radius:16px;padding:18px 20px;box-sizing:border-box">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:13px">Key facts</div>
+              <sc-for list="{{ detailFacts }}" as="k" hint-placeholder-count="4">
+                <div style="padding:8px 0;border-bottom:1px solid #F3F2EE">
+                  <div style="font-family:'Satoshi',sans-serif;font-size:11.5px;color:#918D82">{{ k.l }}</div>
+                  <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#191924;margin-top:3px;word-break:break-word">{{ k.v }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:18px 20px;box-sizing:border-box">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:13px">Activity</div>
+              <sc-for list="{{ detailAudit }}" as="a" hint-placeholder-count="4">
+                <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #F3F2EE">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ a.dot }};margin-top:6px;flex:none"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#191924;word-break:break-word">{{ a.what }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82;margin-top:2px">{{ a.who }}</div>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noAudit }}">
+                <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399">No recorded changes.</div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
       <div style="width:100%">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%">
@@ -179,7 +370,7 @@
           </sc-for>
         </div>
         <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px;width:100%;box-sizing:border-box">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · {{ trendLabel }}, last 6 months</div>
           <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden;width:100%">
             <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
               <path d="{{ trendPath }}" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
@@ -284,36 +475,185 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:560},&quot;org&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;product&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;HQ&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;workspace&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;HQ&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;moduleName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Operations&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tabName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;form&quot;,&quot;table&quot;,&quot;dashboard&quot;,&quot;report&quot;,&quot;design&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C8B6FF&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
-// ── CRUD field schema per table (which endpoint + which form fields) ──────────
-const ENTITIES = {
-  Organisations: { path: '/api/organisations', label: 'Organisation', fields: [
-    { k:'name', label:'Name', req:true }, { k:'slug', label:'Slug', req:true },
-    { k:'industry', label:'Industry' }, { k:'initials', label:'Initials' },
-    { k:'color', label:'Color', ph:'#C8B6FF' }, { k:'note', label:'Note' } ] },
-  Products: { path: '/api/products', label: 'Product', fields: [
-    { k:'name', label:'Name', req:true }, { k:'code', label:'Code', req:true },
-    { k:'organisation_id', label:'Organisation ID', num:true }, { k:'description', label:'Description' },
-    { k:'status', label:'Status', ph:'Active' } ] },
-  Workspaces: { path: '/api/workspaces', label: 'Workspace', fields: [
-    { k:'name', label:'Name', req:true }, { k:'slug', label:'Slug' }, { k:'icon', label:'Icon', ph:'grid' },
-    { k:'organisation_id', label:'Organisation ID', num:true }, { k:'product_id', label:'Product ID', num:true },
-    { k:'status', label:'Status', ph:'Active' } ] },
-  Users: { path: '/api/users', label: 'User', fields: [
-    { k:'name', label:'Name', req:true }, { k:'email', label:'Email', req:true, createOnly:true },
-    { k:'role_name', label:'Role', roleSelect:true }, { k:'status', label:'Status', select:['Active','Invited','Disabled'] } ] },
-  Roles: { path: '/api/roles', label: 'Role', fields: [
-    { k:'name', label:'Name', req:true }, { k:'description', label:'Description' } ] },
+// ─────────────────────────────────────────────────────────────────────────────
+// This page renders from /api/meta/entities, not from a hardcoded tab list.
+// Adding an entity to the backend registry gives it a list, a form and a detail
+// page here with no change to this file. The legacy map below covers the
+// platform-config tables that predate the registry and keep their own routes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LEGACY = {
+  Organisations: { path:'/api/organisations', label:'Organisation',
+    cols:['ID','Name','Slug','Industry','Colour','Created'],
+    cells: o => [o.id, o.name, o.slug, o.industry || '—', o.color || '—', fmtDate(o.created_at)],
+    fields:[{k:'name',label:'Name',req:true},{k:'slug',label:'Slug',req:true},{k:'industry',label:'Industry'},
+            {k:'initials',label:'Initials'},{k:'color',label:'Colour',ph:'#C8B6FF'},{k:'note',label:'Note'}] },
+  Products: { path:'/api/products', label:'Product',
+    cols:['ID','Name','Code','Org','Status','Created'],
+    cells: p => [p.id, p.name, p.code, p.organisation_id || '—', p.status || 'Active', fmtDate(p.created_at)],
+    fields:[{k:'name',label:'Name',req:true},{k:'code',label:'Code',req:true},
+            {k:'organisation_id',label:'Organisation ID',num:true},{k:'description',label:'Description'},
+            {k:'status',label:'Status',ph:'Active'}] },
+  Workspaces: { path:'/api/workspaces', label:'Workspace',
+    cols:['ID','Name','Slug','Icon','Org','Product','Status'],
+    cells: w => [w.id, w.name, w.slug || '—', w.icon || 'grid', w.organisation_id || '—', w.product_id || '—', w.status || 'Active'],
+    fields:[{k:'name',label:'Name',req:true},{k:'slug',label:'Slug'},{k:'icon',label:'Icon',ph:'grid'},
+            {k:'organisation_id',label:'Organisation ID',num:true},{k:'product_id',label:'Product ID',num:true},
+            {k:'status',label:'Status',ph:'Active'}] },
+  Users: { path:'/api/users', label:'User',
+    cols:['Name','Email','Role','Status'],
+    cells: u => [u.name, u.email, u.role ? u.role.name : 'None', u.status],
+    fields:[{k:'name',label:'Name',req:true},{k:'email',label:'Email',req:true,createOnly:true},
+            {k:'role_name',label:'Role',roleSelect:true},{k:'status',label:'Status',select:['Active','Invited','Disabled']}] },
+  Roles: { path:'/api/roles', label:'Role',
+    cols:['Role','Description','Created'],
+    cells: r => [r.name, r.description || '', fmtDate(r.created_at)],
+    fields:[{k:'name',label:'Name',req:true},{k:'description',label:'Description'}] },
+  Permissions: { path:'/api/permissions', label:'Permission', readOnly:true,
+    cols:['Name','Code','Description'],
+    cells: p => [p.name, p.code, p.description || ''] },
+  Feedback: { path:'/api/feedback', label:'Feedback', readOnly:true,
+    cols:['Category','Message','From','Page','Status','When'],
+    cells: f => [f.category, (f.text||'').length > 64 ? f.text.slice(0,64)+'…' : (f.text||''),
+                 f.user ? f.user.email : '—', f.path || '—', f.status, fmtDate(f.created_at)] },
 };
-function entityForTab(tabName){
-  return ({ 'Organisations':'Organisations', 'Products':'Products', 'Workspaces':'Workspaces',
-    'Users':'Users', 'All Users':'Users', 'Roles':'Roles', 'Role List':'Roles' })[tabName] || null;
+const LEGACY_ALIAS = { 'All Users':'Users', 'Role List':'Roles' };
+
+// ── formatting ───────────────────────────────────────────────────────────────
+
+function fmtDate(v){
+  if(!v) return '—';
+  const d = new Date(v);
+  if(isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtMoney(v){
+  if(v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if(isNaN(n)) return String(v);
+  return '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+function fmtWhen(v){
+  if(!v) return '';
+  const t = new Date(v).getTime();
+  if(isNaN(t)) return '';
+  const mins = Math.round((Date.now() - t) / 60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return mins + 'm ago';
+  const h = Math.round(mins/60);
+  if(h < 24) return h + 'h ago';
+  const d = Math.round(h/24);
+  if(d < 30) return d + 'd ago';
+  return fmtDate(v);
+}
+
+// One hue per meaning, drawn from the D.O.T.S. palette. Anything unmapped falls
+// through to a neutral chip rather than inventing a colour.
+const BADGE = {
+  active:'#B8E0D2', open:'#A2D2FF', in_progress:'#A2D2FF', 'In progress':'#A2D2FF',
+  done:'#B8E0D2', completed:'#B8E0D2', won:'#B8E0D2', Active:'#B8E0D2',
+  blocked:'#FFB5C2', lost:'#FFB5C2', cancelled:'#FFB5C2', urgent:'#FFB5C2', high:'#FFCDB2',
+  medium:'#FFF3B0', low:'#EEEDE8', paused:'#FFCDB2', on_hold:'#FFCDB2', 'On hold':'#FFCDB2',
+  customer:'#A2D2FF', prospect:'#FFCDB2', vendor:'#C8B6FF', both:'#C8B6FF',
+  'Not started':'#EEEDE8', 'Testing':'#FFF3B0', 'Training Completed':'#B8E0D2',
+  'Onboarding Completed':'#B8E0D2', 'Project Completed':'#B8E0D2',
+  pending:'#FFF3B0', invoiced:'#C8B6FF', closed:'#EEEDE8', Dormant:'#EEEDE8', Archived:'#EEEDE8',
+};
+function badgeColor(v){ return BADGE[v] || '#EEEDE8'; }
+
+const ACTION_DOT = { create:'#B8E0D2', update:'#A2D2FF', delete:'#FFB5C2', convert:'#C8B6FF', remark:'#FFCDB2', login:'#EEEDE8' };
+
+const MONO = "'JetBrains Mono',monospace";
+const SANS = "'Satoshi',sans-serif";
+
+/** Display value + inline styles for one table cell, driven by its column type. */
+function renderCell(row, col){
+  const raw = row[col.k];
+  const align = col.align === 'right' ? 'flex-end' : 'flex-start';
+  let v, ink = 'font-family:' + SANS + ';font-size:13px;color:#3A3A44;';
+
+  if(col.type === 'ref'){
+    v = (row._refs && row._refs[col.k]) || (raw == null ? '—' : '#' + raw);
+  } else if(col.type === 'money'){
+    v = fmtMoney(raw); ink = 'font-family:' + MONO + ';font-size:12.5px;color:#191924;font-variant-numeric:tabular-nums;';
+  } else if(col.type === 'percent'){
+    v = (raw == null || raw === '') ? '—' : raw + '%';
+    ink = 'font-family:' + MONO + ';font-size:12.5px;color:#3A3A44;font-variant-numeric:tabular-nums;';
+  } else if(col.type === 'number'){
+    v = (raw == null || raw === '') ? '—' : String(raw);
+    ink = 'font-family:' + MONO + ';font-size:12.5px;color:#3A3A44;font-variant-numeric:tabular-nums;';
+  } else if(col.type === 'date' || col.type === 'datetime'){
+    v = fmtDate(raw); ink = 'font-family:' + MONO + ';font-size:11.5px;color:#6E6B62;';
+  } else if(col.type === 'mono'){
+    v = (raw == null || raw === '') ? '—' : String(raw);
+    ink = 'font-family:' + MONO + ';font-size:11.5px;color:#4A4842;';
+  } else if(col.type === 'boolean'){
+    v = raw ? 'Yes' : '—'; ink = 'font-family:' + SANS + ';font-size:12.5px;color:' + (raw ? '#1a5c42' : '#A7A399') + ';';
+  } else if(col.type === 'badge'){
+    v = (raw == null || raw === '') ? '—' : String(raw).replace(/_/g,' ');
+    ink = 'display:inline-block;font-family:' + SANS + ';font-size:11.5px;font-weight:600;color:#2A2A32;'
+        + 'background:' + badgeColor(raw) + ';padding:3px 10px;border-radius:999px;white-space:nowrap;';
+  } else if(col.type === 'color'){
+    v = raw || '—'; ink = 'font-family:' + MONO + ';font-size:11.5px;color:#4A4842;';
+  } else {
+    v = (raw == null || raw === '') ? '—' : String(raw);
+    if(col.primary) ink = 'font-family:' + SANS + ';font-size:13.5px;font-weight:600;color:#191924;';
+  }
+
+  return {
+    v: v,
+    cellStyle: 'display:flex;align-items:center;justify-content:' + align + ';min-width:0;padding-right:12px;overflow:hidden;',
+    inkStyle: ink + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;',
+  };
+}
+
+// ── registry access ──────────────────────────────────────────────────────────
+
+// Cached on window so switching tabs does not refetch the registry every time.
+function loadRegistry(){
+  if(window.__hqRegistry) return Promise.resolve(window.__hqRegistry);
+  if(window.__hqRegistryPromise) return window.__hqRegistryPromise;
+  window.__hqRegistryPromise = fetch('/api/meta/entities')
+    .then(r => r.ok ? r.json() : { entities: [] })
+    .then(d => { window.__hqRegistry = d.entities || []; return window.__hqRegistry; })
+    .catch(() => { window.__hqRegistry = []; return []; });
+  return window.__hqRegistryPromise;
+}
+
+function norm(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g,''); }
+
+/**
+ * Which registry entity does this tab render?
+ *
+ * Matched STRICTLY within the tab's own workspace, with no global fallback.
+ * Two different tabs are both called "Products" — the CRM catalog one and the
+ * platform-config one — and a fallback across workspaces would silently render
+ * the catalog under Config. Returning null is correct: the caller then falls
+ * through to the legacy handler for that tab.
+ */
+function resolveEntity(registry, workspace, moduleName, tabName){
+  const t = norm(tabName);
+  const ws = norm(workspace);
+  return registry.find(e =>
+    norm(e.workspace) === ws &&
+    (norm(e.plural) === t || norm(e.label) === t || norm(e.key) === t)
+  ) || null;
 }
 
 class Component extends DCLogic {
   state = {
     loading: true,
+    registry: null,
+    entity: null,
     rows: [],
     columns: [],
+    total: 0,
+    view: '',
+    search: '',
+    detailId: null,
+    detail: null,
+    remarkDraft: '',
+    remarkBusy: false,
     stats: [],
     trendPath: 'M0,140 L600,140',
     apis: [],
@@ -325,218 +665,347 @@ class Component extends DCLogic {
     formErr: '',
     busy: false,
     roleOptions: [],
+    refOptions: {},
     previewValue: '—',
     previewLabel: 'Computed output',
-    formEntity: null,
     menu: null,
-    pwOpen: false, pwUserId: null, pwUserName: '', pwValue: '', pwErr: '', pwBusy: false
+    inboxChannel: null, inboxThread: null, inboxMessages: [], replyDraft: '', replyBusy: false,
+    replyErrorText: '',
+    pwOpen: false, pwUserId: null, pwUserName: '', pwValue: '', pwErr: '', pwBusy: false,
+    createdCred: null, credCopied: false
   };
 
   componentDidMount() {
-    this.fetchData();
+    this._onPop = () => this.setState({ detailId: this._idFromUrl() }, () => this.fetchData());
+    window.addEventListener('popstate', this._onPop);
+    loadRegistry().then(reg => {
+      this.setState({ registry: reg, detailId: this._idFromUrl() }, () => this.fetchData());
+    });
   }
+  componentWillUnmount(){ window.removeEventListener('popstate', this._onPop); }
 
   componentDidUpdate(prevProps) {
     if (prevProps.tabName !== this.props.tabName || prevProps.workspace !== this.props.workspace) {
-      this.fetchData();
+      // A tab change resets list state; a stale filter carried across tabs is
+      // worse than no filter, because the emptiness looks like missing data.
+      this.setState({ view:'', search:'', detailId:null, detail:null, rows:[], columns:[] }, () => this.fetchData());
     }
+  }
+
+  _idFromUrl(){
+    try { const v = new URLSearchParams(window.location.search).get('id'); return v ? parseInt(v,10) : null; }
+    catch(_){ return null; }
+  }
+  _setUrlId(id){
+    try {
+      const url = new URL(window.location.href);
+      if(id) url.searchParams.set('id', id); else url.searchParams.delete('id');
+      window.history.pushState({ id: id || null }, '', url.pathname + url.search);
+    } catch(_){}
+  }
+
+  _entity(){
+    const reg = this.state.registry;
+    if(!reg) return null;
+    return resolveEntity(reg, this.props.workspace, this.props.moduleName, this.props.tabName);
+  }
+  _legacy(){
+    const name = LEGACY_ALIAS[this.props.tabName] || this.props.tabName;
+    return LEGACY[name] ? name : null;
+  }
+
+  _authed(res){
+    if(res.status === 401){ window.location.href = '/login'; return false; }
+    return true;
   }
 
   fetchData() {
-    const tabName = this.props.tabName;
     const kind = this.props.kind;
 
     if (kind === 'table') {
-      let endpoint = '';
-      if (tabName === 'Organisations') {
-        endpoint = '/api/organisations';
-      } else if (tabName === 'Products') {
-        endpoint = '/api/products';
-      } else if (tabName === 'Workspaces') {
-        endpoint = '/api/workspaces';
-      } else if (tabName === 'Users' || tabName === 'All Users') {
-        endpoint = '/api/users';
-      } else if (tabName === 'Roles' || tabName === 'Role List') {
-        endpoint = '/api/roles';
-      } else if (tabName === 'Permissions') {
-        endpoint = '/api/permissions';
-      } else if (tabName === 'Feedback') {
-        endpoint = '/api/feedback';
-      }
-
-      if (endpoint) {
-        this.setState({ loading: true });
-        fetch(endpoint)
-          .then(res => {
-            if (res.status === 401) {
-              window.location.href = '/login';
-              return [];
-            }
-            return res.json();
-          })
-          .then(data => {
-            let cols = [];
-            let rows = [];
-            
-            if (tabName === 'Organisations') {
-              cols = ['ID', 'Name', 'Slug', 'Industry', 'Color', 'Created At'];
-              rows = data.map(o => ({
-                id: o.id, record: o,
-                cells: [o.id, o.name, o.slug, o.industry || '—', o.color || '—', new Date(o.created_at).toLocaleDateString()]
-              }));
-            } else if (tabName === 'Products') {
-              cols = ['ID', 'Name', 'Code', 'Org ID', 'Status', 'Created At'];
-              rows = data.map(p => ({
-                id: p.id, record: p,
-                cells: [p.id, p.name, p.code, p.organisation_id || '—', p.status || 'Active', new Date(p.created_at).toLocaleDateString()]
-              }));
-            } else if (tabName === 'Workspaces') {
-              cols = ['ID', 'Name', 'Slug', 'Icon', 'Org ID', 'Product ID', 'Status'];
-              rows = data.map(w => ({
-                id: w.id, record: w,
-                cells: [w.id, w.name, w.slug || '—', w.icon || 'grid', w.organisation_id || '—', w.product_id || '—', w.status || 'Active']
-              }));
-            } else if (tabName === 'Users' || tabName === 'All Users') {
-              cols = ['Name', 'Email', 'Role', 'Status'];
-              rows = data.map(u => ({
-                id: u.id, record: u,
-                cells: [u.name, u.email, u.role ? u.role.name : 'None', u.status]
-              }));
-            } else if (tabName === 'Roles' || tabName === 'Role List') {
-              cols = ['Role', 'Description', 'Created At'];
-              rows = data.map(r => ({
-                id: r.id, record: r,
-                cells: [r.name, r.description || '', new Date(r.created_at).toLocaleDateString()]
-              }));
-            } else if (tabName === 'Permissions') {
-              cols = ['Name', 'Code', 'Description'];
-              rows = data.map(p => ({
-                id: p.id, record: p,
-                cells: [p.name, p.code, p.description || '']
-              }));
-            } else if (tabName === 'Feedback') {
-              cols = ['Category', 'Message', 'Submitted By', 'Page', 'Status', 'When'];
-              rows = data.map(f => ({
-                id: f.id, record: f,
-                cells: [
-                  f.category,
-                  (f.text || '').length > 64 ? (f.text.slice(0, 64) + '…') : (f.text || ''),
-                  f.user ? f.user.email : '—',
-                  f.path || '—',
-                  f.status,
-                  new Date(f.created_at).toLocaleDateString()
-                ]
-              }));
-            }
-            
-            this.setState({ columns: cols, rows: rows, loading: false });
-          })
-          .catch(err => {
-            console.error('Error fetching table:', err);
-            this.setState({ loading: false });
-          });
-      }
-    } else if (kind === 'dashboard') {
-      this.setState({ loading: true });
-      Promise.all([
-        fetch('/api/dashboard/stats').then(res => {
-          if (res.status === 401) { window.location.href = '/login'; return { stats: [] }; }
-          return res.json();
-        }),
-        fetch('/api/dashboard/trend').then(res => res.ok ? res.json() : { points: [] }).catch(() => ({ points: [] }))
-      ]).then(([s, t]) => {
-        const pts = (t && t.points) || [];
-        const max = Math.max(1, ...pts.map(p => p.value));
-        const n = Math.max(1, pts.length - 1);
-        const path = pts.length ? pts.map((p, i) => {
-          const x = (i * (600 / n)).toFixed(1);
-          const y = (140 - (p.value / max) * 120).toFixed(1);
-          return (i === 0 ? 'M' : 'L') + x + ',' + y;
-        }).join(' ') : 'M0,140 L600,140';
-        this.setState({ stats: s.stats || [], trendPath: path, loading: false });
-      }).catch(err => {
-        console.error('Error fetching dashboard:', err);
-        this.setState({ loading: false });
-      });
-    } else if (kind === 'api') {
-      this.setState({ loading: true });
-      const MC = { GET: '#A2D2FF', POST: '#B8E0D2', DELETE: '#FFB5C2', PUT: '#FFCDB2', PATCH: '#C8B6FF' };
-      fetch('/api/catalog')
-        .then(res => res.json())
-        .then(data => {
-          const apis = (data.endpoints || []).map(e => ({
-            method: e.method,
-            mcolor: MC[e.method] || '#C8B6FF',
-            path: e.path,
-            auth: e.auth,
-            isPublic: e.auth === 'Public',
-            summary: e.summary,
-            usage: e.usage,
-            response: e.response
-          }));
-          this.setState({ apis: apis, apiCount: (data.count || apis.length) + ' endpoints', loading: false });
-        })
-        .catch(err => {
-          console.error('Error fetching catalog:', err);
-          this.setState({ loading: false });
-        });
-    } else if (kind === 'cli') {
-      this.setState({ loading: true });
-      const GC = { auth: '#C8B6FF', system: '#A2D2FF', users: '#FFB5C2', roles: '#B8E0D2', orgs: '#FFCDB2', products: '#FFCDB2', workspaces: '#A2D2FF' };
-      fetch('/api/cli')
-        .then(res => res.json())
-        .then(data => {
-          const cmds = (data.commands || []).map(c => ({
-            group: c.group,
-            gcolor: GC[c.group] || '#C8B6FF',
-            command: c.command,
-            usage: c.usage,
-            description: c.description,
-            output: c.output
-          }));
-          this.setState({ cmds: cmds, cliCount: (data.count || cmds.length) + ' commands', loading: false });
-        })
-        .catch(err => {
-          console.error('Error fetching CLI catalog:', err);
-          this.setState({ loading: false });
-        });
+      const ent = this._entity();
+      if (ent) return this.state.detailId ? this._fetchDetail(ent) : this._fetchList(ent);
+      return this._fetchLegacy();
     }
+    if (kind === 'inbox') return this._fetchInbox();
+    if (kind === 'dashboard') return this._fetchDashboard();
+    if (kind === 'api') return this._fetchApiCatalog();
+    if (kind === 'cli') return this._fetchCliCatalog();
   }
 
-  // ── CRUD actions ────────────────────────────────────────────────────────
-  _entity() { return entityForTab(this.props.tabName); }
-
-  _ensureRoles(ent) {
-    if (ent !== 'Users' || (this.state.roleOptions && this.state.roleOptions.length)) return;
-    fetch('/api/roles').then(r => r.ok ? r.json() : []).then(rs =>
-      this.setState({ roleOptions: (rs || []).map(x => x.name) })).catch(() => {});
+  // ── registry-driven list ───────────────────────────────────────────────────
+  _fetchList(ent){
+    this.setState({ loading: true });
+    const qs = [];
+    if(this.state.view) qs.push('view=' + encodeURIComponent(this.state.view));
+    if(this.state.search) qs.push('q=' + encodeURIComponent(this.state.search));
+    qs.push('limit=200');
+    fetch(ent.path + '?' + qs.join('&'))
+      .then(r => { if(!this._authed(r)) return null; return r.json(); })
+      .then(d => {
+        if(!d) return;
+        this.setState({ entity: ent, rows: d.rows || [], total: d.total || 0,
+                        columns: ent.columns || [], loading: false });
+      })
+      .catch(e => { console.error('list failed', e); this.setState({ loading:false }); });
   }
 
-  openCreateEntity(entKey) {
-    const ent = entKey || this._entity(); if (!ent || !ENTITIES[ent]) return;
-    this.setState({ menu: null, formOpen: true, formMode: 'create', formEntity: ent, editId: null, form: {}, formErr: '' });
-    this._ensureRoles(ent);
+  _fetchDetail(ent){
+    this.setState({ loading: true });
+    fetch(ent.path + '/' + this.state.detailId)
+      .then(r => {
+        if(!this._authed(r)) return null;
+        if(r.status === 404){ this._setUrlId(null); this.setState({ detailId:null }); return null; }
+        return r.json();
+      })
+      .then(d => {
+        if(!d){ this.setState({ loading:false }); this.fetchData(); return; }
+        this.setState({ entity: ent, detail: d, loading: false });
+      })
+      .catch(e => { console.error('detail failed', e); this.setState({ loading:false }); });
+  }
+
+  // ── legacy platform-config tables ─────────────────────────────────────────
+  _fetchLegacy(){
+    const name = this._legacy();
+    if(!name){ this.setState({ rows:[], columns:[], loading:false, entity:null }); return; }
+    const cfg = LEGACY[name];
+    this.setState({ loading: true });
+    fetch(cfg.path)
+      .then(r => { if(!this._authed(r)) return null; return r.json(); })
+      .then(data => {
+        if(!data) return;
+        const rows = (data || []).map(rec => ({
+          id: rec.id, record: rec,
+          cells: cfg.cells(rec).map(v => ({
+            v: (v === null || v === undefined || v === '') ? '—' : String(v),
+            cellStyle: 'display:flex;align-items:center;min-width:0;padding-right:12px;overflow:hidden;',
+            inkStyle: 'font-family:' + SANS + ';font-size:13px;color:#3A3A44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;',
+          })),
+        }));
+        this.setState({ entity: null, rows, columns: cfg.cols.map(c => ({ label:c })),
+                        total: rows.length, loading: false });
+      })
+      .catch(e => { console.error('legacy list failed', e); this.setState({ loading:false }); });
+  }
+
+  // ── inbox ─────────────────────────────────────────────────────────────────
+  _fetchInbox(){
+    this.setState({ loading: true });
+    const qs = this.state.search ? ('&q=' + encodeURIComponent(this.state.search)) : '';
+    Promise.all([
+      fetch('/api/channels?limit=50').then(r => r.ok ? r.json() : { rows: [] }),
+      fetch('/api/conversations?limit=200' + qs).then(r => {
+        if(!this._authed(r)) return { rows: [] };
+        return r.ok ? r.json() : { rows: [] };
+      }),
+    ]).then(([channels, convos]) => {
+      const rows = convos.rows || [];
+      this.setState({ channels: channels.rows || [], rows, total: convos.total || rows.length,
+                      loading: false }, () => {
+        // Open the first thread so the pane is never pointlessly empty.
+        const visible = this._visibleThreads();
+        if(!this.state.inboxThread && visible.length) this.openThread(visible[0].id);
+      });
+    }).catch(e => { console.error('inbox failed', e); this.setState({ loading:false }); });
+  }
+
+  _visibleThreads(){
+    const ch = this.state.inboxChannel;
+    return (this.state.rows || []).filter(t => !ch || t.channel_id === ch);
+  }
+
+  openThread(id){
+    // Re-opening the same thread is the refresh that follows a send, so a
+    // delivery warning has to survive it; moving to another thread clears it.
+    const switching = this.state.inboxThread !== id;
+    this.setState(Object.assign({ inboxThread: id, inboxMessages: [], replyDraft: '' },
+                                switching ? { replyErrorText: '' } : {}));
+    fetch('/api/conversations/' + id + '/thread')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if(!d) return;
+        this.setState({ inboxMessages: d.messages || [], inboxThreadData: d });
+        // Opening a thread is reading it.
+        if(d.unread_count) {
+          fetch('/api/conversations/' + id + '/read', { method:'POST' })
+            .then(() => this.setState(st => ({
+              rows: (st.rows||[]).map(r => r.id === id ? Object.assign({}, r, { unread_count: 0 }) : r)
+            })))
+            .catch(() => {});
+        }
+      })
+      .catch(e => console.error('thread failed', e));
+  }
+
+  pickChannel(id){ this.setState({ inboxChannel: id, inboxThread: null }, () => {
+    const v = this._visibleThreads(); if(v.length) this.openThread(v[0].id);
+  }); }
+
+  onReplyInput(v){ this.setState({ replyDraft: v }); }
+  submitReply(){
+    const id = this.state.inboxThread;
+    const body = (this.state.replyDraft || '').trim();
+    if(!id || !body || this.state.replyBusy) return;
+    this.setState({ replyBusy: true, replyErrorText: '' });
+    fetch('/api/conversations/' + id + '/messages', {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ body })
+    })
+      .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
+      .then(d => {
+        // A message that was stored but not delivered is a success for the
+        // request and a failure for the client, so the draft clears and the
+        // reason stays on screen. Silently treating the two alike is how a
+        // thread ends up claiming a delivery that never happened.
+        this.setState({ replyDraft:'', replyBusy:false,
+                        replyErrorText: (d && !d.delivered && d.detail) ? d.detail : '' });
+        this.openThread(id);
+      })
+      .catch(e => this.setState({ replyBusy:false,
+                                  replyErrorText: 'Nothing was sent or saved: ' + (e.message||e) }));
+  }
+
+  _fetchDashboard(){
+    const ws = this.props.workspace || 'hq';
+    this.setState({ loading: true });
+    Promise.all([
+      // Each workspace asks for its own numbers; a shared set told a CRM user
+      // how many permission rows exist, which is nobody's question.
+      fetch('/api/dashboard/stats?workspace=' + encodeURIComponent(ws))
+        .then(r => { if(!this._authed(r)) return { stats: [] }; return r.json(); }),
+      fetch('/api/dashboard/trend?workspace=' + encodeURIComponent(ws))
+        .then(r => r.ok ? r.json() : { points: [] }).catch(() => ({ points: [] }))
+    ]).then(([s, t]) => {
+      const pts = (t && t.points) || [];
+      const max = Math.max(1, ...pts.map(p => p.value));
+      const n = Math.max(1, pts.length - 1);
+      const path = pts.length ? pts.map((p, i) => {
+        const x = (i * (600 / n)).toFixed(1);
+        const y = (140 - (p.value / max) * 120).toFixed(1);
+        return (i === 0 ? 'M' : 'L') + x + ',' + y;
+      }).join(' ') : 'M0,140 L600,140';
+      this.setState({ stats: s.stats || [], trendPath: path,
+                      trendLabel: (t && t.label) || 'Records', loading: false });
+    }).catch(e => { console.error('dashboard failed', e); this.setState({ loading: false }); });
+  }
+
+  _fetchApiCatalog(){
+    this.setState({ loading: true });
+    const MC = { GET:'#A2D2FF', POST:'#B8E0D2', DELETE:'#FFB5C2', PUT:'#FFCDB2', PATCH:'#C8B6FF' };
+    fetch('/api/catalog').then(r => r.json()).then(data => {
+      const apis = (data.endpoints || []).map(e => ({
+        method:e.method, mcolor:MC[e.method] || '#C8B6FF', path:e.path, auth:e.auth,
+        isPublic:e.auth === 'Public', summary:e.summary, usage:e.usage, response:e.response
+      }));
+      this.setState({ apis, apiCount: (data.count || apis.length) + ' endpoints', loading:false });
+    }).catch(e => { console.error('catalog failed', e); this.setState({ loading:false }); });
+  }
+
+  _fetchCliCatalog(){
+    this.setState({ loading: true });
+    const GC = { auth:'#C8B6FF', system:'#A2D2FF', users:'#FFB5C2', roles:'#B8E0D2', orgs:'#FFCDB2',
+                 products:'#FFCDB2', workspaces:'#A2D2FF', entities:'#C8B6FF', records:'#B8E0D2' };
+    fetch('/api/cli').then(r => r.json()).then(data => {
+      const cmds = (data.commands || []).map(c => ({
+        group:c.group, gcolor:GC[c.group] || '#C8B6FF', command:c.command,
+        usage:c.usage, description:c.description, output:c.output
+      }));
+      this.setState({ cmds, cliCount: (data.count || cmds.length) + ' commands', loading:false });
+    }).catch(e => { console.error('cli catalog failed', e); this.setState({ loading:false }); });
+  }
+
+  // ── navigation ────────────────────────────────────────────────────────────
+  openDetail(id){ this._setUrlId(id); this.setState({ detailId:id, detail:null }, () => this.fetchData()); }
+  closeDetail(){ this._setUrlId(null); this.setState({ detailId:null, detail:null }, () => this.fetchData()); }
+  pickView(name){ this.setState({ view:name }, () => this.fetchData()); }
+  onSearchInput(v){
+    this.setState({ search:v });
+    clearTimeout(this._searchT);
+    this._searchT = setTimeout(() => this.fetchData(), 260);
+  }
+
+  // ── remarks ───────────────────────────────────────────────────────────────
+  onRemarkInput(v){ this.setState({ remarkDraft:v }); }
+  submitRemark(){
+    const ent = this._entity(); const id = this.state.detailId;
+    const body = (this.state.remarkDraft || '').trim();
+    if(!ent || !id || !body || this.state.remarkBusy) return;
+    this.setState({ remarkBusy:true });
+    fetch(ent.path + '/' + id + '/remarks', {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ body })
+    })
+      .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
+      .then(() => { this.setState({ remarkDraft:'', remarkBusy:false }); this._fetchDetail(ent); })
+      .catch(e => { this.setState({ remarkBusy:false }); window.alert('Could not add remark: ' + (e.message || e)); });
+  }
+
+  // ── form ──────────────────────────────────────────────────────────────────
+  _formFieldsFor(ent){
+    if(ent) return ent.fields || [];
+    const name = this._legacy();
+    return name ? (LEGACY[name].fields || []) : [];
+  }
+
+  /** Load the option list for every ref field so a form shows names, not ids. */
+  _ensureRefOptions(ent){
+    if(!ent) {
+      if(this._legacy() === 'Users' && !(this.state.roleOptions || []).length){
+        fetch('/api/roles').then(r => r.ok ? r.json() : []).then(rs =>
+          this.setState({ roleOptions: (rs||[]).map(x => x.name) })).catch(() => {});
+      }
+      return;
+    }
+    const refs = [...new Set((ent.fields || []).filter(f => f.type === 'ref' && f.ref).map(f => f.ref))];
+    refs.forEach(refKey => {
+      if(this.state.refOptions[refKey]) return;
+      const target = refKey === 'users'
+        ? { path:'/api/users', title:'name' }
+        : (() => { const e = (this.state.registry||[]).find(x => x.key === refKey);
+                   return e ? { path:e.path, title:e.title_field || 'name' } : null; })();
+      if(!target) return;
+      fetch(target.path + '?limit=500')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if(!d) return;
+          const list = Array.isArray(d) ? d : (d.rows || []);
+          const opts = list.map(o => ({ v:String(o.id), label: o[target.title] || o.name || ('#'+o.id) }));
+          this.setState(s => ({ refOptions: Object.assign({}, s.refOptions, { [refKey]: opts }) }));
+        })
+        .catch(() => {});
+    });
+  }
+
+  openCreate() {
+    const ent = this._entity();
+    if(!ent && !this._legacy()) return;
+    const form = {};
+    this._formFieldsFor(ent).forEach(f => { if(f.default !== undefined && f.default !== null) form[f.k] = String(f.default); });
+    this.setState({ menu:null, formOpen:true, formMode:'create', editId:null, form, formErr:'' });
+    this._ensureRefOptions(ent);
   }
 
   openEdit(row) {
-    const ent = this._entity(); if (!ent) return;
-    const rec = row.record || {};
+    const ent = this._entity();
+    const rec = row.record || row;
     const form = {};
-    ENTITIES[ent].fields.forEach(f => {
-      let v = f.k === 'role_name' ? (rec.role ? rec.role.name : '') : rec[f.k];
-      form[f.k] = (v == null ? '' : v);
+    this._formFieldsFor(ent).forEach(f => {
+      let v = (!ent && f.k === 'role_name') ? (rec.role ? rec.role.name : '') : rec[f.k];
+      form[f.k] = (v === null || v === undefined) ? '' : String(v);
     });
-    this.setState({ menu: null, formOpen: true, formMode: 'edit', formEntity: ent, editId: row.id, form: form, formErr: '' });
-    this._ensureRoles(ent);
+    this.setState({ menu:null, formOpen:true, formMode:'edit', editId:row.id, form, formErr:'' });
+    this._ensureRefOptions(ent);
   }
 
+  // ── row action menu (from main) ─────────────────────────────────────────
   openMenu(type, e, row) {
+    if(e && e.stopPropagation) e.stopPropagation();
     const x = e && e.clientX ? Math.max(8, e.clientX - 168) : 40;
     const y = e && e.clientY ? e.clientY + 10 : 90;
-    this.setState({ menu: { type: type, x: x, y: y, row: row || null } });
+    this.setState({ menu: { type, x, y, row: row || null } });
   }
   closeMenus() { this.setState({ menu: null }); }
 
+  // ── admin change-password (from main) ───────────────────────────────────
   openChangePassword(row) {
     const rec = row.record || {};
     this.setState({ menu: null, pwOpen: true, pwUserId: row.id,
@@ -564,7 +1033,7 @@ class Component extends DCLogic {
       .catch(e => this.setState({ pwBusy: false, pwErr: String(e.message || e) }));
   }
 
-  closeForm() { this.setState({ formOpen: false, formErr: '' }); }
+  closeForm() { this.setState({ formOpen:false, formErr:'' }); }
   onFormField(k, v) { this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }) })); }
 
   closeCred() { this.setState({ createdCred: null, credCopied: false }); }
@@ -574,122 +1043,308 @@ class Component extends DCLogic {
   }
 
   submitForm() {
-    const ent = this.state.formEntity || this._entity(); if (!ent) return;
-    const cfg = ENTITIES[ent];
+    const ent = this._entity();
+    const legacyName = this._legacy();
+    if(!ent && !legacyName) return;
     const mode = this.state.formMode;
-    for (const f of cfg.fields) {
-      if (mode === 'edit' && f.createOnly) continue;
-      if (f.req && !String(this.state.form[f.k] || '').trim()) {
-        this.setState({ formErr: f.label + ' is required' }); return;
+    const fields = this._formFieldsFor(ent);
+    const path = ent ? ent.path : LEGACY[legacyName].path;
+
+    for(const f of fields){
+      if(mode === 'edit' && f.createOnly) continue;
+      const required = ent ? f.required : f.req;
+      if(required && !String(this.state.form[f.k] || '').trim()){
+        this.setState({ formErr: f.label + ' is required' });
+        return;
       }
     }
+
     const body = {};
-    cfg.fields.forEach(f => {
-      if (mode === 'edit' && f.createOnly) return;
+    fields.forEach(f => {
+      if(mode === 'edit' && f.createOnly) return;
       let v = this.state.form[f.k];
-      if (v == null || String(v).trim() === '') return;
-      if (f.num) { v = parseInt(v, 10); if (isNaN(v)) return; }
+      if(v === null || v === undefined || String(v).trim() === '') return;
+      if(ent){
+        if(f.type === 'ref' || f.type === 'number'){ const n = Number(v); if(isNaN(n)) return; v = n; }
+        else if(f.type === 'money' || f.type === 'percent'){ const n = Number(v); if(isNaN(n)) return; v = n; }
+        else if(f.type === 'boolean'){ v = (v === true || v === 'true' || v === 'Yes' || v === '1'); }
+      } else if(f.num){
+        v = parseInt(v, 10); if(isNaN(v)) return;
+      }
       body[f.k] = v;
     });
-    if (ent === 'Users' && mode === 'create') {
-      // No password sent — the server mints a strong one and returns it once.
-      if (!body.status) body.status = 'Active';
-    }
-    this.setState({ busy: true, formErr: '' });
-    const url = mode === 'create' ? cfg.path : cfg.path + '/' + this.state.editId;
-    const method = mode === 'create' ? 'POST' : 'PATCH';
-    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(async r => {
-        if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (_) {} throw new Error(d || ('HTTP ' + r.status)); }
-        return r.json();
-      })
+    if(!ent && legacyName === 'Users' && mode === 'create' && !body.status) body.status = 'Active';
+
+    this.setState({ busy:true, formErr:'' });
+    fetch(mode === 'create' ? path : path + '/' + this.state.editId, {
+      method: mode === 'create' ? 'POST' : 'PATCH',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
       .then((rec) => {
-        // New users come back with a one-time generated password to share.
-        if (ent === 'Users' && mode === 'create' && rec && rec.initial_password) {
-          this.setState({ formOpen: false, busy: false, createdCred: { email: rec.email, password: rec.initial_password }, credCopied: false });
+        // The server mints a strong password for a new user and returns it
+        // exactly once — surface it so it can be shared, then forget it.
+        if(!ent && legacyName === 'Users' && mode === 'create' && rec && rec.initial_password){
+          this.setState({ formOpen:false, busy:false,
+            createdCred:{ email: rec.email, password: rec.initial_password }, credCopied:false });
         } else {
-          this.setState({ formOpen: false, busy: false });
+          this.setState({ formOpen:false, busy:false });
         }
         this.fetchData();
       })
-      .catch(e => this.setState({ busy: false, formErr: String(e.message || e) }));
+      .catch(e => this.setState({ busy:false, formErr:String(e.message || e) }));
   }
 
   doDelete(row) {
-    const ent = this._entity(); if (!ent) return;
-    const cfg = ENTITIES[ent];
-    const label = (row.record && (row.record.name || row.record.email)) || ('#' + row.id);
-    if (!window.confirm('Delete ' + cfg.label + ' "' + label + '"? This cannot be undone.')) return;
-    fetch(cfg.path + '/' + row.id, { method: 'DELETE' })
-      .then(async r => {
-        if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (_) {} throw new Error(d || ('HTTP ' + r.status)); }
-        return r.json();
-      })
-      .then(() => this.fetchData())
+    const ent = this._entity();
+    const legacyName = this._legacy();
+    if(!ent && !legacyName) return;
+    const path = ent ? ent.path : LEGACY[legacyName].path;
+    const label = ent ? (row.record._label || ('#'+row.id))
+                      : ((row.record && (row.record.name || row.record.email)) || ('#'+row.id));
+    if(!window.confirm('Delete "' + label + '"? This cannot be undone.')) return;
+    fetch(path + '/' + row.id, { method:'DELETE' })
+      .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
+      .then(() => { if(this.state.detailId === row.id) this.closeDetail(); else this.fetchData(); })
       .catch(e => window.alert('Delete failed: ' + (e.message || e)));
   }
 
+  // ── render ────────────────────────────────────────────────────────────────
   renderVals() {
     const p = this.props;
     const org = p.org || 'Z9S-AI';
     const product = p.product || 'HQ';
     const workspace = p.workspace || 'HQ';
     const moduleName = p.moduleName || 'Module';
-    const tabName = p.tabName || 'Tab';
     const kind = p.kind || 'dashboard';
     const accent = p.accent || '#C8B6FF';
 
     const tint = (hex, a) => {
-      const h = (hex || '#C8B6FF').replace('#', '');
+      const h = (hex || '#C8B6FF').replace('#','');
       const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
       return `rgba(${r},${g},${b},${a})`;
     };
 
+    const ent = this._entity();
+    const legacyName = this._legacy();
+    const detail = this.state.detail;
+    const inDetail = kind === 'table' && !!ent && !!this.state.detailId && !!detail;
+
+    let tabName = p.tabName || 'Tab';
+    if(inDetail) tabName = detail._label || (ent.label + ' #' + detail.id);
     const crumb = `${org}  ·  ${product}  ·  ${workspace}  ·  ${moduleName}  ·  ${tabName}`;
 
-    // Columns and rows from state
-    const columns = this.state.columns || [];
-    const rawRows = this.state.rows || [];
-    const tableCount = `${rawRows.length} records`;
+    // ── list ────────────────────────────────────────────────────────────────
+    const colSpecs = this.state.columns || [];
+    const columns = colSpecs.map(c => c.label);
+    // What this user may actually do here. `can` comes from the server with the
+    // registry; a read-only mirror (Zoho Books invoices) has no write surface at
+    // all. Showing a button that is certain to 403 or 405 is worse than not
+    // showing it — the server enforces either way, this is about honesty.
+    const perms = (ent && ent.can) || {};
+    const readOnly = !!(ent && ent.read_only);
+    const canCreate = ent
+      ? (!readOnly && perms.create !== false)
+      : (!!legacyName && !LEGACY[legacyName].readOnly);
+    const canEdit = ent
+      ? (!readOnly && perms.update !== false)
+      : (!!legacyName && !LEGACY[legacyName].readOnly);
+    const canDelete = ent
+      ? (!readOnly && perms.delete !== false)
+      : (!!legacyName && !LEGACY[legacyName].readOnly);
+    const canCrud = canEdit || canDelete;
+    const entLabel = ent ? ent.label : (legacyName ? LEGACY[legacyName].label : '');
 
-    // CRUD: which entity does this table map to (null = read-only, e.g. Permissions)
-    const entity = kind === 'table' ? entityForTab(tabName) : null;
-    const canCrud = !!entity;
-    const entLabel = entity ? ENTITIES[entity].label : '';
-    const gridCols = columns.map((c,i) => i === 0 ? '1.6fr' : '1fr').join(' ');
+    const gridCols = ent
+      ? colSpecs.map(c => c.width || '1fr').join(' ')
+      : colSpecs.map((c,i) => i === 0 ? '1.6fr' : '1fr').join(' ');
     const gridColsX = canCrud ? (gridCols + ' 108px') : gridCols;
 
-    // Rows carry per-row edit/delete handlers.
-    const rows = rawRows.map(r => ({
-      cells: r.cells,
-      id: r.id,
-      onEdit: () => this.openEdit(r),
-      onDelete: () => this.doDelete(r),
-      onMenu: (e) => this.openMenu('row', e, r),
+    const rowStyle = 'display:grid;grid-template-columns:' + gridColsX
+      + ';padding:0 18px;min-height:52px;border-bottom:1px solid #F3F2EE;align-items:center;'
+      + (ent ? 'cursor:pointer;' : '');
+
+    const rows = (this.state.rows || []).map(r => {
+      const record = ent ? r : (r.record || r);
+      const cells = ent ? colSpecs.map(c => renderCell(r, c)) : r.cells;
+      const wrapped = { id: r.id, record, cells, style: rowStyle };
+      wrapped.onOpen = ent ? (() => this.openDetail(r.id)) : (() => {});
+      wrapped.onEdit = (e) => { if(e && e.stopPropagation) e.stopPropagation(); this.openEdit(wrapped); };
+      wrapped.onDelete = (e) => { if(e && e.stopPropagation) e.stopPropagation(); this.doDelete(wrapped); };
+      wrapped.onMenu = (e) => this.openMenu('row', e, wrapped);
+      return wrapped;
+    });
+
+    const total = this.state.total || rows.length;
+    const tableCount = this.state.loading ? 'Loading…'
+      : (total === 1 ? '1 record' : total.toLocaleString('en-IN') + ' records');
+
+    // Saved-view chips. "All" is always present so a filtered view is escapable.
+    const savedViews = ent ? (ent.saved_views || []) : [];
+    const activeView = this.state.view || (savedViews.length ? savedViews[0].name : '');
+    const views = savedViews.map(v => ({
+      name: v.name,
+      onPick: () => this.pickView(v.name),
+      style: 'border:1.5px solid ' + (v.name === activeView ? '#191924' : '#E8E6E0')
+        + ';cursor:pointer;background:' + (v.name === activeView ? '#191924' : '#fff')
+        + ';color:' + (v.name === activeView ? '#fff' : '#4A4842')
+        + ";font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:6px 14px;border-radius:999px;white-space:nowrap;",
     }));
 
-    // Modal form fields for the active entity.
+    // ── detail ──────────────────────────────────────────────────────────────
+    let detailBasics = [], detailFacts = [], detailRelated = [], detailRemarks = [], detailAudit = [];
+    if(inDetail){
+      const labelFor = (k) => {
+        const f = (ent.fields || []).find(x => x.k === k);
+        return f ? f.label : k.replace(/_id$/,'').replace(/_/g,' ');
+      };
+      const valueFor = (k) => {
+        const f = (ent.fields || []).find(x => x.k === k) || { k, type:'text' };
+        return renderCell(detail, { k, type:f.type, ref:f.ref }).v;
+      };
+
+      detailBasics = (ent.fields || [])
+        .filter(f => { const v = detail[f.k]; return v !== null && v !== undefined && v !== ''; })
+        .map(f => ({ l: f.label, v: renderCell(detail, { k:f.k, type:f.type, ref:f.ref }).v }));
+
+      detailFacts = (ent.key_facts || []).map(k => ({ l: labelFor(k), v: valueFor(k) }));
+
+      detailRelated = Object.keys(detail._related || {}).map(key => {
+        const rel = detail._related[key];
+        const child = (this.state.registry || []).find(e => e.key === rel.entity);
+        const titleKey = child ? (child.title_field || 'name') : 'name';
+        const metaCol = child ? (child.columns || []).find(c => c.type === 'badge' || c.type === 'date') : null;
+        return {
+          label: rel.label,
+          count: (rel.rows || []).length + '',
+          isEmpty: !(rel.rows || []).length,
+          rows: (rel.rows || []).map(rr => ({
+            title: rr[titleKey] || rr._label || ('#' + rr.id),
+            meta: metaCol ? renderCell(rr, metaCol).v : '',
+          })),
+        };
+      });
+
+      detailRemarks = (detail._remarks || []).map(rm => ({
+        author: rm.author || 'Unknown',
+        when: fmtWhen(rm.created_at),
+        body: rm.body,
+        source: rm.source,
+        sourceStyle: "font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;"
+          + 'background:' + (rm.source === 'agent' ? '#C8B6FF' : rm.source === 'cli' ? '#A2D2FF' : '#EEEDE8')
+          + ';color:#2A2A32;padding:2px 7px;border-radius:999px;',
+      }));
+
+      detailAudit = (detail._audit || []).map(a => {
+        const fields = a.changes ? Object.keys(a.changes).filter(k => k !== 'deleted') : [];
+        const what = a.action === 'update' && fields.length
+          ? 'Changed ' + fields.slice(0,3).join(', ') + (fields.length > 3 ? ' +' + (fields.length-3) : '')
+          : a.action.charAt(0).toUpperCase() + a.action.slice(1).replace(/_/g,' ');
+        return {
+          what,
+          who: (a.actor || 'system') + ' · ' + (a.actor_kind || 'user') + ' · ' + fmtWhen(a.created_at),
+          dot: ACTION_DOT[a.action] || '#C8B6FF',
+        };
+      });
+    }
+
+    // ── inbox ───────────────────────────────────────────────────────────────
+    const isInbox = kind === 'inbox';
+    let inboxChannels = [], inboxThreads = [], threadMessages = [];
+    let threadName = '', threadMeta = '', threadHasCustomer = false, threadCanSend = false;
+    if(isInbox){
+      const chans = this.state.channels || [];
+      const all = this.state.rows || [];
+      const activeCh = this.state.inboxChannel;
+      const chipStyle = (on) => 'display:flex;align-items:center;gap:8px;width:100%;border:none;cursor:pointer;'
+        + 'background:' + (on ? 'rgba(184,224,210,.34)' : 'transparent')
+        + ";font-family:'Satoshi',sans-serif;font-size:13px;font-weight:" + (on ? '600' : '500')
+        + ';color:#2A2A32;padding:9px 16px;text-align:left;';
+
+      inboxChannels = [{
+        name: 'All conversations', count: String(all.length),
+        onPick: () => this.pickChannel(null), style: chipStyle(!activeCh),
+      }].concat(chans.map(c => ({
+        name: c.name,
+        count: String(all.filter(t => t.channel_id === c.id).length),
+        onPick: () => this.pickChannel(c.id),
+        style: chipStyle(activeCh === c.id),
+      })));
+
+      const visible = this._visibleThreads();
+      inboxThreads = visible.map(t => {
+        const on = t.id === this.state.inboxThread;
+        const unread = t.unread_count || 0;
+        return {
+          name: t.contact_name || t.contact_identifier,
+          preview: (t._refs && t._refs.party_id) || t.contact_identifier || '',
+          when: fmtWhen(t.last_message_at),
+          unread: unread ? String(unread) : '',
+          unreadStyle: unread
+            ? "font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;background:#191924;color:#fff;padding:1px 7px;border-radius:999px;"
+            : 'display:none;',
+          onOpen: () => this.openThread(t.id),
+          style: 'padding:11px 14px;border-bottom:1px solid #F3F2EE;cursor:pointer;'
+            + (on ? 'background:rgba(184,224,210,.22);box-shadow:inset 3px 0 0 ' + accent + ';' : ''),
+        };
+      });
+
+      const data = this.state.inboxThreadData;
+      if(data && data.id === this.state.inboxThread){
+        threadName = data.contact_name || data.contact_identifier || '';
+        threadMeta = [data.channel, data.party || 'Not linked to a customer'].filter(Boolean).join(' · ');
+        threadHasCustomer = !!data.party_id;
+        threadCanSend = !!data.sending_enabled;
+      }
+      // 'sent' is the only status that means the client actually has it. Anything
+      // else is a message that exists in HQ and nowhere else, so it is spelled
+      // out in words and the bubble is coloured to match — an outbound message
+      // that merely looks delivered is the one failure mode worth shouting about.
+      const DELIVERY = { sent: 'Delivered', failed: 'Not delivered',
+                         recorded: 'Logged in HQ only — not sent' };
+      threadMessages = (this.state.inboxMessages || []).map(m => {
+        const out = m.direction === 'outbound';
+        const undelivered = out && m.delivery_status && m.delivery_status !== 'sent';
+        return {
+          body: m.body || '',
+          meta: (out ? 'Sent' : 'Received') + ' · ' + fmtWhen(m.sent_at)
+                + (out && m.delivery_status
+                    ? ' · ' + (DELIVERY[m.delivery_status] || m.delivery_status) : ''),
+          rowStyle: 'display:flex;justify-content:' + (out ? 'flex-end' : 'flex-start') + ';width:100%',
+          bubbleStyle: 'max-width:min(560px,78%);padding:11px 14px;border-radius:14px;'
+            + (undelivered ? 'background:#FDF3F2;border:1px solid #E9C4C0;'
+               : out ? 'background:' + tint(accent, 0.3) + ';border:1px solid ' + tint(accent, 0.5) + ';'
+                     : 'background:#fff;border:1px solid #E8E6E0;'),
+        };
+      });
+    }
+
+    // ── form ────────────────────────────────────────────────────────────────
     const fmode = this.state.formMode;
-    const formEnt = this.state.formEntity;
-    const formFields = formEnt ? ENTITIES[formEnt].fields
+    const formFields = this._formFieldsFor(ent)
       .filter(f => !(fmode === 'edit' && f.createOnly))
       .map(f => {
         const val = this.state.form[f.k] != null ? String(this.state.form[f.k]) : '';
-        const isRole = !!f.roleSelect;
-        const opts = isRole ? (this.state.roleOptions || []) : (f.select || []);
-        const isSelect = isRole || !!f.select;
+        let opts = null;
+        if(ent){
+          if(f.type === 'ref') opts = this.state.refOptions[f.ref] || [];
+          else if(f.type === 'select') opts = (f.options || []).map(o => ({ v:o, label:String(o).replace(/_/g,' ') }));
+          else if(f.type === 'boolean') opts = [{ v:'true', label:'Yes' }, { v:'false', label:'No' }];
+        } else {
+          if(f.roleSelect) opts = (this.state.roleOptions || []).map(o => ({ v:o, label:o }));
+          else if(f.select) opts = f.select.map(o => ({ v:o, label:o }));
+        }
+        const isSelect = !!opts;
         return {
-          label: f.label, ph: f.ph || '', value: val,
-          isSelect: isSelect, isText: !isSelect,
-          options: (opts || []).map(o => ({ v: o, label: o })),
+          label: f.label + (f.required || f.req ? ' *' : ''),
+          ph: f.ph || f.help || '',
+          value: val,
+          isSelect, isText: !isSelect,
+          options: opts || [],
           onInput: (e) => this.onFormField(f.k, e && e.target ? e.target.value : ''),
         };
-      }) : [];
-    const formTitle = (fmode === 'create' ? 'New ' : 'Edit ') + (formEnt ? ENTITIES[formEnt].label : '');
-    const submitLabel = this.state.busy ? 'Saving…' : (fmode === 'create' ? 'Create' : 'Save changes');
-
-    // Stats from state
-    const stats = this.state.stats || [];
+      });
 
     const SUBS = {
       form: 'Fill the fields and save — the entry syncs to your workspace instantly.',
@@ -700,12 +1355,24 @@ class Component extends DCLogic {
       api: 'Every REST endpoint on the platform — with a copy-paste example and response for each. Built for AI agents and CLIs.',
       cli: 'Every hq-cli command — with a copy-paste invocation and example output. Point it at any host with the HQ_API_URL env var.',
     };
-    const sub = SUBS[kind] || SUBS.report;
+    let sub = SUBS[kind] || SUBS.report;
+    if(isInbox){
+      sub = 'Every client message, on one thread per contact per channel. '
+          + 'Inbound messages attach themselves to the right customer where the address is known.';
+    }
+    if(inDetail){
+      const bits = [];
+      if(detail.kind) bits.push(String(detail.kind).replace(/_/g,' '));
+      if(detail.status) bits.push(String(detail.status).replace(/_/g,' '));
+      if(detail.stage) bits.push(detail.stage);
+      if(detail.gstin) bits.push('GSTIN ' + detail.gstin);
+      sub = bits.length ? bits.join(' · ') : (ent.label + ' record');
+    } else if(ent){
+      sub = 'Every ' + ent.label.toLowerCase() + ' on record. Search, filter by view, and open a row for its full history.';
+    }
 
     const apis = this.state.apis || [];
-    const apiCount = this.state.apiCount || (apis.length + ' endpoints');
     const cmds = this.state.cmds || [];
-    const cliCount = this.state.cliCount || (cmds.length + ' commands');
 
     const menu = this.state.menu;
     const menuIsRow = !!(menu && menu.type === 'row');
@@ -713,16 +1380,71 @@ class Component extends DCLogic {
     return {
       crumb, moduleName, tabName, sub, accent, accentSoft: tint(accent, 0.16),
       showCrumb: this.props.hideCrumb !== true,
-      isForm: kind === 'form', isTable: kind === 'table', isDashboard: kind === 'dashboard',
-      isReport: kind === 'report', isDesign: kind === 'design', isApi: kind === 'api', isCli: kind === 'cli',
-      fields: [], columns, rows, gridCols, gridColsX, tableCount, stats, trendPath: this.state.trendPath, reportLines: [],
-      canCrud, entLabel, onCreateNew: () => this.openCreateEntity(),
-      formOpen: this.state.formOpen, formTitle, formFields, submitLabel,
+      isForm: kind === 'form',
+      isInbox,
+      inboxChannels, inboxThreads, threadMessages, threadName, threadMeta, threadHasCustomer,
+      hasThread: isInbox && !!this.state.inboxThread,
+      noThreadPicked: isInbox && !this.state.inboxThread,
+      noThreads: isInbox && !inboxThreads.length && !this.state.loading,
+      noThreadsText: this.state.search
+        ? 'No threads match that search.'
+        : 'No conversations yet. Messages arrive through the carrier webhook — see Document \u00b7 API for POST /api/comms/inbound.',
+      emptyPaneText: inboxThreads.length
+        ? 'Pick a thread on the left.'
+        : 'Nothing to show yet. Once a channel is wired up, client messages land here automatically and attach themselves to the right customer.',
+      replyDraft: this.state.replyDraft,
+      // The button must not promise a send the server cannot make. It says Send
+      // only on a thread whose channel HQ can actually deliver on.
+      replyLabel: this.state.replyBusy
+        ? (threadCanSend ? 'Sending\u2026' : 'Saving\u2026')
+        : (threadCanSend ? 'Send' : 'Record'),
+      replyPlaceholder: threadCanSend ? 'Write a message\u2026' : 'Record what you sent\u2026',
+      replyError: !!this.state.replyErrorText,
+      replyErrorText: this.state.replyErrorText || '',
+      onReplyInput: (e) => this.onReplyInput(e && e.target ? e.target.value : ''),
+      onReplySubmit: () => this.submitReply(),
+      onOpenCustomer: () => {
+        const d = this.state.inboxThreadData;
+        if(d && d.party_id) window.location.href = '/z9s-ai/hq/crm/customers/customers?id=' + d.party_id;
+      },
+      isTable: kind === 'table' && !inDetail,
+      isDetail: inDetail,
+      isDashboard: kind === 'dashboard', isReport: kind === 'report', isDesign: kind === 'design',
+      isApi: kind === 'api', isCli: kind === 'cli',
+      fields: [], columns, rows, gridCols, gridColsX, tableCount,
+      stats: this.state.stats || [], trendPath: this.state.trendPath,
+      trendLabel: this.state.trendLabel || 'Records', reportLines: [],
+      views, searchValue: this.state.search,
+      searchPlaceholder: 'Search ' + (ent ? ent.plural.toLowerCase() : 'records') + '…',
+      onSearch: (e) => this.onSearchInput(e && e.target ? e.target.value : ''),
+      canCrud, canCreate, canEdit, canDelete, entLabel, newLabel: 'New ' + entLabel,
+      onNew: () => this.openCreate(), onCreateNew: () => this.openCreate(),
+      backLabel: 'Back to ' + (ent ? ent.plural : 'list'),
+      onBack: () => this.closeDetail(),
+      onDetailEdit: () => { if(detail) this.openEdit({ id: detail.id, record: detail }); },
+      detailBasics, detailFacts, detailRelated, detailRemarks, detailAudit,
+      noRemarks: inDetail && !detailRemarks.length,
+      noAudit: inDetail && !detailAudit.length,
+      remarkDraft: this.state.remarkDraft,
+      remarkLabel: this.state.remarkBusy ? 'Adding…' : 'Add remark',
+      onRemarkInput: (e) => this.onRemarkInput(e && e.target ? e.target.value : ''),
+      onRemarkSubmit: () => this.submitRemark(),
+      formOpen: this.state.formOpen,
+      formTitle: (fmode === 'create' ? 'New ' : 'Edit ') + entLabel,
+      formFields,
+      submitLabel: this.state.busy ? 'Saving…' : (fmode === 'create' ? 'Create' : 'Save changes'),
       formErr: this.state.formErr, hasFormErr: !!this.state.formErr, busy: this.state.busy,
       onFormClose: () => this.closeForm(), onFormSubmit: () => this.submitForm(),
+      apis, apiCount: this.state.apiCount || (apis.length + ' endpoints'),
+      cmds, cliCount: this.state.cliCount || (cmds.length + ' commands'),
+
+      // ── row action menu, change-password and the one-time credential
+      //    panel — carried over from main's PR #9 / #8.
       menuOpen: !!menu, menuIsRow: menuIsRow,
       menuLeft: menu ? (menu.x + 'px') : '0px', menuTop: menu ? (menu.y + 'px') : '0px',
-      menuRowShowPassword: menuIsRow && entity === 'Users',
+      // Only the platform Users table has a password to change.
+      menuRowShowPassword: menuIsRow && legacyName === 'Users',
+      menuShowEdit: canEdit, menuShowDelete: canDelete,
       onCloseMenus: () => this.closeMenus(),
       onMenuEdit: () => { if (menu && menu.row) this.openEdit(menu.row); },
       onMenuPassword: () => { if (menu && menu.row) this.openChangePassword(menu.row); },
@@ -737,11 +1459,11 @@ class Component extends DCLogic {
       credPassword: this.state.createdCred ? this.state.createdCred.password : '',
       credCopyLabel: this.state.credCopied ? 'Copied ✓' : 'Copy password',
       onCredCopy: () => this.copyCred(), onCredClose: () => this.closeCred(),
-      apis, apiCount, cmds, cliCount,
       previewValue: this.state.previewValue, previewLabel: this.state.previewLabel,
     };
   }
 }
+
 </script>
 </body>
 </html>

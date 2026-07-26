@@ -10,6 +10,12 @@ from typing import List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
+from backend.crm_models import Conversation
+# Imported for the side effect of registering the CRM tables on Base.metadata
+# before create_all runs below.
+from backend import crm_models  # noqa: F401
+from backend import audit, comms, crud, dashboards, permissions, registry, seed_crm, whatsapp, zoho, zoho_sync
+from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
@@ -113,58 +119,12 @@ def seed_database():
             db.commit()
             logger.info("Default workspaces seeded.")
 
-        # Check if roles are seeded
-        if db.query(Role).filter(Role.organisation_id == org.id).count() == 0:
-            logger.info("Seeding default roles...")
-            admin_role = Role(
-                organisation_id=org.id,
-                name="Admin",
-                description="Administrator with full permissions across all workspaces"
-            )
-            operator_role = Role(
-                organisation_id=org.id,
-                name="Operator",
-                description="Standard operator with access to general operations"
-            )
-            viewer_role = Role(
-                organisation_id=org.id,
-                name="Viewer",
-                description="Read-only access to workspaces"
-            )
-            db.add_all([admin_role, operator_role, viewer_role])
-            db.commit()
-            
-            logger.info("Seeding default permissions...")
-            permissions_list = [
-                Permission(name="Read Users", code="users:read", description="Ability to list and view users"),
-                Permission(name="Create Users", code="users:write", description="Ability to create or modify users"),
-                Permission(name="Delete Users", code="users:delete", description="Ability to delete users"),
-                Permission(name="Read Roles", code="roles:read", description="Ability to view roles list"),
-                Permission(name="Write Roles", code="roles:write", description="Ability to create and manage roles"),
-                Permission(name="Read Permissions", code="permissions:read", description="Ability to view permissions list"),
-                Permission(name="Grant Permissions", code="permissions:grant", description="Ability to grant permissions to roles"),
-                Permission(name="Revoke Permissions", code="permissions:revoke", description="Ability to revoke permissions from roles"),
-                Permission(name="Read Dashboard", code="dashboard:read", description="Ability to view HQ dashboard metrics"),
-                Permission(name="Read Organisations", code="organisations:read", description="Ability to view organisations"),
-                Permission(name="Write Organisations", code="organisations:write", description="Ability to create and manage organisations"),
-                Permission(name="Read Products", code="products:read", description="Ability to view products"),
-                Permission(name="Write Products", code="products:write", description="Ability to create and manage products"),
-                Permission(name="Read Workspaces", code="workspaces:read", description="Ability to view workspaces"),
-                Permission(name="Write Workspaces", code="workspaces:write", description="Ability to create and manage workspaces")
-            ]
-            
-            for perm in permissions_list:
-                if not db.query(Permission).filter(Permission.code == perm.code).first():
-                    db.add(perm)
-            db.commit()
-            
-            # Fetch fresh objects to link
-            admin_role = db.query(Role).filter(Role.name == "Admin", Role.organisation_id == org.id).first()
-            all_perms = db.query(Permission).all()
-            admin_role.permissions.extend(all_perms)
-            db.commit()
-            logger.info("Database default roles and permissions successfully linked and seeded.")
-            
+        # Roles, the permission catalogue and every grant are derived from the
+        # entity registry in backend/permissions.py, so a new entity is covered
+        # automatically rather than silently shipping unprotected. Idempotent:
+        # it rebuilds the catalogue each boot, which also removes dead policies.
+        permissions.seed(db, org.id)
+
         # Check if default admin user is seeded
         if db.query(User).filter(User.email == "meet@dotsai.in").count() == 0:
             # Admin password comes from the environment — never commit a real one
@@ -199,25 +159,72 @@ def seed_database():
             ])
             db.commit()
             logger.info("Default Admin user 'meet@dotsai.in' successfully seeded.")
-            
+
+        # CRM config, the team and the real book of work. Idempotent — it
+        # re-checks every natural key, so a restart never duplicates a row.
+        admin_user = db.query(User).filter(User.email == "meet@dotsai.in").first()
+        if admin_user:
+            seed_crm.seed(db, org, admin_user, get_password_hash)
+
     except Exception as e:
-        logger.error(f"Error seeding database: {e}")
+        # exc_info, because a bare message hid a UNIQUE violation in permission
+        # seeding that left the org with no roles at all — every user then held
+        # no permissions and the whole platform answered 403.
+        logger.error("Error seeding database: %s", e, exc_info=True)
+        db.rollback()
     finally:
+        _assert_authorisation_usable(db)
         db.close()
+
+
+def _assert_authorisation_usable(db):
+    """Shout if seeding left authorisation in an unusable state.
+
+    Seeding is caught rather than fatal — a half-seeded database should not
+    stop the app booting at 2am. But a silent partial seed is how the roles
+    went missing in the first place, so the outcome is always checked and the
+    failure is impossible to miss in the logs.
+    """
+    try:
+        expected = set(permissions.ROLES)
+        found = {r.name for r in db.query(Role).all()}
+        missing = sorted(expected - found)
+        if missing:
+            logger.error(
+                "AUTHORISATION INCOMPLETE — roles missing: %s. Users holding them have NO "
+                "permissions and every request will be refused. Fix the seeding error above "
+                "and restart.", ", ".join(missing),
+            )
+        else:
+            logger.info("Authorisation ready: %d roles, %d permissions.",
+                        len(found), db.query(Permission).count())
+    except Exception as exc:  # pragma: no cover - diagnostics must never break boot
+        logger.error("Could not verify authorisation state: %s", exc)
 
 # ── API ROUTES ──
 
 # Auth
 @app.post("/api/auth/login", response_model=Token)
-def login(login_data: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(login_data: LoginRequest, response: Response, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.password_hash):
+        # Failed attempts are audited too — an unexplained lockout or a probe
+        # is only diagnosable if the misses are on the record, not just the hits.
+        audit.record(
+            db, action="login_failed", entity_type="users", entity_label=login_data.email,
+            actor=None, request=request, commit=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    audit.record(
+        db, action="login", entity_type="users", entity_id=user.id, entity_label=user.email,
+        actor=user, request=request, organisation_id=user.organisation_id, commit=True,
+    )
+
     access_token = create_access_token(data={"sub": user.email})
     
     # Set HTTP-only cookie for easy frontend browser access
@@ -237,9 +244,20 @@ def logout(response: Response):
     response.delete_cookie("access_token")
     return {"detail": "Logged out successfully"}
 
-@app.get("/api/auth/me", response_model=UserResponse)
+@app.get("/api/auth/me")
 def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    """The signed-in user, plus what they are allowed to do.
+
+    The UI gates its New / Edit / Delete affordances on `can`, so a button that
+    would 403 is never shown. The server still enforces every action — this is
+    for honesty in the interface, not security.
+    """
+    # from_attributes must be explicit here: without it the nested `role`
+    # relationship is rejected as "not a dict or RoleBase".
+    data = UserResponse.model_validate(current_user, from_attributes=True).model_dump()
+    data["permissions"] = sorted(permissions.permissions_for(current_user))
+    data["can"] = permissions.can_map(current_user)
+    return data
 
 # Users
 @app.get("/api/users", response_model=List[UserResponse])
@@ -248,6 +266,7 @@ def list_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "read")
     query = db.query(User)
     if role:
         query = query.join(Role).filter(Role.name == role)
@@ -259,6 +278,7 @@ def create_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "create")
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
@@ -307,6 +327,7 @@ def update_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "update")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -331,6 +352,7 @@ def delete_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "users", "delete")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -381,6 +403,7 @@ def list_organisations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "read")
     return db.query(Organisation).all()
 
 @app.post("/api/organisations", response_model=OrganisationResponse)
@@ -389,6 +412,7 @@ def create_organisation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "create")
     existing_org = db.query(Organisation).filter(Organisation.slug == org_data.slug).first()
     if existing_org:
         raise HTTPException(
@@ -408,6 +432,7 @@ def update_organisation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "update")
     org = db.query(Organisation).filter(Organisation.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
@@ -423,6 +448,7 @@ def delete_organisation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "organisations", "delete")
     org = db.query(Organisation).filter(Organisation.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
@@ -444,6 +470,7 @@ def list_products(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "read")
     query = db.query(Product)
     if organisation_id:
         query = query.filter(Product.organisation_id == organisation_id)
@@ -455,6 +482,7 @@ def create_product(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "create")
     existing_product = db.query(Product).filter(Product.code == product_data.code).first()
     if existing_product:
         raise HTTPException(
@@ -474,6 +502,7 @@ def update_product(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "update")
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -489,6 +518,7 @@ def delete_product(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "products", "delete")
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -504,6 +534,7 @@ def list_workspaces(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "read")
     query = db.query(Workspace)
     if organisation_id:
         query = query.filter(Workspace.organisation_id == organisation_id)
@@ -517,6 +548,7 @@ def create_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "create")
     db_workspace = Workspace(**workspace_data.model_dump())
     db.add(db_workspace)
     db.commit()
@@ -530,6 +562,7 @@ def update_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "update")
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -545,6 +578,7 @@ def delete_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "workspaces", "delete")
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -559,6 +593,7 @@ def list_roles(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "read")
     query = db.query(Role)
     if organisation_id:
         query = query.filter(Role.organisation_id == organisation_id)
@@ -570,6 +605,7 @@ def create_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "create")
     # Check if role exists
     existing_role = db.query(Role).filter(
         Role.name == role_data.name,
@@ -593,6 +629,7 @@ def update_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "update")
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -608,6 +645,7 @@ def delete_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "roles", "delete")
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -628,6 +666,7 @@ def list_permissions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "permissions", "read")
     return db.query(Permission).all()
 
 @app.post("/api/roles/{role_id}/permissions")
@@ -637,6 +676,7 @@ def grant_permission_to_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "permissions", "update")
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -650,29 +690,22 @@ def grant_permission_to_role(
     return {"detail": f"Permissions updated successfully for role {role.name}"}
 
 # Dashboard
+# Dashboards are readable by any authenticated user by design: they aggregate
+# only what the caller could already list, and Meet's requirement is that
+# everyone sees the whole picture.
 @app.get("/api/dashboard/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(
+    workspace: str = "hq",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    total_users = db.query(User).count()
-    active_users = db.query(User).filter(User.status == "Active").count()
-    total_roles = db.query(Role).count()
-    total_perms = db.query(Permission).count()
-    total_orgs = db.query(Organisation).count()
-    total_products = db.query(Product).count()
-    total_workspaces = db.query(Workspace).count()
-    
-    return {
-        "stats": [
-            StatItem(l="Total Users", v=str(total_users), d=f"↗ Active: {active_users}"),
-            StatItem(l="Total Roles", v=str(total_roles), d="↘ Configured Roles"),
-            StatItem(l="Total Permissions", v=str(total_perms), d="→ Auth Policies"),
-            StatItem(l="Organisations", v=str(total_orgs), d="→ Active Orgs"),
-            StatItem(l="Products", v=str(total_products), d="→ HQ Products"),
-            StatItem(l="Workspaces", v=str(total_workspaces), d="→ Resource Segments")
-        ]
-    }
+    """Metrics for one workspace.
+
+    Each workspace answers its own question rather than repeating the platform's
+    user/role counts, which told a CRM user nothing. See backend/dashboards.py.
+    """
+    return {"stats": [StatItem(**s) for s in dashboards.stats_for(db, current_user, workspace)]}
+
 
 # Global search — searches real DB entities (not the static nav tree).
 @app.get("/api/search")
@@ -681,48 +714,79 @@ def search(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Global search across every entity the caller may read.
+
+    Driven by each entity's declared `search` columns, so a new entity becomes
+    searchable with no change here. It previously covered only platform config —
+    users, orgs, products, workspaces, roles — which meant searching for a
+    customer by name found nothing at all.
+    """
     q = (q or "").strip()
     if not q:
         return {"results": []}
-    like = f"%{q}%"
+    like = "%%%s%%" % q
     results = []
-    for u in db.query(User).filter(User.name.ilike(like) | User.email.ilike(like)).limit(6).all():
-        results.append({"type": "User", "label": u.name, "sub": u.email, "product": "hq", "module": "Config", "tab": "Users"})
-    for o in db.query(Organisation).filter(Organisation.name.ilike(like) | Organisation.slug.ilike(like)).limit(4).all():
-        results.append({"type": "Organisation", "label": o.name, "sub": o.industry or o.slug, "product": "hq", "module": "Config", "tab": "Organisations"})
-    for p in db.query(Product).filter(Product.name.ilike(like) | Product.code.ilike(like)).limit(4).all():
-        results.append({"type": "Product", "label": p.name, "sub": p.code, "product": "hq", "module": "Config", "tab": "Products"})
-    for w in db.query(Workspace).filter(Workspace.name.ilike(like)).limit(4).all():
-        results.append({"type": "Workspace", "label": w.name, "sub": w.slug or "", "product": "hq", "module": "Config", "tab": "Workspaces"})
-    for r in db.query(Role).filter(Role.name.ilike(like)).limit(4).all():
-        results.append({"type": "Role", "label": r.name, "sub": r.description or "", "product": "hq", "module": "Config", "tab": "Roles"})
-    return {"results": results[:12]}
 
-# Dashboard trend — cumulative record growth over the last 6 months (from created_at).
+    for ent in registry.ENTITIES:
+        if not permissions.has(current_user, ent["key"], "read"):
+            continue
+        model = ent["model"]
+        clauses = [getattr(model, f).ilike(like) for f in ent.get("search", [])
+                   if hasattr(model, f)]
+        if not clauses:
+            continue
+
+        query = db.query(model).filter(or_(*clauses))
+        for col, val in (ent.get("scope") or {}).items():
+            query = query.filter(getattr(model, col) == val)
+
+        title_field = ent.get("title_field") or "name"
+        # The most useful second line is the first ref or text column that is
+        # not the title itself.
+        sub_field = next((c["k"] for c in ent.get("columns", [])
+                          if c["k"] != title_field and c.get("type") in ("text", "mono", "badge")), None)
+
+        for row in query.limit(5).all():
+            results.append({
+                "type": ent["label"],
+                "label": getattr(row, title_field, None) or ("#%s" % row.id),
+                "sub": (str(getattr(row, sub_field, "") or "") if sub_field else ""),
+                "product": "hq",
+                "workspace": ent["workspace"],
+                "module": ent["module"],
+                "tab": ent["plural"],
+                "entity": ent["key"],
+                "id": row.id,
+            })
+
+    # Platform config records keep their place in the results.
+    for u in db.query(User).filter(User.name.ilike(like) | User.email.ilike(like)).limit(4).all():
+        results.append({"type": "User", "label": u.name, "sub": u.email, "product": "hq",
+                        "workspace": "Config", "module": "Platform", "tab": "Users"})
+    for o in db.query(Organisation).filter(Organisation.name.ilike(like) | Organisation.slug.ilike(like)).limit(3).all():
+        results.append({"type": "Organisation", "label": o.name, "sub": o.industry or o.slug,
+                        "product": "hq", "workspace": "Config", "module": "Platform", "tab": "Organisations"})
+    for r in db.query(Role).filter(Role.name.ilike(like)).limit(3).all():
+        results.append({"type": "Role", "label": r.name, "sub": r.description or "", "product": "hq",
+                        "workspace": "Config", "module": "Platform", "tab": "Roles"})
+
+    # Whole-word matches first — searching "Pioneer" should surface Pioneer
+    # Engineering above a project that merely mentions it.
+    needle = q.lower()
+    results.sort(key=lambda r: (not str(r["label"]).lower().startswith(needle),
+                                str(r["label"]).lower()))
+    return {"results": results[:20]}
+
+
 @app.get("/api/dashboard/trend")
 def dashboard_trend(
+    workspace: str = "hq",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    from datetime import datetime
-    now = datetime.utcnow()
-    seq = []
-    for i in range(5, -1, -1):
-        mm, yy = now.month - i, now.year
-        while mm <= 0:
-            mm += 12
-            yy -= 1
-        seq.append((yy, mm))
-    stamps = []
-    for model in (User, Organisation, Product, Workspace, Role, Feedback):
-        stamps += [row[0] for row in db.query(model.created_at).all() if row[0] is not None]
-    points = []
-    for (yy, mm) in seq:
-        nm, ny = (mm + 1, yy) if mm < 12 else (1, yy + 1)
-        boundary = datetime(ny, nm, 1)
-        points.append({"label": datetime(yy, mm, 1).strftime("%b"),
-                       "value": sum(1 for s in stamps if s < boundary)})
-    return {"points": points}
+    """Cumulative growth of the workspace's primary record over six months."""
+    return dashboards.trend_for(db, workspace)
+
 
 # Feedback
 @app.post("/api/feedback", response_model=FeedbackResponse)
@@ -731,6 +795,7 @@ def create_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "create")
     entry = Feedback(
         user_id=current_user.id,
         category=fb.category or "general",
@@ -756,6 +821,7 @@ def list_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "read")
     query = db.query(Feedback)
     if status:
         query = query.filter(Feedback.status == status)
@@ -768,6 +834,7 @@ def update_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "update")
     fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
     if not fb:
         raise HTTPException(status_code=404, detail="Feedback not found")
@@ -783,6 +850,7 @@ def delete_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "delete")
     fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
     if not fb:
         raise HTTPException(status_code=404, detail="Feedback not found")
@@ -800,6 +868,9 @@ def _notify(db: Session, user_ids, title, category="update", path=None, product=
         db.add(Notification(user_id=uid, title=title, category=category,
                             path=path, product=product, module=module, tab=tab))
 
+# Notifications are inherently self-scoped — every query below filters by
+# current_user.id, so a caller can only ever reach their own. A permission check
+# would add a second, weaker expression of the same rule.
 @app.get("/api/notifications", response_model=List[NotificationResponse])
 def list_notifications(
     unread: Optional[bool] = None,
@@ -934,6 +1005,247 @@ def ai_chat(req: AiChatRequest, current_user: User = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Anthropic call failed: {e}")
         return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
+
+# ── COMMUNICATION ──
+
+@app.post("/api/comms/inbound")
+def comms_inbound(payload: dict, request: Request, db: Session = Depends(get_db)):
+    """Carrier webhook — land a message against its thread.
+
+    Authenticated with a shared secret rather than a JWT, because the WhatsApp
+    bot is a service, not a person. It FAILS CLOSED: with no COMMS_WEBHOOK_TOKEN
+    set the route refuses everything, so an unconfigured deployment cannot
+    accept anonymous writes into the message store.
+    """
+    expected = comms.webhook_token()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="Inbound messaging is not configured. Set COMMS_WEBHOOK_TOKEN in the "
+                   "server environment and send it as the X-HQ-Webhook-Token header.",
+        )
+    if request.headers.get("X-HQ-Webhook-Token", "") != expected:
+        # Deliberately not saying which part was wrong.
+        raise HTTPException(status_code=401, detail="Invalid webhook token.")
+
+    org = db.query(Organisation).filter(Organisation.slug == "z9s-ai").first()
+    if org is None:
+        raise HTTPException(status_code=503, detail="Organisation not initialised.")
+
+    try:
+        message, conversation, created = comms.ingest(db, org.id, payload or {})
+    except comms.Ignored as exc:
+        # Not an error: the carrier did its job and HQ chose not to keep this.
+        # A 200 stops the bot retrying something it will never deliver.
+        return {"created": False, "ignored": True, "reason": str(exc)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    db.commit()
+    return {
+        "created": created,
+        "duplicate": not created,
+        "message_id": message.id,
+        "conversation_id": conversation.id,
+        "party_id": conversation.party_id,
+        "linked": conversation.party_id is not None,
+    }
+
+
+@app.get("/api/conversations/{conversation_id}/thread")
+def comms_thread(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """A conversation with its messages, oldest first."""
+    permissions.require(current_user, "conversations", "read")
+    data = comms.thread(db, current_user.organisation_id, conversation_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    # Whether a reply on this thread will actually leave the building, so the
+    # composer can offer to Send instead of quietly promising one and recording
+    # the other. comms stays carrier-agnostic; only this layer knows the bot.
+    data["sending_enabled"] = data["channel_type"] == "whatsapp" and whatsapp.is_configured()
+    return data
+
+
+@app.post("/api/conversations/{conversation_id}/messages")
+def comms_reply(
+    conversation_id: int,
+    payload: dict,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Send an outbound message on a thread, and record what actually happened.
+
+    On a WhatsApp thread this really sends, through the bot at wa.dotsai.cloud.
+    The stored delivery_status is the truth of that one attempt: `sent` only when
+    the bot took the message, `failed` when it did not, `recorded` when no bot is
+    wired up at all. A thread must never claim a delivery HQ cannot stand behind.
+
+    A failed send is still a 200 with the message recorded and `delivered: false`
+    — the text was written and belongs in the thread. Losing it *and* the reason
+    would leave the operator with nothing to act on.
+
+    The send is attempted before the record is written so the status stored is
+    the outcome that actually occurred, never an optimistic guess awaiting a
+    correction that may never arrive.
+    """
+    permissions.require(current_user, "conversations", "update")
+    convo = db.query(Conversation).filter(
+        Conversation.organisation_id == current_user.organisation_id,
+        Conversation.id == conversation_id,
+    ).first()
+    if convo is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    body = (payload or {}).get("body", "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="'body' is required")
+
+    channel_type = convo.channel.channel_type if convo.channel else None
+    delivery_status, external_id, detail = "recorded", None, None
+
+    if channel_type == "whatsapp" and whatsapp.is_configured():
+        number = whatsapp.dial_address(db, convo)
+        if not number:
+            delivery_status = "failed"
+            detail = (
+                "No dialable number for this thread. HQ holds '%s', which carries no "
+                "country code, and the linked contact has none either. Add the full "
+                "international number to the contact and send again."
+                % convo.contact_identifier
+            )
+        else:
+            try:
+                external_id = whatsapp.send_text(number, body)
+                delivery_status = "sent"
+            except whatsapp.WhatsAppError as exc:
+                delivery_status, detail = "failed", str(exc)
+                logger.warning("WhatsApp send failed on conversation %s: %s", convo.id, exc)
+    elif channel_type == "whatsapp":
+        detail = (
+            "Recorded only — WhatsApp sending is not configured on this server, so "
+            "nothing was delivered. " + whatsapp.SETUP_HINT
+        )
+
+    message, _, _ = comms.ingest(db, current_user.organisation_id, {
+        "channel_id": convo.channel_id,
+        "from": convo.contact_identifier,
+        "direction": "outbound",
+        "body": body,
+        "author_id": current_user.id,
+        # The bot's own id, so the copy WhatsApp echoes back to the bot as a
+        # sent message is recognised as this message rather than a second one.
+        "external_id": external_id or (payload or {}).get("external_id"),
+        "delivery_status": delivery_status,
+    })
+    db.commit()
+    audit.record(
+        db, action="reply", entity_type="conversations", entity_id=convo.id,
+        entity_label=convo.contact_name, actor=current_user, request=request,
+        changes={"message": {"from": None, "to": body[:500]},
+                 "delivery": {"from": None, "to": delivery_status}},
+        organisation_id=convo.organisation_id, commit=True,
+    )
+    return {
+        "id": message.id,
+        "conversation_id": convo.id,
+        "sent_at": message.sent_at.isoformat() + "Z",
+        "delivery_status": delivery_status,
+        "delivered": delivery_status == "sent",
+        "detail": detail,
+    }
+
+
+@app.post("/api/conversations/{conversation_id}/read")
+def comms_mark_read(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    permissions.require(current_user, "conversations", "update")
+    convo = db.query(Conversation).filter(
+        Conversation.organisation_id == current_user.organisation_id,
+        Conversation.id == conversation_id,
+    ).first()
+    if convo is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    comms.mark_read(db, convo)
+    db.commit()
+    return {"detail": "Marked read", "id": convo.id}
+
+
+# ── ZOHO BOOKS ──
+# One-directional: HQ reads Zoho and mirrors it. There is deliberately no route
+# here that writes anything back — Zoho Books is where an invoice is raised.
+
+@app.get("/api/zoho/status")
+def zoho_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Whether the integration is connected, and when it last pulled."""
+    permissions.require(current_user, "invoices", "read")
+    return zoho.status(last_sync=zoho_sync.last_sync(db, current_user.organisation_id))
+
+
+@app.get("/api/zoho/preview")
+def zoho_preview(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """What a sync would change, without changing anything.
+
+    The first question about a freshly connected integration is "what is it
+    about to do to my data?", so it gets a real answer rather than a leap.
+    """
+    permissions.require(current_user, "invoices", "read")
+    try:
+        return zoho_sync.preview(db, current_user.organisation_id)
+    except zoho.ZohoError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.post("/api/zoho/sync")
+def zoho_pull(
+    request: Request,
+    apply_links: bool = False,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pull contacts and invoices into the read-only mirror.
+
+    `apply_links=true` additionally links customers Zoho and HQ agree on by
+    EMAIL. Name-only matches are never applied automatically, however identical
+    they look — they come back as proposals for a human.
+    """
+    # Writing the mirror is a configuration-level act, not day-to-day data entry.
+    permissions.require(current_user, "invoices", "read")
+    permissions.require(current_user, "customers", "update")
+    try:
+        report = zoho_sync.sync(db, current_user.organisation_id,
+                                actor=current_user, apply_links=apply_links)
+    except zoho.ZohoError as exc:
+        # Not configured, or Zoho refused. Either way it is an upstream
+        # condition the operator can fix, not a bug in HQ.
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    audit.record(
+        db, action="sync", entity_type="zoho_invoices",
+        entity_label="Zoho Books pull",
+        actor=current_user, request=request,
+        changes={"summary": {"from": None, "to": {
+            "contacts": report["contacts_seen"], "invoices": report["invoices_written"],
+            "receivables_updated": report["receivables_updated"],
+            "links_applied": len(report["links_applied"]),
+        }}},
+        organisation_id=current_user.organisation_id, commit=True,
+    )
+    return report
+
 
 # ── API CATALOG ──
 # A self-documenting reference of every endpoint on the platform. Public by
@@ -1169,6 +1481,118 @@ API_CATALOG = [
         "response": "{\n  \"reply\": \"On the Users page you can ...\",\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"configured\": true\n}",
     },
     {
+        "method": "GET", "path": "/api/meta/entities", "auth": "Bearer / Cookie",
+        "summary": "THE discovery endpoint. Every entity with its columns, form fields, saved views, "
+                   "relations, actions and what YOU may do with it. Start here — the UI and the CLI "
+                   "both build themselves from this.",
+        "usage": "curl __BASE__/api/meta/entities \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"count\": 25,\n  \"entities\": [ { \"key\": \"customers\", \"path\": \"/api/customers\",\n"
+                    "    \"columns\": [...], \"fields\": [...], \"can\": { \"read\": true, \"delete\": false } } ]\n}",
+    },
+    {
+        "method": "GET", "path": "/api/meta/entities/{key}", "auth": "Bearer / Cookie",
+        "summary": "One entity's definition.",
+        "usage": "curl __BASE__/api/meta/entities/customers \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"key\": \"customers\", \"label\": \"Customer\", \"fields\": [ ... ] }",
+    },
+    {
+        "method": "GET", "path": "/api/audit", "auth": "Bearer / Cookie",
+        "summary": "The change history — who changed what, when, and from where. Filter by "
+                   "?entity_type= (the TABLE name, e.g. parties) and ?entity_id=.",
+        "usage": "curl \"__BASE__/api/audit?entity_type=parties&limit=25\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"count\": 3, \"entries\": [\n    { \"action\": \"update\", \"actor\": \"meet@dotsai.in\",\n"
+                    "      \"actor_kind\": \"agent\", \"changes\": { \"city\": { \"from\": \"...\", \"to\": \"...\" } } }\n  ]\n}",
+    },
+    {
+        "method": "POST", "path": "/api/leads/{lead_id}/convert", "auth": "Bearer / Cookie",
+        "summary": "Convert a lead into a customer. The lead is kept and stamped, never deleted — "
+                   "the funnel history is the point. Safe to retry: a second call returns the "
+                   "customer already created. A name clash with an existing customer is a 409.",
+        "usage": "curl -X POST __BASE__/api/leads/1/convert \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -d '{}'",
+        "response": "{\n  \"detail\": \"Lead converted\", \"already_converted\": false,\n"
+                    "  \"customer\": { \"id\": 18, \"display_name\": \"...\" }\n}",
+    },
+    {
+        "method": "POST", "path": "/api/users/{user_id}/password", "auth": "Bearer / Cookie",
+        "summary": "Set a user's password. Admin only.",
+        "usage": "curl -X POST __BASE__/api/users/2/password \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"password\":\"...\"}'",
+        "response": "{ \"detail\": \"Password updated\" }",
+    },
+    {
+        "method": "GET", "path": "/api/cli", "auth": "Public",
+        "summary": "The hq-cli command reference.",
+        "usage": "curl __BASE__/api/cli",
+        "response": "{ \"base_command\": \"hq-cli\", \"count\": 16, \"commands\": [ ... ] }",
+    },
+    {
+        "method": "POST", "path": "/api/comms/inbound", "auth": "X-HQ-Webhook-Token",
+        "summary": "Carrier webhook — land an inbound message against its thread. Authenticated "
+                   "with a shared secret, not a JWT, because the sender is a service. FAILS "
+                   "CLOSED: with no COMMS_WEBHOOK_TOKEN set it refuses everything. Idempotent on "
+                   "external_id, so a retried delivery is one row. An address that matches no "
+                   "customer still gets a thread rather than being dropped — unless "
+                   "COMMS_KNOWN_SENDERS_ONLY is on, which drops strangers and answers "
+                   "{\"ignored\": true}. That is set where the carrier is also a personal number.",
+        "usage": "curl -X POST __BASE__/api/comms/inbound \\\n  -H \"X-HQ-Webhook-Token: $HOOK\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"channel_type\":\"whatsapp\",\"from\":\"919825115308\",\n"
+                 "       \"body\":\"Revised scope attached.\",\"external_id\":\"wa-1\"}'",
+        "response": "{\n  \"created\": true, \"duplicate\": false, \"message_id\": 1,\n"
+                    "  \"conversation_id\": 1, \"party_id\": 1, \"linked\": true\n}",
+    },
+    {
+        "method": "GET", "path": "/api/conversations/{conversation_id}/thread", "auth": "Bearer / Cookie",
+        "summary": "One conversation with its messages, oldest first, plus the customer it belongs to.",
+        "usage": "curl __BASE__/api/conversations/1/thread \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"contact_name\": \"Hemish\", \"party\": \"NeoNir Engineering\",\n"
+                    "  \"messages\": [ { \"direction\": \"inbound\", \"body\": \"...\" } ]\n}",
+    },
+    {
+        "method": "POST", "path": "/api/conversations/{conversation_id}/messages", "auth": "Bearer / Cookie",
+        "summary": "Send an outbound message on a thread and record what actually happened. On a "
+                   "WhatsApp channel it really sends, via the bot at wa.dotsai.cloud; on any "
+                   "other channel it only records. delivery_status is the truth of that one "
+                   "attempt — sent, failed, or recorded — and a failed send is still a 200 with "
+                   "delivered:false and the reason, because the text belongs in the thread "
+                   "either way. Never read a stored message as proof of delivery.",
+        "usage": "curl -X POST __BASE__/api/conversations/1/messages \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"body\":\"Thanks, reviewing now.\"}'",
+        "response": "{\n  \"id\": 2, \"conversation_id\": 1, \"sent_at\": \"...Z\",\n"
+                    "  \"delivery_status\": \"sent\", \"delivered\": true, \"detail\": null\n}",
+    },
+    {
+        "method": "POST", "path": "/api/conversations/{conversation_id}/read", "auth": "Bearer / Cookie",
+        "summary": "Clear a thread's unread count.",
+        "usage": "curl -X POST __BASE__/api/conversations/1/read \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Marked read\", \"id\": 1 }",
+    },
+    {
+        "method": "GET", "path": "/api/zoho/status", "auth": "Bearer / Cookie",
+        "summary": "Whether Zoho Books is connected and when it last pulled. Never raises — an "
+                   "unconfigured integration is a state, not an error.",
+        "usage": "curl __BASE__/api/zoho/status \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"configured\": false, \"state\": \"not configured\", \"organisation_id\": \"60078183686\" }",
+    },
+    {
+        "method": "GET", "path": "/api/zoho/preview", "auth": "Bearer / Cookie",
+        "summary": "What a sync would change, without changing anything. Includes proposed "
+                   "customer links with a confidence and a reason.",
+        "usage": "curl __BASE__/api/zoho/preview \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"zoho_contacts\": 10, \"already_linked\": 6, \"proposals\": [ ... ] }",
+    },
+    {
+        "method": "POST", "path": "/api/zoho/sync", "auth": "Bearer / Cookie",
+        "summary": "Pull contacts and invoices into the read-only mirror. ?apply_links=true also "
+                   "links customers that match by EMAIL; name-only matches are never applied "
+                   "automatically. A figure edited by hand since the last sync is reported, "
+                   "not overwritten. Writes nothing back to Zoho Books.",
+        "usage": "curl -X POST \"__BASE__/api/zoho/sync?apply_links=true\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"contacts_seen\": 10, \"invoices_written\": 11,\n"
+                    "  \"receivables_updated\": 4, \"links_applied\": [ ... ],\n"
+                    "  \"receivables_skipped_edited\": [ ... ], \"proposals\": [ ... ]\n}",
+    },
+    {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
@@ -1180,6 +1604,9 @@ API_CATALOG = [
 def get_api_catalog(request: Request):
     # Derive the live base URL so copy-paste examples target the right host.
     base = str(request.base_url).rstrip("/")
+    # Hand-written entries cover the bespoke routes; the rest are generated from
+    # the entity registry so the catalogue cannot drift from the actual surface.
+    catalog = API_CATALOG + crud.catalog_entries()
     endpoints = [
         ApiCatalogItem(
             method=e["method"],
@@ -1189,7 +1616,7 @@ def get_api_catalog(request: Request):
             usage=e["usage"].replace("__BASE__", base),
             response=e["response"].replace("__BASE__", base),
         )
-        for e in API_CATALOG
+        for e in catalog
     ]
     return {"base_url": base, "count": len(endpoints), "endpoints": endpoints}
 
@@ -1302,6 +1729,19 @@ def get_cli_catalog():
     commands = [CliCommandItem(**c) for c in CLI_CATALOG]
     return {"base_command": "hq-cli", "count": len(commands), "commands": commands}
 
+# ── GENERIC CRM CRUD ──
+# Registered here, AFTER every hand-written /api route, because this router
+# owns the catch-all `/api/{key}`. Starlette matches in registration order, so
+# moving this line earlier would let /api/{key} swallow /api/users, /api/catalog
+# and friends. It must also stay BEFORE the frontend catch-all below, which
+# would otherwise match /api/customers/5 as an org/product/workspace path.
+app.include_router(crud.router)
+
+# Refuse to boot on a registry that lies: a key shadowed by a literal /api route
+# above, or a field/ref/relation that does not exist in the schema.
+crud.check_route_collisions(app)
+crud.validate_registry()
+
 # ── SERVING FRONTEND PAGES ──
 
 # Resolve relative paths
@@ -1310,8 +1750,28 @@ STATIC_DIR = os.path.join(BASE_DIR, "frontend", "static")
 LOGIN_FILE = os.path.join(BASE_DIR, "frontend", "login.html")
 HOME_FILE = os.path.join(BASE_DIR, "frontend", "home.html")
 
+class RevalidatingStaticFiles(StaticFiles):
+    """Static files that must be re-checked on every request.
+
+    Nothing here is content-hashed, so a deploy reuses the same URLs. With no
+    Cache-Control header a browser applies its own heuristic freshness and keeps
+    serving the OLD file — which meant a shipped CSS or JS change silently did
+    not reach anyone until they happened to hard-refresh. That is a very
+    expensive class of bug to chase, because the server is serving the fix.
+
+    `no-cache` does not mean "do not store": the file is still cached, but the
+    browser must revalidate, so an unchanged file costs a 304 and a changed one
+    is picked up immediately.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers.setdefault("Cache-Control", "no-cache, must-revalidate")
+        return response
+
+
 # Mount frontend/static directory to serve CSS, JS, and Fonts
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", RevalidatingStaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/login", response_class=HTMLResponse)
 def serve_login(request: Request, db: Session = Depends(get_db)):
