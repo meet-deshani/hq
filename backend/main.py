@@ -15,7 +15,12 @@ from backend.crm_models import Conversation
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, comms, crud, dashboards, permissions, registry, seed_crm, whatsapp, zoho, zoho_sync
+# Same reason: registers the TabDesk tables on Base.metadata before create_all.
+from backend import tabdesk_models  # noqa: F401
+from backend import (
+    audit, comms, crud, dashboards, permissions, registry, seed_crm, tabdesk,
+    whatsapp, zoho, zoho_sync,
+)
 from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
@@ -1593,6 +1598,173 @@ API_CATALOG = [
                     "  \"receivables_updated\": 4, \"links_applied\": [ ... ],\n"
                     "  \"receivables_skipped_edited\": [ ... ], \"proposals\": [ ... ]\n}",
     },
+    # ── TabDesk · user-defined tables ───────────────────────────────────────
+    # Documented here rather than generated from the registry, because TabDesk
+    # tables are not registry entities — they are rows a user created at runtime.
+    # An agent discovers the TABLES from /api/tabdesk/tables and their COLUMNS
+    # from /api/tabdesk/tables/{id}; these entries describe the fixed surface
+    # those live shapes are fetched through. See docs/TABDESK.md.
+    {
+        "method": "GET", "path": "/api/tabdesk/meta", "auth": "Bearer / Cookie",
+        "summary": "The column type catalogue (16 types with their filter operators), the four "
+                   "per-table access levels, and every registry entity a relation column can "
+                   "point at. Read this before creating a table or a column.",
+        "usage": "curl __BASE__/api/tabdesk/meta \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"types\": [ { \"type\": \"money\", \"ops\": [ \"eq\", \"gte\", ... ] } ],\n"
+                    "  \"access_levels\": [ ... ], \"can_create\": true\n}",
+    },
+    {
+        "method": "GET", "path": "/api/tabdesk/tables", "auth": "Bearer / Cookie",
+        "summary": "Every table you may see, with row counts and your access to each, grouped for "
+                   "the sidebar. A table set to private appears only for its members.",
+        "usage": "curl __BASE__/api/tabdesk/tables \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"count\": 2,\n  \"tables\": [ { \"id\": 1, \"name\": \"Site visits\",\n"
+                    "    \"my_access\": \"manager\", \"row_count\": 12, \"can\": { ... } } ]\n}",
+    },
+    {
+        "method": "POST", "path": "/api/tabdesk/tables", "auth": "Bearer / Cookie",
+        "summary": "Create a table. Needs tabdesk:create. Pass `columns` to define the schema in "
+                   "the same request; omit it and you get one text column to start from. "
+                   "visibility is 'workspace' (anyone with tabdesk:read can view) or 'private'.",
+        "usage": "curl -X POST __BASE__/api/tabdesk/tables \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"name\":\"Site visits\",\"group_name\":\"Operations\",\"columns\":["
+                 "{\"label\":\"Site\",\"type\":\"text\",\"is_primary\":true},"
+                 "{\"label\":\"Amount\",\"type\":\"money\"}]}'",
+        "response": "{ \"id\": 1, \"slug\": \"site-visits\", \"columns\": [ ... ] }",
+    },
+    {
+        "method": "GET", "path": "/api/tabdesk/tables/{table_id}", "auth": "Bearer / Cookie",
+        "summary": "One table with its full column definitions, saved views, your access, and — "
+                   "for a manager — its member list. This is the shape to render from.",
+        "usage": "curl __BASE__/api/tabdesk/tables/1 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"id\": 1, \"name\": \"Site visits\", \"my_access\": \"manager\",\n"
+                    "  \"columns\": [ { \"key\": \"site\", \"type\": \"text\", \"ops\": [ ... ] } ]\n}",
+    },
+    {
+        "method": "PATCH", "path": "/api/tabdesk/tables/{table_id}", "auth": "Bearer / Cookie",
+        "summary": "Rename a table, move it to another sidebar group, or change its visibility. "
+                   "Needs manager access to that table.",
+        "usage": "curl -X PATCH __BASE__/api/tabdesk/tables/1 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"visibility\":\"private\"}'",
+        "response": "{ \"id\": 1, \"visibility\": \"private\" }",
+    },
+    {
+        "method": "DELETE", "path": "/api/tabdesk/tables/{table_id}", "auth": "Bearer / Cookie",
+        "summary": "Delete a table and every entry in it. Takes BOTH manager access to the table "
+                   "and the global tabdesk:delete permission — the most destructive call here.",
+        "usage": "curl -X DELETE __BASE__/api/tabdesk/tables/1 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Table deleted\", \"id\": 1, \"rows_deleted\": 12 }",
+    },
+    {
+        "method": "POST", "path": "/api/tabdesk/tables/{table_id}/columns", "auth": "Bearer / Cookie",
+        "summary": "Add a column. Needs manager access. A select/multiselect needs `options`; a "
+                   "relation needs ref_kind ('tabdesk' or 'entity') and ref_target.",
+        "usage": "curl -X POST __BASE__/api/tabdesk/tables/1/columns \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"label\":\"Customer\",\"type\":\"relation\","
+                 "\"ref_kind\":\"entity\",\"ref_target\":\"customers\"}'",
+        "response": "{ \"id\": 4, \"key\": \"customer\", \"type\": \"relation\" }",
+    },
+    {
+        "method": "PATCH", "path": "/api/tabdesk/tables/{table_id}/columns/{column_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Relabel, retype, reorder or re-option a column. A type change re-reads every "
+                   "existing value; anything that cannot convert is set to null and counted in "
+                   "`values_cleared`. The column's storage key never changes.",
+        "usage": "curl -X PATCH __BASE__/api/tabdesk/tables/1/columns/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"label\":\"Stage\"}'",
+        "response": "{ \"id\": 2, \"label\": \"Stage\", \"values_cleared\": 0 }",
+    },
+    {
+        "method": "DELETE", "path": "/api/tabdesk/tables/{table_id}/columns/{column_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Remove a column. Row values are left in place, so re-adding a column with the "
+                   "same generated key brings them back. Removing the last column is refused.",
+        "usage": "curl -X DELETE __BASE__/api/tabdesk/tables/1/columns/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Column removed\", \"id\": 2 }",
+    },
+    {
+        "method": "GET", "path": "/api/tabdesk/tables/{table_id}/rows", "auth": "Bearer / Cookie",
+        "summary": "Entries, filtered and sorted. Filters are `f.<column key>.<op>=<value>` — ops "
+                   "come from each column's `ops`. Different columns AND; a repeated parameter ORs. "
+                   "?q= searches the text columns, ?sort=-key, ?group=key, ?view=<id>. An unknown "
+                   "column or an operator the type rejects is a 400, never ignored.",
+        "usage": "curl \"__BASE__/api/tabdesk/tables/1/rows?f.status.eq=Open&f.amount.gte=20000&sort=-amount\" \\\n"
+                 "  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"total\": 3, \"rows\": [ { \"id\": 7, \"data\": { \"site\": \"Warangal\" } } ],\n"
+                    "  \"_labels\": { \"entity:customers\": { \"5\": \"Sustro Oils\" } }\n}",
+    },
+    {
+        "method": "POST", "path": "/api/tabdesk/tables/{table_id}/rows", "auth": "Bearer / Cookie",
+        "summary": "Add an entry. Needs contributor access or better. Values are coerced per column "
+                   "type — \"45,000\" becomes 45000 on a money column — and a value that cannot "
+                   "convert is a 400 naming the column.",
+        "usage": "curl -X POST __BASE__/api/tabdesk/tables/1/rows \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"data\":{\"site\":\"Warangal\",\"amount\":\"45,000\",\"status\":\"Open\"}}'",
+        "response": "{ \"id\": 7, \"data\": { \"site\": \"Warangal\", \"amount\": 45000 } }",
+    },
+    {
+        "method": "PATCH", "path": "/api/tabdesk/tables/{table_id}/rows/{row_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Edit an entry. Only the keys you send are touched, so two people editing "
+                   "different columns of one row do not clobber each other. A contributor may "
+                   "edit only rows they created; an editor may edit any.",
+        "usage": "curl -X PATCH __BASE__/api/tabdesk/tables/1/rows/7 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"data\":{\"status\":\"Closed\"}}'",
+        "response": "{ \"id\": 7, \"data\": { \"status\": \"Closed\" } }",
+    },
+    {
+        "method": "DELETE", "path": "/api/tabdesk/tables/{table_id}/rows/{row_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Delete one entry. A contributor may delete only their own; an editor any.",
+        "usage": "curl -X DELETE __BASE__/api/tabdesk/tables/1/rows/7 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Entry deleted\", \"id\": 7 }",
+    },
+    {
+        "method": "GET", "path": "/api/tabdesk/tables/{table_id}/members", "auth": "Bearer / Cookie",
+        "summary": "Who has explicit access to this table, plus every user who could be added. "
+                   "Manager only. Remember the floor: on a workspace-visible table everyone with "
+                   "tabdesk:read can already view it without appearing here.",
+        "usage": "curl __BASE__/api/tabdesk/tables/1/members \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"members\": [ { \"user_id\": 3, \"name\": \"Nishant\", \"access\": \"editor\" } ],\n"
+                    "  \"candidates\": [ ... ]\n}",
+    },
+    {
+        "method": "PUT", "path": "/api/tabdesk/tables/{table_id}/members/{user_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Grant or change someone's access: viewer · contributor · editor · manager. "
+                   "Manager only. The table's creator cannot be demoted below manager.",
+        "usage": "curl -X PUT __BASE__/api/tabdesk/tables/1/members/3 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"access\":\"contributor\"}'",
+        "response": "{ \"table_id\": 1, \"members\": [ ... ] }",
+    },
+    {
+        "method": "DELETE", "path": "/api/tabdesk/tables/{table_id}/members/{user_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Revoke an explicit grant. On a workspace-visible table this drops the person "
+                   "back to view-only rather than blinding them — `still_visible` says which.",
+        "usage": "curl -X DELETE __BASE__/api/tabdesk/tables/1/members/3 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"Access revoked\", \"still_visible\": true }",
+    },
+    {
+        "method": "POST", "path": "/api/tabdesk/tables/{table_id}/views", "auth": "Bearer / Cookie",
+        "summary": "Save the current filters, sort and grouping as a named view. Anyone who can "
+                   "read the table may save a private one; only a manager may share one with "
+                   "everybody (is_shared).",
+        "usage": "curl -X POST __BASE__/api/tabdesk/tables/1/views \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"name\":\"Open this month\",\"filters\":{\"status.eq\":\"Open\"},\"sort\":\"-amount\"}'",
+        "response": "{ \"id\": 2, \"name\": \"Open this month\", \"is_shared\": true }",
+    },
+    {
+        "method": "DELETE", "path": "/api/tabdesk/tables/{table_id}/views/{view_id}",
+        "auth": "Bearer / Cookie",
+        "summary": "Delete a saved view. Your own, or any of them with manager access.",
+        "usage": "curl -X DELETE __BASE__/api/tabdesk/tables/1/views/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"detail\": \"View deleted\", \"id\": 2 }",
+    },
     {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
@@ -1730,6 +1902,12 @@ def get_cli_catalog():
     commands = [CliCommandItem(**c) for c in CLI_CATALOG]
     return {"base_command": "hq-cli", "count": len(commands), "commands": commands}
 
+# ── TABDESK ──
+# MUST be registered before crud.router below. That router owns the catch-all
+# `/api/{key}`, and Starlette matches in registration order — registered after,
+# every /api/tabdesk/... path would resolve as entity "tabdesk", row "tables".
+app.include_router(tabdesk.router)
+
 # ── GENERIC CRM CRUD ──
 # Registered here, AFTER every hand-written /api route, because this router
 # owns the catch-all `/api/{key}`. Starlette matches in registration order, so
@@ -1820,7 +1998,7 @@ def render_shell(path):
     """
     with open(path, "r", encoding="utf-8") as handle:
         html = handle.read()
-    for name in ("PortalPage.dc.html", "hq-responsive.css", "hq-responsive.js"):
+    for name in ("PortalPage.dc.html", "TabDeskPage.dc.html", "hq-responsive.css", "hq-responsive.js"):
         html = html.replace('"/static/%s"' % name, '"%s"' % asset_url(name))
     return html
 

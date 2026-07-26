@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="/static/unpkg.com_react@18.3.1_umd_react.production.min.js"></script>
+<script src="/static/unpkg.com_react-dom@18.3.1_umd_react-dom.production.min.js"></script>
+<script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family:'Chubbo'; font-style:normal; font-weight:200 700; font-display:swap;
+      src:url("/static/e929d16a-cc3b-4586-a30d-3a55811439c5") format('woff2-variations'); }
+    @font-face { font-family:'Supreme'; font-style:normal; font-weight:100 800; font-display:swap;
+      src:url("/static/b9688901-bd1c-4cdb-a5f1-5ce45a41e22c") format('woff2-variations'); }
+    @font-face { font-family:'Satoshi'; font-style:normal; font-weight:300 900; font-display:swap;
+      src:url("/static/271a769a-00c8-40e2-b7a5-fc09eb13acc3") format('woff2-variations'); }
+    @font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:100 800; font-display:swap;
+      src:url("/static/0ee4bd90-a829-4a5f-9e48-6fc518c42cf8") format('woff2-variations'); }
+  </style>
+</helmet>
+<div style="height:100%;width:100%;display:flex;flex-direction:column;background:#FDFCFA;font-family:'Satoshi',sans-serif;color:#191924;overflow:hidden">
+
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;width:100%;box-sizing:border-box">
+    <div style="padding:30px 34px 40px;width:100%;box-sizing:border-box">
+
+    <!-- ── header ─────────────────────────────────────────────────────── -->
+    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#918D82;margin-bottom:9px">{{ groupName }}</div>
+        <h1 style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:33px;line-height:1.04;letter-spacing:-0.02em;margin:0;color:#191924">{{ title }}</h1>
+        <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 22px;width:100%">{{ sub }}</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:26px">
+        <sc-if value="{{ canAddEntry }}">
+          <button sc-camel-on-click="{{ onNewEntry }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 16px;border:none;cursor:pointer;background:#191924;color:#fff;border-radius:10px;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add entry
+          </button>
+        </sc-if>
+        <sc-if value="{{ canManageSchema }}">
+          <button sc-camel-on-click="{{ onOpenColumns }}" title="Configure columns" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;border-radius:10px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line></svg>
+            Columns
+          </button>
+        </sc-if>
+        <sc-if value="{{ canManageTable }}">
+          <button sc-camel-on-click="{{ onOpenSettings }}" title="Table settings and sharing" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;border-radius:10px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+          </button>
+        </sc-if>
+        <sc-if value="{{ canCreateTable }}">
+          <button sc-camel-on-click="{{ onNewTable }}" style="display:flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;border-radius:10px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            New table
+          </button>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ── no tables at all ───────────────────────────────────────────── -->
+    <sc-if value="{{ isEmptyWorkspace }}">
+      <div style="border:1.5px dashed #E0DDD5;border-radius:18px;padding:52px 30px;text-align:center;background:#fff">
+        <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:22px;color:#191924;margin-bottom:10px">No tables yet</div>
+        <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14px;color:#6E6B62;margin:0 auto 22px;max-width:430px;line-height:1.6">{{ emptyHint }}</p>
+        <sc-if value="{{ canCreateTable }}">
+          <button sc-camel-on-click="{{ onNewTable }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:12px 22px;border-radius:999px">Create your first table</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ── the table ──────────────────────────────────────────────────── -->
+    <sc-if value="{{ hasTable }}">
+
+      <!-- saved views -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;width:100%">
+        <sc-for list="{{ views }}" as="v" hint-placeholder-count="3">
+          <button sc-camel-on-click="{{ v.onPick }}" style="{{ v.style }}">{{ v.name }}</button>
+        </sc-for>
+        <sc-if value="{{ hasActiveQuery }}">
+          <button sc-camel-on-click="{{ onSaveView }}" title="Save this filter and sort as a view" style="border:1.5px dashed #D8D4CB;cursor:pointer;background:transparent;color:#6E6B62;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:500;padding:6px 13px;border-radius:999px">＋ Save view</button>
+        </sc-if>
+      </div>
+
+      <!-- toolbar -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;width:100%">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:#fff;border:1.5px solid #E8E6E0;min-width:min(230px,100%)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+          <input value="{{ searchValue }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search this table…" style="flex:1;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;min-width:0">
+        </div>
+        <button sc-camel-on-click="{{ onToggleFilters }}" style="{{ filterBtnStyle }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          {{ filterLabel }}
+        </button>
+        <button sc-camel-on-click="{{ onToggleSort }}" style="{{ sortBtnStyle }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M11 5h10M11 9h7M11 15h10M11 19h7M3 8l3-3 3 3M6 5v14"></path></svg>
+          {{ sortLabel }}
+        </button>
+        <button sc-camel-on-click="{{ onToggleGroup }}" style="{{ groupBtnStyle }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="3" y="3" width="18" height="6" rx="1"></rect><rect x="3" y="13" width="18" height="8" rx="1"></rect></svg>
+          {{ groupLabel }}
+        </button>
+        <div style="flex:1;min-width:8px"></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:#918D82">{{ countLabel }}</span>
+      </div>
+
+      <!-- filter builder -->
+      <sc-if value="{{ filtersOpen }}">
+        <div style="background:#fff;border:1.5px solid #E8E6E0;border-radius:14px;padding:14px 16px;margin-bottom:14px">
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:11px">Filters — all must match</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ filterRows }}" as="f" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <select value="{{ f.col }}" sc-camel-on-change="{{ f.onCol }}" style="padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none;min-width:130px">
+                  <sc-for list="{{ f.colOptions }}" as="c" hint-placeholder-count="3">
+                    <option value="{{ c.v }}">{{ c.label }}</option>
+                  </sc-for>
+                </select>
+                <select value="{{ f.op }}" sc-camel-on-change="{{ f.onOp }}" style="padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none;min-width:120px">
+                  <sc-for list="{{ f.opOptions }}" as="o" hint-placeholder-count="3">
+                    <option value="{{ o.v }}">{{ o.label }}</option>
+                  </sc-for>
+                </select>
+                <sc-if value="{{ f.isChoice }}">
+                  <select value="{{ f.val }}" sc-camel-on-change="{{ f.onVal }}" style="flex:1;min-width:130px;padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+                    <option value="">—</option>
+                    <sc-for list="{{ f.valOptions }}" as="o" hint-placeholder-count="2">
+                      <option value="{{ o.v }}">{{ o.label }}</option>
+                    </sc-for>
+                  </select>
+                </sc-if>
+                <sc-if value="{{ f.isFree }}">
+                  <input value="{{ f.val }}" sc-camel-on-change="{{ f.onVal }}" type="{{ f.inputType }}" placeholder="{{ f.ph }}" style="flex:1;min-width:130px;padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+                </sc-if>
+                <button sc-camel-on-click="{{ f.onRemove }}" title="Remove" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#a3324c;border-radius:8px;font-size:15px;line-height:1">×</button>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap">
+            <button sc-camel-on-click="{{ onAddFilter }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:8px 14px;border-radius:999px">＋ Add filter</button>
+            <sc-if value="{{ hasFilters }}">
+              <button sc-camel-on-click="{{ onClearFilters }}" style="border:none;cursor:pointer;background:transparent;color:#a3324c;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500;padding:8px 6px">Clear all</button>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- sort panel -->
+      <sc-if value="{{ sortOpen }}">
+        <div style="background:#fff;border:1.5px solid #E8E6E0;border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+          <span style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#918D82">Sort by</span>
+          <select value="{{ sortCol }}" sc-camel-on-change="{{ onSortCol }}" style="padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none;min-width:150px">
+            <option value="">Default order</option>
+            <sc-for list="{{ sortOptions }}" as="c" hint-placeholder-count="3">
+              <option value="{{ c.v }}">{{ c.label }}</option>
+            </sc-for>
+          </select>
+          <select value="{{ sortDir }}" sc-camel-on-change="{{ onSortDir }}" style="padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+      </sc-if>
+
+      <!-- group panel -->
+      <sc-if value="{{ groupOpen }}">
+        <div style="background:#fff;border:1.5px solid #E8E6E0;border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+          <span style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#918D82">Group by</span>
+          <select value="{{ groupCol }}" sc-camel-on-change="{{ onGroupCol }}" style="padding:8px 11px;border-radius:9px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none;min-width:160px">
+            <option value="">No grouping</option>
+            <sc-for list="{{ groupOptions }}" as="c" hint-placeholder-count="3">
+              <option value="{{ c.v }}">{{ c.label }}</option>
+            </sc-for>
+          </select>
+        </div>
+      </sc-if>
+
+      <!-- grid -->
+      <div class="hq-datagrid" style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
+        <div style="display:grid;grid-template-columns:{{ gridCols }};padding:11px 18px;border-bottom:1px solid #EEEDE8;background:#F8F7F4">
+          <sc-for list="{{ headers }}" as="h" hint-placeholder-count="4">
+            <div sc-camel-on-click="{{ h.onSort }}" style="{{ h.style }}" title="{{ h.title }}">{{ h.label }}{{ h.arrow }}</div>
+          </sc-for>
+          <div></div>
+        </div>
+
+        <!-- Group headers and rows are ONE flat list, deliberately: every item
+             must be a DIRECT child of .hq-datagrid. hq-responsive.css forces
+             `grid-template-columns: 1fr` on any grid whose parent is not
+             .hq-datagrid, so nesting rows inside a per-group wrapper collapsed
+             every row to a single column on mobile while the header kept its
+             columns — the grid and its own header disagreed. -->
+        <sc-for list="{{ gridItems }}" as="it" hint-placeholder-count="4">
+          <div style="{{ it.style }}">
+            <sc-if value="{{ it.isGroup }}">
+              <span style="width:6px;height:6px;border-radius:50%;background:{{ accentColor }};flex:none"></span>
+              <span style="font-family:'Satoshi',sans-serif;font-size:11.5px;font-weight:700;color:#4A4842">{{ it.label }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ it.count }}</span>
+            </sc-if>
+            <sc-if value="{{ it.isRow }}">
+              <sc-for list="{{ it.cells }}" as="cell" hint-placeholder-count="4">
+                <div sc-camel-on-double-click="{{ cell.onEdit }}" style="{{ cell.cellStyle }}" title="{{ cell.title }}">
+                  <sc-if value="{{ cell.editing }}">
+                    <input value="{{ cell.draft }}" sc-camel-on-change="{{ cell.onDraft }}" sc-camel-on-key-down="{{ cell.onKey }}" sc-camel-on-blur="{{ cell.onCommit }}" type="{{ cell.inputType }}" style="width:100%;box-sizing:border-box;padding:5px 7px;border-radius:7px;border:1.5px solid #191924;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+                  </sc-if>
+                  <sc-if value="{{ cell.notEditing }}">
+                    <span sc-camel-on-click="{{ cell.onOpen }}" style="{{ cell.inkStyle }}">{{ cell.v }}</span>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <div style="display:flex;justify-content:flex-end;align-items:center">
+                <button sc-camel-on-click="{{ it.onMenu }}" title="Actions" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid #E4E2DB;cursor:pointer;background:#fff;color:#4A4842;border-radius:8px">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ noRows }}">
+          <div style="padding:40px 22px;text-align:center">
+            <div style="font-family:'Satoshi',sans-serif;font-size:14px;font-weight:600;color:#4A4842;margin-bottom:6px">{{ noRowsTitle }}</div>
+            <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:13px;color:#918D82">{{ noRowsHint }}</div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:12px;color:#A7A399;margin-top:10px">{{ gridHint }}</div>
+    </sc-if>
+
+    <!-- ── entry modal ────────────────────────────────────────────────── -->
+    <sc-if value="{{ entryOpen }}">
+      <div sc-camel-on-click="{{ onEntryClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924">{{ entryTitle }}</div>
+          <button sc-camel-on-click="{{ onEntryClose }}" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;border-radius:9px;font-size:16px;line-height:1">×</button>
+        </div>
+        <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:12.5px;color:#918D82;margin-bottom:18px">{{ entrySub }}</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ entryFields }}" as="f" hint-placeholder-count="4">
+            <label style="display:block">
+              <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}{{ f.req }}</div>
+              <sc-if value="{{ f.isText }}">
+                <input value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" type="{{ f.inputType }}" placeholder="{{ f.ph }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+              </sc-if>
+              <sc-if value="{{ f.isArea }}">
+                <textarea value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" placeholder="{{ f.ph }}" rows="4" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none;resize:vertical"></textarea>
+              </sc-if>
+              <sc-if value="{{ f.isSelect }}">
+                <select value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+                  <option value="">—</option>
+                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="2">
+                    <option value="{{ o.v }}">{{ o.label }}</option>
+                  </sc-for>
+                </select>
+              </sc-if>
+              <sc-if value="{{ f.isCheck }}">
+                <button sc-camel-on-click="{{ f.onToggle }}" style="{{ f.checkStyle }}">{{ f.checkLabel }}</button>
+              </sc-if>
+              <sc-if value="{{ f.isMulti }}">
+                <div style="display:flex;flex-wrap:wrap;gap:7px">
+                  <sc-for list="{{ f.chips }}" as="c" hint-placeholder-count="3">
+                    <button sc-camel-on-click="{{ c.onToggle }}" style="{{ c.style }}">{{ c.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ f.hasHelp }}">
+                <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:11.5px;color:#A7A399;margin-top:5px">{{ f.help }}</div>
+              </sc-if>
+            </label>
+          </sc-for>
+        </div>
+        <sc-if value="{{ hasEntryErr }}">
+          <div style="margin-top:14px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ entryErr }}</div>
+        </sc-if>
+        <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+          <button sc-camel-on-click="{{ onEntrySubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 22px;border-radius:999px">{{ entrySubmitLabel }}</button>
+          <button sc-camel-on-click="{{ onEntryClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── column editor ──────────────────────────────────────────────── -->
+    <sc-if value="{{ colsOpen }}">
+      <div sc-camel-on-click="{{ onColsClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(660px,95vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924">Columns</div>
+          <button sc-camel-on-click="{{ onColsClose }}" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;border-radius:9px;font-size:16px;line-height:1">×</button>
+        </div>
+        <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:12.5px;color:#918D82;margin-bottom:16px">Renaming is safe. Changing a type re-reads every existing value, and anything that cannot convert is emptied.</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <sc-for list="{{ colRows }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1.5px solid #E8E6E0;border-radius:12px;padding:10px 12px">
+              <input value="{{ c.label }}" sc-camel-on-change="{{ c.onLabel }}" style="flex:1;min-width:120px;padding:8px 11px;border-radius:9px;background:#FBFAF7;border:1.5px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;outline:none">
+              <select value="{{ c.type }}" sc-camel-on-change="{{ c.onType }}" style="padding:8px 11px;border-radius:9px;background:#FBFAF7;border:1.5px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none;min-width:130px">
+                <sc-for list="{{ typeOptions }}" as="t" hint-placeholder-count="4">
+                  <option value="{{ t.v }}">{{ t.label }}</option>
+                </sc-for>
+              </select>
+              <sc-if value="{{ c.needsOptions }}">
+                <input value="{{ c.optionsText }}" sc-camel-on-change="{{ c.onOptions }}" placeholder="Open, Closed" title="Comma-separated choices" style="flex:1;min-width:130px;padding:8px 11px;border-radius:9px;background:#FBFAF7;border:1.5px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+              </sc-if>
+              <sc-if value="{{ c.needsRef }}">
+                <select value="{{ c.refValue }}" sc-camel-on-change="{{ c.onRef }}" style="flex:1;min-width:150px;padding:8px 11px;border-radius:9px;background:#FBFAF7;border:1.5px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+                  <option value="">Link to…</option>
+                  <sc-for list="{{ refOptions }}" as="r" hint-placeholder-count="3">
+                    <option value="{{ r.v }}">{{ r.label }}</option>
+                  </sc-for>
+                </select>
+              </sc-if>
+              <button sc-camel-on-click="{{ c.onRequired }}" title="Required" style="{{ c.reqStyle }}">Req</button>
+              <button sc-camel-on-click="{{ c.onSave }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;padding:8px 13px;border-radius:8px">Save</button>
+              <button sc-camel-on-click="{{ c.onDelete }}" title="Remove column" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#a3324c;border-radius:8px;font-size:15px;line-height:1">×</button>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid #EEEDE8">
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:10px">Add a column</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input value="{{ newColLabel }}" sc-camel-on-change="{{ onNewColLabel }}" placeholder="Column name" style="flex:1;min-width:130px;padding:9px 12px;border-radius:10px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
+            <select value="{{ newColType }}" sc-camel-on-change="{{ onNewColType }}" style="padding:9px 12px;border-radius:10px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none;min-width:130px">
+              <sc-for list="{{ typeOptions }}" as="t" hint-placeholder-count="4">
+                <option value="{{ t.v }}">{{ t.label }}</option>
+              </sc-for>
+            </select>
+            <sc-if value="{{ newColNeedsOptions }}">
+              <input value="{{ newColOptions }}" sc-camel-on-change="{{ onNewColOptions }}" placeholder="Open, Closed" style="flex:1;min-width:130px;padding:9px 12px;border-radius:10px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+            </sc-if>
+            <sc-if value="{{ newColNeedsRef }}">
+              <select value="{{ newColRef }}" sc-camel-on-change="{{ onNewColRef }}" style="flex:1;min-width:150px;padding:9px 12px;border-radius:10px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+                <option value="">Link to…</option>
+                <sc-for list="{{ refOptions }}" as="r" hint-placeholder-count="3">
+                  <option value="{{ r.v }}">{{ r.label }}</option>
+                </sc-for>
+              </select>
+            </sc-if>
+            <button sc-camel-on-click="{{ onAddColumn }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px">Add</button>
+          </div>
+        </div>
+        <sc-if value="{{ hasColsErr }}">
+          <div style="margin-top:14px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ colsErr }}</div>
+        </sc-if>
+        <sc-if value="{{ hasColsNote }}">
+          <div style="margin-top:14px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#3d6b52;background:rgba(184,224,210,.28);border:1px solid rgba(184,224,210,.7);border-radius:9px;padding:9px 12px">{{ colsNote }}</div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ── settings + sharing ─────────────────────────────────────────── -->
+    <sc-if value="{{ setOpen }}">
+      <div sc-camel-on-click="{{ onSetClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924">Table settings</div>
+          <button sc-camel-on-click="{{ onSetClose }}" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;border-radius:9px;font-size:16px;line-height:1">×</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Name</div>
+            <input value="{{ setName }}" sc-camel-on-change="{{ onSetName }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+          </label>
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Sidebar group</div>
+            <input value="{{ setGroup }}" sc-camel-on-change="{{ onSetGroup }}" placeholder="Tables" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+          </label>
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Description</div>
+            <input value="{{ setDesc }}" sc-camel-on-change="{{ onSetDesc }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+          </label>
+          <div>
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Who can find this table</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button sc-camel-on-click="{{ onSetWorkspace }}" style="{{ visWsStyle }}">Everyone in TabDesk</button>
+              <button sc-camel-on-click="{{ onSetPrivate }}" style="{{ visPrivStyle }}">Only people I add</button>
+            </div>
+            <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:11.5px;color:#A7A399;margin-top:7px">{{ visHint }}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid #EEEDE8">
+          <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:10px">Who can do what</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ memberRows }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1.5px solid #E8E6E0;border-radius:12px;padding:9px 12px;flex-wrap:wrap">
+                <div style="flex:1;min-width:120px">
+                  <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924">{{ m.name }}</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#A7A399">{{ m.email }}</div>
+                </div>
+                <select value="{{ m.access }}" sc-camel-on-change="{{ m.onAccess }}" style="padding:8px 11px;border-radius:9px;background:#FBFAF7;border:1.5px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+                  <sc-for list="{{ accessOptions }}" as="a" hint-placeholder-count="4">
+                    <option value="{{ a.v }}">{{ a.label }}</option>
+                  </sc-for>
+                </select>
+                <button sc-camel-on-click="{{ m.onRemove }}" title="Revoke" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#a3324c;border-radius:8px;font-size:15px;line-height:1">×</button>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
+            <select value="{{ addMemberId }}" sc-camel-on-change="{{ onAddMemberId }}" style="flex:1;min-width:150px;padding:9px 12px;border-radius:10px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+              <option value="">Add someone…</option>
+              <sc-for list="{{ candidateOptions }}" as="c" hint-placeholder-count="3">
+                <option value="{{ c.v }}">{{ c.label }}</option>
+              </sc-for>
+            </select>
+            <select value="{{ addMemberAccess }}" sc-camel-on-change="{{ onAddMemberAccess }}" style="padding:9px 12px;border-radius:10px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;outline:none">
+              <sc-for list="{{ accessOptions }}" as="a" hint-placeholder-count="4">
+                <option value="{{ a.v }}">{{ a.label }}</option>
+              </sc-for>
+            </select>
+            <button sc-camel-on-click="{{ onAddMember }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px">Add</button>
+          </div>
+        </div>
+
+        <sc-if value="{{ hasSetErr }}">
+          <div style="margin-top:14px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ setErr }}</div>
+        </sc-if>
+        <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;align-items:center">
+          <button sc-camel-on-click="{{ onSetSave }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 22px;border-radius:999px">Save settings</button>
+          <div style="flex:1"></div>
+          <sc-if value="{{ canDeleteTable }}">
+            <button sc-camel-on-click="{{ onDeleteTable }}" style="border:1.5px solid rgba(255,181,194,.8);cursor:pointer;background:transparent;color:#a3324c;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:11px 18px;border-radius:999px">{{ deleteTableLabel }}</button>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── new table ──────────────────────────────────────────────────── -->
+    <sc-if value="{{ newOpen }}">
+      <div sc-camel-on-click="{{ onNewClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+        <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924;margin-bottom:4px">New table</div>
+        <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:12.5px;color:#918D82;margin-bottom:18px">It starts with one text column. Add the rest from Columns.</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Table name</div>
+            <input value="{{ newName }}" sc-camel-on-change="{{ onNewName }}" placeholder="Site visits" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+          </label>
+          <label style="display:block">
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Sidebar group</div>
+            <input value="{{ newGroup }}" sc-camel-on-change="{{ onNewGroup }}" placeholder="Tables" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+          </label>
+          <div>
+            <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Who can find it</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button sc-camel-on-click="{{ onNewVisWs }}" style="{{ newVisWsStyle }}">Everyone in TabDesk</button>
+              <button sc-camel-on-click="{{ onNewVisPriv }}" style="{{ newVisPrivStyle }}">Only people I add</button>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ hasNewErr }}">
+          <div style="margin-top:14px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ newErr }}</div>
+        </sc-if>
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button sc-camel-on-click="{{ onNewSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 22px;border-radius:999px">Create table</button>
+          <button sc-camel-on-click="{{ onNewClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── row menu ───────────────────────────────────────────────────── -->
+    <sc-if value="{{ menuOpen }}">
+      <div sc-camel-on-click="{{ onCloseMenu }}" style="position:fixed;inset:0;z-index:80"></div>
+      <div style="position:fixed;left:{{ menuLeft }};top:{{ menuTop }};z-index:81;min-width:180px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);padding:6px;box-sizing:border-box">
+        <button sc-camel-on-click="{{ onMenuOpen }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Open</button>
+        <sc-if value="{{ menuCanDelete }}">
+          <button sc-camel-on-click="{{ onMenuDelete }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#a3324c;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">{{ menuDeleteLabel }}</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:620},&quot;org&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;workspace&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;TabDesk&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;moduleName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Tables&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tabName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Tables&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C8B6FF&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+// ─────────────────────────────────────────────────────────────────────────────
+// TabDesk — user-defined tables.
+//
+// This page renders entirely from /api/tabdesk/*. There is no per-table code
+// here and there must never be: a table's columns come from the API, and the
+// grid, the entry modal and the filter bar are all built from that list. The
+// same property the CRM gets from backend/registry.py, TabDesk gets from the
+// tabdesk_columns rows.
+//
+// Permissions are NOT decided here. Every response carries `can`, resolved by
+// backend/tabdesk_access.py, and this file only hides what `can` says is not
+// allowed. The routes refuse it regardless, so a UI bug cannot become a
+// security bug.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PILL_ON  = "border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;border-radius:999px";
+const PILL_OFF = "border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:500;padding:6px 14px;border-radius:999px";
+const TOOL_ON  = "display:flex;align-items:center;gap:6px;height:34px;padding:0 13px;border:1.5px solid #191924;cursor:pointer;background:#191924;color:#fff;border-radius:999px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600";
+const TOOL_OFF = "display:flex;align-items:center;gap:6px;height:34px;padding:0 13px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#4A4842;border-radius:999px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:500";
+const CHIP_ON  = "border:1.5px solid #191924;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px";
+const CHIP_OFF = "border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;border-radius:999px";
+
+// Operators offered per type, and how the value is entered. Mirrors the ops the
+// backend accepts (backend/tabdesk_sql.py TYPES) — an operator offered here that
+// the API rejects would be a 400 the user cannot understand.
+const OP_LABELS = {
+  eq:'is', ne:'is not', empty:'is empty', contains:'contains',
+  startswith:'starts with', gt:'>', gte:'≥', lt:'<', lte:'≤',
+  in:'is any of', has:'includes',
+};
+const NUMERIC_TYPES = { number:1, money:1, percent:1 };
+const DATE_TYPES = { date:1, datetime:1 };
+const AREA_TYPES = { longtext:1 };
+const CHOICE_TYPES = { select:1 };
+const MULTI_TYPES = { multiselect:1 };
+
+function inputTypeFor(t){
+  if (NUMERIC_TYPES[t]) return 'number';
+  if (t === 'date') return 'date';
+  if (t === 'datetime') return 'datetime-local';
+  if (t === 'email') return 'email';
+  if (t === 'url') return 'url';
+  return 'text';
+}
+
+function fmtMoney(v){
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (!isFinite(n)) return String(v);
+  return '₹ ' + n.toLocaleString('en-IN');
+}
+
+function fmtDate(v){
+  if (!v) return '—';
+  try {
+    const d = new Date(String(v).length <= 10 ? String(v) + 'T00:00:00' : v);
+    if (isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  } catch(_) { return String(v); }
+}
+
+// An expired or missing session must send the user to /login, exactly as
+// PortalPage does. Without this a 401 falls through to "no rows" and the page
+// says "Nothing matches" — which reads as "your data is gone" rather than "you
+// are signed out", and is a genuinely alarming thing to show someone.
+function tdFetch(url, init){
+  return fetch(url, init).then(res => {
+    if (res.status === 401) {
+      try { window.location.href = '/login'; } catch(_) {}
+      // Never settle. Returning null would make every caller's `res.ok` throw a
+      // TypeError, and resolving a fake response would let the page paint an
+      // empty table for the moment before the redirect lands. The document is
+      // going away; the right thing is for this chain to simply stop.
+      return new Promise(() => {});
+    }
+    return res;
+  });
+}
+
+class Component extends DCLogic {
+  state = {
+    loading: true,
+    meta: null,
+    tables: [],
+    table: null,          // the resolved table, with columns + can
+    rows: [],
+    labels: {},
+    total: 0,
+    search: '',
+    filters: [],          // [{col, op, val}]
+    sortCol: '', sortDir: 'asc',
+    groupCol: '',
+    filtersOpen: false, sortOpen: false, groupOpen: false,
+    activeView: '',
+    // entry modal
+    entryOpen: false, entryMode: 'create', entryId: null, entry: {}, entryErr: '', busy: false,
+    // inline cell edit
+    editCell: null,       // {rowId, key} — one cell at a time
+    editDraft: '',
+    // column editor
+    colsOpen: false, colDrafts: {}, colsErr: '', colsNote: '',
+    newColLabel: '', newColType: 'text', newColOptions: '', newColRef: '',
+    // settings + sharing
+    setOpen: false, setName: '', setGroup: '', setDesc: '', setVis: 'workspace',
+    members: [], candidates: [], addMemberId: '', addMemberAccess: 'contributor',
+    setErr: '', confirmDelete: false,
+    // new table
+    newOpen: false, newName: '', newGroup: '', newVis: 'workspace', newErr: '',
+    // row menu
+    menu: null, confirmRow: null,
+  };
+
+  componentDidMount(){
+    this.load();
+  }
+
+  componentDidUpdate(prevProps){
+    if (prevProps.tabName !== this.props.tabName) {
+      // A stale filter carried across tables is worse than no filter: the
+      // emptiness reads as missing data rather than as a filter.
+      this.setState({
+        search:'', filters:[], sortCol:'', sortDir:'asc', groupCol:'', activeView:'',
+        filtersOpen:false, sortOpen:false, groupOpen:false, rows:[], editCell:null,
+      }, () => this.load());
+    }
+  }
+
+  // ── loading ───────────────────────────────────────────────────────────
+
+  load(){
+    this.setState({ loading:true });
+    Promise.all([
+      tdFetch('/api/tabdesk/meta').then(r => r.ok ? r.json() : null).catch(() => null),
+      tdFetch('/api/tabdesk/tables').then(r => r.ok ? r.json() : { tables:[] }).catch(() => ({ tables:[] })),
+    ]).then(([meta, list]) => {
+      const tables = (list && list.tables) || [];
+      // Publish to the shell so the sidebar can list the tables. The nav is
+      // hardcoded for every other workspace; TabDesk's changes at runtime.
+      try {
+        if (window.__hqSetTabDeskTables) window.__hqSetTabDeskTables(tables);
+      } catch(_) {}
+
+      const wanted = this.props.tabName;
+      const match = tables.filter(t => t.name === wanted)[0] || null;
+      this.setState({ meta, tables, loading: !!match }, () => {
+        if (match) this.openTable(match.id);
+        else this.setState({ table:null, rows:[], loading:false });
+      });
+    });
+  }
+
+  openTable(id){
+    tdFetch('/api/tabdesk/tables/' + id)
+      .then(r => r.ok ? r.json() : null)
+      .then(table => {
+        if (!table) { this.setState({ table:null, loading:false }); return; }
+        // Rebuild the column editor's drafts from the reloaded schema when it is
+        // open. Without this, a column added or retyped while the editor is up
+        // renders with empty controls — its "Link to…" reads as unset even though
+        // the column has a target — and saving that row would clear the ref.
+        const patch = { table };
+        if (this.state.colsOpen) patch.colDrafts = this._draftsFor(table.columns || []);
+        this.setState(patch, () => this.fetchRows());
+      })
+      .catch(() => this.setState({ loading:false }));
+  }
+
+  _draftsFor(columns){
+    const drafts = {};
+    columns.forEach(c => {
+      drafts[c.id] = {
+        label: c.label, type: c.type, required: !!c.required,
+        optionsText: (c.options || []).join(', '),
+        refValue: c.ref_target
+          ? ((c.ref_kind || 'entity') + ':' + c.ref_target)
+          : '',
+      };
+    });
+    return drafts;
+  }
+
+  queryString(){
+    const st = this.state;
+    const qs = ['limit=200'];
+    if (st.search) qs.push('q=' + encodeURIComponent(st.search));
+    if (st.sortCol) qs.push('sort=' + encodeURIComponent((st.sortDir === 'desc' ? '-' : '') + st.sortCol));
+    if (st.groupCol) qs.push('group=' + encodeURIComponent(st.groupCol));
+    st.filters.forEach(f => {
+      if (!f.col || !f.op) return;
+      // `empty` carries its own truth value; every other op needs a value, and
+      // sending a blank one would filter to nothing and look like a data bug.
+      if (f.op !== 'empty' && (f.val === '' || f.val === undefined || f.val === null)) return;
+      const v = f.op === 'empty' ? 'true' : f.val;
+      qs.push('f.' + encodeURIComponent(f.col) + '.' + f.op + '=' + encodeURIComponent(v));
+    });
+    return qs.join('&');
+  }
+
+  fetchRows(){
+    const table = this.state.table;
+    if (!table) return;
+    this.setState({ loading:true });
+    tdFetch('/api/tabdesk/tables/' + table.id + '/rows?' + this.queryString())
+      .then(r => r.json().then(d => ({ ok:r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ loading:false, rows:[], total:0 }); return; }
+        this.setState({ rows: d.rows || [], labels: d._labels || {}, total: d.total || 0, loading:false });
+      })
+      .catch(() => this.setState({ loading:false }));
+  }
+
+  // ── query controls ────────────────────────────────────────────────────
+
+  onSearch(v){ this.setState({ search:v, activeView:'' }, () => this.fetchRows()); }
+
+  addFilter(){
+    const cols = this.columns();
+    if (!cols.length) return;
+    const first = cols[0];
+    this.setState({
+      filters: this.state.filters.concat([{ col:first.key, op:(first.ops||['eq'])[0], val:'' }]),
+    });
+  }
+  setFilter(i, patch){
+    const filters = this.state.filters.slice();
+    filters[i] = Object.assign({}, filters[i], patch);
+    // A column change can invalidate the operator, which would 400. Reset it to
+    // one the new type actually accepts.
+    if (patch.col) {
+      const col = this.columnByKey(patch.col);
+      const ops = (col && col.ops) || ['eq'];
+      if (ops.indexOf(filters[i].op) < 0) filters[i].op = ops[0];
+      filters[i].val = '';
+    }
+    this.setState({ filters, activeView:'' }, () => this.fetchRows());
+  }
+  removeFilter(i){
+    const filters = this.state.filters.slice();
+    filters.splice(i, 1);
+    this.setState({ filters, activeView:'' }, () => this.fetchRows());
+  }
+
+  // ── the entry modal ───────────────────────────────────────────────────
+
+  openCreate(){
+    const entry = {};
+    this.columns().forEach(c => {
+      entry[c.key] = c.type === 'checkbox' ? false : (c.type === 'multiselect' || c.type === 'relation' ? [] : '');
+      if (c.default_value !== null && c.default_value !== undefined) entry[c.key] = c.default_value;
+    });
+    this.setState({ entryOpen:true, entryMode:'create', entryId:null, entry, entryErr:'' });
+  }
+
+  openRow(row){
+    const entry = {};
+    this.columns().forEach(c => {
+      const v = (row.data || {})[c.key];
+      entry[c.key] = v === null || v === undefined
+        ? (c.type === 'checkbox' ? false : (c.type === 'multiselect' || c.type === 'relation' ? [] : ''))
+        : v;
+    });
+    this.setState({ entryOpen:true, entryMode:'edit', entryId:row.id, entry, entryErr:'', menu:null });
+  }
+
+  setEntry(key, v){
+    this.setState({ entry: Object.assign({}, this.state.entry, { [key]: v }) });
+  }
+
+  toggleMulti(key, choice){
+    const cur = (this.state.entry[key] || []).slice();
+    const at = cur.indexOf(choice);
+    if (at >= 0) cur.splice(at, 1); else cur.push(choice);
+    this.setEntry(key, cur);
+  }
+
+  submitEntry(){
+    const st = this.state, table = st.table;
+    if (!table || st.busy) return;
+    this.setState({ busy:true, entryErr:'' });
+    const create = st.entryMode === 'create';
+    const url = '/api/tabdesk/tables/' + table.id + '/rows' + (create ? '' : '/' + st.entryId);
+    fetch(url, {
+      method: create ? 'POST' : 'PATCH',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ data: st.entry }),
+    })
+      .then(r => r.json().then(d => ({ ok:r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ busy:false, entryErr: d.detail || 'Could not save.' }); return; }
+        this.setState({ busy:false, entryOpen:false }, () => this.fetchRows());
+      })
+      .catch(() => this.setState({ busy:false, entryErr:'Could not reach the server.' }));
+  }
+
+  deleteRow(row){
+    const table = this.state.table;
+    if (!table) return;
+    if (this.state.confirmRow !== row.id) { this.setState({ confirmRow: row.id }); return; }
+    tdFetch('/api/tabdesk/tables/' + table.id + '/rows/' + row.id, { method:'DELETE' })
+      .then(r => r.json().then(d => ({ ok:r.ok, d })))
+      .then(({ ok, d }) => {
+        this.setState({ menu:null, confirmRow:null });
+        if (ok) this.fetchRows();
+        else window.alert(d.detail || 'Could not delete that entry.');
+      })
+      .catch(() => this.setState({ menu:null, confirmRow:null }));
+  }
+
+  // ── inline cell edit ──────────────────────────────────────────────────
+
+  startEdit(row, col){
+    if (!this.can('rows:update:any') && !(this.can('rows:update:own') && row.created_by_id === this.me())) return;
+    if (col.modal_only) { this.openRow(row); return; }
+    const v = (row.data || {})[col.key];
+    this.setState({ editCell: { rowId:row.id, key:col.key }, editDraft: v === null || v === undefined ? '' : String(v) });
+  }
+
+  commitEdit(){
+    const cell = this.state.editCell;
+    if (!cell) return;
+    const table = this.state.table;
+    const draft = this.state.editDraft;
+    this.setState({ editCell:null });
+    // PATCH sends only this key, so a concurrent edit to another column of the
+    // same row is not clobbered.
+    tdFetch('/api/tabdesk/tables/' + table.id + '/rows/' + cell.rowId, {
+      method:'PATCH', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ data: { [cell.key]: draft } }),
+    })
+      .then(r => r.json().then(d => ({ ok:r.ok, d })))
+      .then(({ ok, d }) => { if (!ok) window.alert(d.detail || 'Could not save that cell.'); this.fetchRows(); })
+      .catch(() => this.fetchRows());
+  }
+
+  // ── column editor ─────────────────────────────────────────────────────
+
+  openColumns(){
+    this.setState({
+      colsOpen:true, colDrafts:this._draftsFor(this.columns()), colsErr:'', colsNote:'',
+    });
+  }
+
+  setColDraft(id, patch){
+    const drafts = Object.assign({}, this.state.colDrafts);
+    drafts[id] = Object.assign({}, drafts[id], patch);
+    this.setState({ colDrafts: drafts });
+  }
+
+  _refPayload(refValue){
+    if (!refValue) return {};
+    const at = refValue.indexOf(':');
+    if (at < 0) return {};
+    return { ref_kind: refValue.slice(0, at), ref_target: refValue.slice(at + 1) };
+  }
+
+  saveColumn(col){
+    const d = this.state.colDrafts[col.id] || {};
+    const body = Object.assign({
+      label: d.label, type: d.type, required: !!d.required,
+      options: (d.optionsText || '').split(',').map(s => s.trim()).filter(Boolean),
+    }, d.type === 'relation' ? this._refPayload(d.refValue) : {});
+    tdFetch('/api/tabdesk/tables/' + this.state.table.id + '/columns/' + col.id, {
+      method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body),
+    })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ colsErr: d.detail || 'Could not save that column.' }); return; }
+        const cleared = d.values_cleared || 0;
+        this.setState({
+          colsErr:'',
+          colsNote: cleared ? (cleared + ' value(s) could not be converted and were emptied.') : 'Column saved.',
+        }, () => this.openTable(this.state.table.id));
+      })
+      .catch(() => this.setState({ colsErr:'Could not reach the server.' }));
+  }
+
+  addColumn(){
+    const st = this.state;
+    if (!st.newColLabel.trim()) { this.setState({ colsErr:'Give the column a name.' }); return; }
+    const body = Object.assign({
+      label: st.newColLabel.trim(), type: st.newColType,
+      options: (st.newColOptions || '').split(',').map(s => s.trim()).filter(Boolean),
+    }, st.newColType === 'relation' ? this._refPayload(st.newColRef) : {});
+    tdFetch('/api/tabdesk/tables/' + st.table.id + '/columns', {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body),
+    })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ colsErr: d.detail || 'Could not add that column.' }); return; }
+        this.setState({ newColLabel:'', newColOptions:'', newColRef:'', colsErr:'', colsNote:'Column added.' },
+          () => this.openTable(st.table.id));
+      })
+      .catch(() => this.setState({ colsErr:'Could not reach the server.' }));
+  }
+
+  deleteColumn(col){
+    if (!window.confirm('Remove the column "' + col.label + '"? Values stay in the database and come back if you re-add it.')) return;
+    tdFetch('/api/tabdesk/tables/' + this.state.table.id + '/columns/' + col.id, { method:'DELETE' })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ colsErr: d.detail || 'Could not remove that column.' }); return; }
+        this.setState({ colsErr:'', colsNote:'Column removed.' }, () => this.openTable(this.state.table.id));
+      })
+      .catch(() => this.setState({ colsErr:'Could not reach the server.' }));
+  }
+
+  // ── settings + sharing ────────────────────────────────────────────────
+
+  openSettings(){
+    const t = this.state.table;
+    this.setState({
+      setOpen:true, setName:t.name, setGroup:t.group_name || '', setDesc:t.description || '',
+      setVis:t.visibility, setErr:'', confirmDelete:false,
+      members:t.members || [], addMemberId:'', addMemberAccess:'contributor',
+    });
+    tdFetch('/api/tabdesk/tables/' + t.id + '/members')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) this.setState({ members:d.members || [], candidates:d.candidates || [] }); })
+      .catch(() => {});
+  }
+
+  saveSettings(){
+    const st = this.state;
+    tdFetch('/api/tabdesk/tables/' + st.table.id, {
+      method:'PATCH', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ name:st.setName, group_name:st.setGroup, description:st.setDesc, visibility:st.setVis }),
+    })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ setErr: d.detail || 'Could not save.' }); return; }
+        this.setState({ setOpen:false }, () => this.load());
+      })
+      .catch(() => this.setState({ setErr:'Could not reach the server.' }));
+  }
+
+  setMemberAccess(userId, accessLevel){
+    tdFetch('/api/tabdesk/tables/' + this.state.table.id + '/members/' + userId, {
+      method:'PUT', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ access: accessLevel }),
+    })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ setErr: d.detail || 'Could not change that.' }); return; }
+        this.setState({ members: d.members || [], setErr:'', addMemberId:'' });
+      })
+      .catch(() => this.setState({ setErr:'Could not reach the server.' }));
+  }
+
+  removeMember(userId){
+    tdFetch('/api/tabdesk/tables/' + this.state.table.id + '/members/' + userId, { method:'DELETE' })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ setErr: d.detail || 'Could not revoke that.' }); return; }
+        this.setState({ members: d.members || [], setErr: d.still_visible
+          ? 'Revoked. This table is visible to everyone in TabDesk, so they can still view it.' : '' });
+      })
+      .catch(() => this.setState({ setErr:'Could not reach the server.' }));
+  }
+
+  deleteTable(){
+    if (!this.state.confirmDelete) { this.setState({ confirmDelete:true }); return; }
+    tdFetch('/api/tabdesk/tables/' + this.state.table.id, { method:'DELETE' })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ setErr: d.detail || 'Could not delete.', confirmDelete:false }); return; }
+        this.setState({ setOpen:false, table:null }, () => {
+          this.load();
+          try { window.location.href = '/z9s-ai/hq/tabdesk'; } catch(_) {}
+        });
+      })
+      .catch(() => this.setState({ setErr:'Could not reach the server.' }));
+  }
+
+  // ── new table ─────────────────────────────────────────────────────────
+
+  createTable(){
+    const st = this.state;
+    if (!st.newName.trim()) { this.setState({ newErr:'Give the table a name.' }); return; }
+    tdFetch('/api/tabdesk/tables', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        name: st.newName.trim(),
+        group_name: (st.newGroup || 'Tables').trim() || 'Tables',
+        visibility: st.newVis,
+      }),
+    })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ newErr: d.detail || 'Could not create that table.' }); return; }
+        this.setState({ newOpen:false, newName:'', newGroup:'' }, () => {
+          this.load();
+          // Navigate to the new table so creating it lands you in it.
+          try {
+            const slug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            window.location.href = '/z9s-ai/hq/tabdesk/' + slug(d.group_name) + '/' + slug(d.name);
+          } catch(_) {}
+        });
+      })
+      .catch(() => this.setState({ newErr:'Could not reach the server.' }));
+  }
+
+  // ── saved views ───────────────────────────────────────────────────────
+
+  applyView(view){
+    if (!view) {
+      this.setState({ activeView:'', filters:[], sortCol:'', sortDir:'asc', groupCol:'' }, () => this.fetchRows());
+      return;
+    }
+    const filters = [];
+    Object.keys(view.filters || {}).forEach(spec => {
+      const at = spec.indexOf('.');
+      const col = at < 0 ? spec : spec.slice(0, at);
+      const op = at < 0 ? 'eq' : spec.slice(at + 1);
+      const raw = view.filters[spec];
+      filters.push({ col, op, val: Array.isArray(raw) ? raw[0] : raw });
+    });
+    const sort = view.sort || '';
+    this.setState({
+      activeView: view.name, filters,
+      sortCol: sort.replace(/^-/, ''), sortDir: sort.charAt(0) === '-' ? 'desc' : 'asc',
+      groupCol: view.group_by || '',
+    }, () => this.fetchRows());
+  }
+
+  saveView(){
+    const st = this.state;
+    const name = window.prompt('Name this view');
+    if (!name) return;
+    const filters = {};
+    st.filters.forEach(f => {
+      if (!f.col || !f.op) return;
+      if (f.op !== 'empty' && (f.val === '' || f.val === undefined)) return;
+      filters[f.col + '.' + f.op] = f.op === 'empty' ? 'true' : f.val;
+    });
+    const shared = this.can('views:manage');
+    tdFetch('/api/tabdesk/tables/' + st.table.id + '/views', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        name, filters,
+        sort: st.sortCol ? ((st.sortDir === 'desc' ? '-' : '') + st.sortCol) : null,
+        group_by: st.groupCol || null, is_shared: shared,
+      }),
+    })
+      .then(r => r.json().then(x => ({ ok:r.ok, d:x })))
+      .then(({ ok, d }) => {
+        if (!ok) { window.alert(d.detail || 'Could not save that view.'); return; }
+        this.openTable(st.table.id);
+      })
+      .catch(() => {});
+  }
+
+  // ── helpers ───────────────────────────────────────────────────────────
+
+  columns(){ return (this.state.table && this.state.table.columns) || []; }
+  columnByKey(key){ return this.columns().filter(c => c.key === key)[0] || null; }
+  can(capability){
+    const t = this.state.table;
+    return !!(t && t.can && t.can[capability]);
+  }
+  me(){
+    try { return (window.__hqSessionUser || {}).id || null; } catch(_) { return null; }
+  }
+
+  display(col, row){
+    const raw = (row.data || {})[col.key];
+    const labels = this.state.labels || {};
+    if (col.type === 'checkbox') return raw ? 'Yes' : 'No';
+    if (raw === null || raw === undefined || raw === '') return '—';
+    if (col.type === 'money') return fmtMoney(raw);
+    if (col.type === 'percent') return raw + '%';
+    if (col.type === 'date' || col.type === 'datetime') return fmtDate(raw);
+    if (col.type === 'user') {
+      const bucket = labels.users || {};
+      return bucket[String(raw)] || ('#' + raw);
+    }
+    if (col.type === 'multiselect') return (raw || []).length ? (raw || []).join(', ') : '—';
+    if (col.type === 'relation') {
+      const key = (col.ref_kind || 'entity') + ':' + (col.ref_target || '');
+      const bucket = labels[key] || {};
+      const ids = raw || [];
+      if (!ids.length) return '—';
+      // A dangling id is expected: relation ids live in JSON and cannot have a
+      // foreign key, so the target may genuinely be gone.
+      return ids.map(id => bucket[String(id)] || '(deleted)').join(', ');
+    }
+    if (col.type === 'attachment') return (raw && raw.filename) || '—';
+    return String(raw);
+  }
+
+  // renderVals, NOT render. The dc runtime calls renderVals() to get the flat
+  // object the template binds against; a method named render() is simply never
+  // called, and the runtime then renders the template "with props only" — every
+  // binding silently empty, with no error anywhere. Cost an hour to find once.
+  renderVals() {
+    const st = this.state;
+    const accent = this.props.accent || '#C8B6FF';
+    const cols = this.columns();
+    const table = st.table;
+    const types = (st.meta && st.meta.types) || [];
+    const typeByName = {};
+    types.forEach(t => { typeByName[t.type] = t; });
+
+    // ── no table resolved ────────────────────────────────────────────────
+    if (!table) {
+      const canCreate = !!(st.meta && st.meta.can_create);
+      return {
+        accentColor: accent,
+        groupName: 'TabDesk', title: st.loading ? 'Loading…' : 'Tables',
+        sub: 'Build a table, define its columns, and start entering rows. No developer needed.',
+        isEmptyWorkspace: !st.loading, hasTable: false,
+        emptyHint: canCreate
+          ? 'A table is a page with columns you define. Pick the column types you need — text, money, dates, a link to a customer — and TabDesk builds the grid, the entry form and the filters from that.'
+          : 'No tables have been shared with you yet. Ask an admin to create one or give you access.',
+        canCreateTable: canCreate, canAddEntry:false, canManageSchema:false, canManageTable:false,
+        newOpen: st.newOpen, newName: st.newName, newGroup: st.newGroup,
+        newErr: st.newErr, hasNewErr: !!st.newErr,
+        newVisWsStyle: st.newVis === 'workspace' ? CHIP_ON : CHIP_OFF,
+        newVisPrivStyle: st.newVis === 'private' ? CHIP_ON : CHIP_OFF,
+        onNewTable: () => this.setState({ newOpen:true, newErr:'' }),
+        onNewClose: () => this.setState({ newOpen:false }),
+        onNewName: (e) => this.setState({ newName: e.target.value }),
+        onNewGroup: (e) => this.setState({ newGroup: e.target.value }),
+        onNewVisWs: () => this.setState({ newVis:'workspace' }),
+        onNewVisPriv: () => this.setState({ newVis:'private' }),
+        onNewSubmit: () => this.createTable(),
+        views: [], gridItems: [], headers: [], filterRows: [], colRows: [], memberRows: [],
+        typeOptions: [], refOptions: [], accessOptions: [], sortOptions: [], groupOptions: [],
+        candidateOptions: [], entryFields: [], noRows:false, gridCols:'1fr',
+      };
+    }
+
+    // ── headers ──────────────────────────────────────────────────────────
+    const widths = cols.map(c => c.width || '1fr').join(' ');
+    const headers = cols.map(c => ({
+      label: c.label,
+      arrow: st.sortCol === c.key ? (st.sortDir === 'desc' ? ' ↓' : ' ↑') : '',
+      title: 'Sort by ' + c.label,
+      style: "font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:"
+        + (st.sortCol === c.key ? '#191924' : '#918D82') + ';cursor:pointer;user-select:none',
+      onSort: () => this.setState({
+        sortCol: c.key,
+        sortDir: st.sortCol === c.key && st.sortDir === 'asc' ? 'desc' : 'asc',
+        activeView: '',
+      }, () => this.fetchRows()),
+    }));
+
+    // ── rows, optionally grouped ─────────────────────────────────────────
+    const canEditAny = this.can('rows:update:any');
+    const canEditOwn = this.can('rows:update:own');
+    const canDelAny = this.can('rows:delete:any');
+    const canDelOwn = this.can('rows:delete:own');
+    const myId = this.me();
+
+    const buildRow = (row, index) => {
+      const mine = row.created_by_id === myId;
+      const editable = canEditAny || (canEditOwn && mine);
+      return {
+        style: 'display:grid;grid-template-columns:' + widths + ' 46px;padding:12px 18px;'
+          + (index % 2 ? 'background:#FCFBF9;' : 'background:#fff;')
+          + 'border-bottom:1px solid #F2F1EC;align-items:center',
+        cells: cols.map(c => {
+          const editing = !!(st.editCell && st.editCell.rowId === row.id && st.editCell.key === c.key);
+          const value = this.display(c, row);
+          return {
+            v: value,
+            title: c.modal_only ? 'Open the entry to edit this' : (editable ? 'Double-click to edit' : ''),
+            editing, notEditing: !editing,
+            draft: st.editDraft, inputType: inputTypeFor(c.type),
+            cellStyle: 'min-width:0;padding-right:10px;'
+              + (NUMERIC_TYPES[c.type] ? 'text-align:right;' : ''),
+            inkStyle: "font-family:" + (c.type === 'phone' || c.type === 'email' ? "'JetBrains Mono',monospace" : "'Satoshi',sans-serif")
+              + ';font-size:13.5px;'
+              + (c.is_primary ? 'font-weight:650;color:#191924;cursor:pointer;' : 'font-weight:450;color:#4A4842;')
+              + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block',
+            onEdit: () => { if (editable) this.startEdit(row, c); },
+            onOpen: () => { if (c.is_primary) this.openRow(row); },
+            onDraft: (e) => this.setState({ editDraft: e.target.value }),
+            onKey: (e) => {
+              if (e.key === 'Enter') this.commitEdit();
+              else if (e.key === 'Escape') this.setState({ editCell:null });
+            },
+            onCommit: () => this.commitEdit(),
+          };
+        }),
+        onMenu: (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          const r = e && e.currentTarget ? e.currentTarget.getBoundingClientRect() : { left:0, bottom:0 };
+          this.setState({ menu: { row, x: Math.max(8, r.left - 150), y: r.bottom + 6 }, confirmRow:null });
+        },
+      };
+    };
+
+    // One flat list of grid children — group headers interleaved with rows. See
+    // the comment in the template for why this must not be nested.
+    const GROUP_STYLE = 'display:flex;align-items:center;gap:9px;padding:9px 18px;'
+      + 'background:#FBFAF7;border-bottom:1px solid #EEEDE8';
+    const gridItems = [];
+    if (st.groupCol) {
+      const col = this.columnByKey(st.groupCol);
+      const buckets = {}, order = [];
+      st.rows.forEach(row => {
+        const label = col ? this.display(col, row) : '—';
+        if (!buckets[label]) { buckets[label] = []; order.push(label); }
+        buckets[label].push(row);
+      });
+      let n = 0;
+      order.forEach(label => {
+        gridItems.push({
+          isGroup: true, isRow: false, style: GROUP_STYLE, label,
+          count: buckets[label].length + (buckets[label].length === 1 ? ' entry' : ' entries'),
+        });
+        buckets[label].forEach(row => gridItems.push(
+          Object.assign({ isGroup: false, isRow: true }, buildRow(row, n++))
+        ));
+      });
+    } else {
+      st.rows.forEach((row, i) => gridItems.push(
+        Object.assign({ isGroup: false, isRow: true }, buildRow(row, i))
+      ));
+    }
+
+    // ── filter builder ───────────────────────────────────────────────────
+    const colOptions = cols.map(c => ({ v:c.key, label:c.label }));
+    const filterRows = st.filters.map((f, i) => {
+      const col = this.columnByKey(f.col);
+      const ops = (col && col.ops) || ['eq'];
+      const isChoice = !!(col && (CHOICE_TYPES[col.type] || MULTI_TYPES[col.type]) && f.op !== 'empty');
+      return {
+        col: f.col, op: f.op, val: f.val === undefined ? '' : f.val,
+        colOptions,
+        opOptions: ops.map(o => ({ v:o, label: OP_LABELS[o] || o })),
+        isChoice,
+        isFree: f.op !== 'empty' && !isChoice,
+        valOptions: ((col && col.options) || []).map(o => ({ v:o, label:o })),
+        inputType: col ? inputTypeFor(col.type) : 'text',
+        ph: col && DATE_TYPES[col.type] ? '' : 'Value',
+        onCol: (e) => this.setFilter(i, { col: e.target.value }),
+        onOp: (e) => this.setFilter(i, { op: e.target.value }),
+        onVal: (e) => this.setFilter(i, { val: e.target.value }),
+        onRemove: () => this.removeFilter(i),
+      };
+    });
+
+    // ── saved views ──────────────────────────────────────────────────────
+    const savedViews = table.saved_views || [];
+    const views = [{ name:'All', onPick: () => this.applyView(null),
+                     style: st.activeView ? PILL_OFF : PILL_ON }]
+      .concat(savedViews.map(v => ({
+        name: v.name, onPick: () => this.applyView(v),
+        style: st.activeView === v.name ? PILL_ON : PILL_OFF,
+      })));
+
+    // ── entry modal fields ───────────────────────────────────────────────
+    const entryFields = cols.map(c => {
+      const value = st.entry[c.key];
+      const base = {
+        label: c.label, req: c.required ? ' *' : '',
+        help: c.help || '', hasHelp: !!c.help,
+        value: value === null || value === undefined ? '' : (Array.isArray(value) ? '' : String(value)),
+        ph: c.type === 'relation' ? 'Comma-separated ids' : '',
+        options: [], chips: [],
+        isText:false, isArea:false, isSelect:false, isCheck:false, isMulti:false,
+        inputType: inputTypeFor(c.type),
+        onInput: (e) => this.setEntry(c.key, e.target.value),
+      };
+      if (AREA_TYPES[c.type]) base.isArea = true;
+      else if (CHOICE_TYPES[c.type]) {
+        base.isSelect = true;
+        base.options = (c.options || []).map(o => ({ v:o, label:o }));
+      }
+      else if (c.type === 'checkbox') {
+        base.isCheck = true;
+        base.checkLabel = value ? '✓ Yes' : 'No';
+        base.checkStyle = value ? CHIP_ON : CHIP_OFF;
+        base.onToggle = () => this.setEntry(c.key, !value);
+      }
+      else if (MULTI_TYPES[c.type]) {
+        base.isMulti = true;
+        const chosen = value || [];
+        base.chips = (c.options || []).map(o => ({
+          label:o, style: chosen.indexOf(o) >= 0 ? CHIP_ON : CHIP_OFF,
+          onToggle: () => this.toggleMulti(c.key, o),
+        }));
+      }
+      else if (c.type === 'relation') {
+        // Ids, comma separated. A real picker needs a searchable list per target
+        // entity; that is deliberately not in this build (see docs/TABDESK.md).
+        base.isText = true;
+        base.value = Array.isArray(value) ? value.join(', ') : (value || '');
+        base.onInput = (e) => this.setEntry(c.key,
+          String(e.target.value).split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n)));
+      }
+      else base.isText = true;
+      return base;
+    });
+
+    // ── column editor rows ───────────────────────────────────────────────
+    const refOptions = ((st.meta && st.meta.entities) || [])
+      .map(e => ({ v:'entity:' + e.key, label:'HQ · ' + e.label }))
+      .concat(st.tables.filter(t => t.id !== table.id)
+        .map(t => ({ v:'tabdesk:' + t.id, label:'TabDesk · ' + t.name })));
+
+    const colRows = cols.map(c => {
+      const d = st.colDrafts[c.id] || {};
+      const spec = typeByName[d.type || c.type] || {};
+      return {
+        label: d.label === undefined ? c.label : d.label,
+        type: d.type || c.type,
+        optionsText: d.optionsText === undefined ? (c.options || []).join(', ') : d.optionsText,
+        refValue: d.refValue || '',
+        needsOptions: !!spec.needs_options, needsRef: !!spec.needs_ref,
+        reqStyle: (d.required === undefined ? c.required : d.required)
+          ? 'border:1.5px solid #191924;cursor:pointer;background:#191924;color:#fff;border-radius:8px;font-size:11px;font-weight:700;padding:8px 10px'
+          : 'border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#A7A399;border-radius:8px;font-size:11px;font-weight:600;padding:8px 10px',
+        onLabel: (e) => this.setColDraft(c.id, { label: e.target.value }),
+        onType: (e) => this.setColDraft(c.id, { type: e.target.value }),
+        onOptions: (e) => this.setColDraft(c.id, { optionsText: e.target.value }),
+        onRef: (e) => this.setColDraft(c.id, { refValue: e.target.value }),
+        onRequired: () => this.setColDraft(c.id, { required: !(d.required === undefined ? c.required : d.required) }),
+        onSave: () => this.saveColumn(c),
+        onDelete: () => this.deleteColumn(c),
+      };
+    });
+
+    const newSpec = typeByName[st.newColType] || {};
+    const accessOptions = ((st.meta && st.meta.access_levels) || [])
+      .map(a => ({ v:a.value, label:a.label }));
+
+    // ── members ──────────────────────────────────────────────────────────
+    const memberIds = {};
+    (st.members || []).forEach(m => { memberIds[m.user_id] = 1; });
+    const memberRows = (st.members || []).map(m => ({
+      name: m.name, email: m.email, access: m.access,
+      onAccess: (e) => this.setMemberAccess(m.user_id, e.target.value),
+      onRemove: () => this.removeMember(m.user_id),
+    }));
+    const candidateOptions = (st.candidates || [])
+      .filter(c => !memberIds[c.id])
+      .map(c => ({ v:String(c.id), label: c.name + ' · ' + c.email }));
+
+    const activeFilterCount = st.filters.filter(f => f.col && (f.op === 'empty' || (f.val !== '' && f.val !== undefined))).length;
+    const menu = st.menu;
+    const menuMine = menu && menu.row.created_by_id === myId;
+
+    return {
+      accentColor: accent,
+      groupName: table.group_name || 'Tables',
+      title: table.name,
+      sub: table.description
+        || (cols.length + (cols.length === 1 ? ' column' : ' columns') + ' · '
+            + (table.visibility === 'private' ? 'Visible only to people you add' : 'Visible to everyone in TabDesk')
+            + ' · you have: ' + (({ viewer:'view only', contributor:'add entries', editor:'edit everything', manager:'full control' })[table.my_access] || table.my_access)),
+
+      hasTable: true, isEmptyWorkspace: false,
+      canAddEntry: this.can('rows:create'),
+      canManageSchema: this.can('schema:manage'),
+      canManageTable: this.can('table:manage'),
+      canDeleteTable: this.can('table:manage'),
+      canCreateTable: !!(st.meta && st.meta.can_create),
+
+      // toolbar
+      searchValue: st.search, onSearch: (e) => this.onSearch(e.target.value),
+      filterLabel: activeFilterCount ? ('Filter · ' + activeFilterCount) : 'Filter',
+      filterBtnStyle: (st.filtersOpen || activeFilterCount) ? TOOL_ON : TOOL_OFF,
+      sortLabel: st.sortCol ? ('Sort · ' + ((this.columnByKey(st.sortCol) || {}).label || '')) : 'Sort',
+      sortBtnStyle: (st.sortOpen || st.sortCol) ? TOOL_ON : TOOL_OFF,
+      groupLabel: st.groupCol ? ('Group · ' + ((this.columnByKey(st.groupCol) || {}).label || '')) : 'Group',
+      groupBtnStyle: (st.groupOpen || st.groupCol) ? TOOL_ON : TOOL_OFF,
+      onToggleFilters: () => this.setState({ filtersOpen: !st.filtersOpen }, () => {
+        if (this.state.filtersOpen && !this.state.filters.length) this.addFilter();
+      }),
+      onToggleSort: () => this.setState({ sortOpen: !st.sortOpen }),
+      onToggleGroup: () => this.setState({ groupOpen: !st.groupOpen }),
+      countLabel: st.loading ? 'Loading…'
+        : (st.total + (st.total === 1 ? ' entry' : ' entries')),
+
+      filtersOpen: st.filtersOpen, filterRows, hasFilters: st.filters.length > 0,
+      onAddFilter: () => this.addFilter(),
+      onClearFilters: () => this.setState({ filters:[], activeView:'' }, () => this.fetchRows()),
+
+      sortOpen: st.sortOpen, sortCol: st.sortCol, sortDir: st.sortDir,
+      sortOptions: colOptions,
+      onSortCol: (e) => this.setState({ sortCol:e.target.value, activeView:'' }, () => this.fetchRows()),
+      onSortDir: (e) => this.setState({ sortDir:e.target.value, activeView:'' }, () => this.fetchRows()),
+
+      groupOpen: st.groupOpen, groupCol: st.groupCol,
+      groupOptions: cols.filter(c => !MULTI_TYPES[c.type] && c.type !== 'relation')
+        .map(c => ({ v:c.key, label:c.label })),
+      onGroupCol: (e) => this.setState({ groupCol:e.target.value }, () => this.fetchRows()),
+
+      views, hasActiveQuery: activeFilterCount > 0 || !!st.sortCol || !!st.groupCol,
+      onSaveView: () => this.saveView(),
+
+      // grid
+      gridCols: widths + ' 46px',
+      headers, gridItems,
+      noRows: !st.loading && st.rows.length === 0,
+      noRowsTitle: activeFilterCount || st.search ? 'Nothing matches' : 'No entries yet',
+      noRowsHint: activeFilterCount || st.search
+        ? 'Clear the filter or search to see everything.'
+        : (this.can('rows:create') ? 'Use Add entry to create the first one.' : 'You have view-only access to this table.'),
+      gridHint: this.can('rows:update:any') || this.can('rows:update:own')
+        ? 'Click the first column to open an entry. Double-click any other cell to edit it in place — Enter saves, Escape cancels.'
+        : 'You can view this table but not change it.',
+
+      // entry modal
+      entryOpen: st.entryOpen,
+      entryTitle: st.entryMode === 'create' ? ('New ' + table.name.replace(/s$/, '')) : 'Edit entry',
+      entrySub: st.entryMode === 'create' ? 'Fill what you know. Only starred fields are required.' : 'Change what you need and save.',
+      entryFields, entryErr: st.entryErr, hasEntryErr: !!st.entryErr,
+      entrySubmitLabel: st.busy ? 'Saving…' : (st.entryMode === 'create' ? 'Add entry' : 'Save changes'),
+      onNewEntry: () => this.openCreate(),
+      onEntryClose: () => this.setState({ entryOpen:false }),
+      onEntrySubmit: () => this.submitEntry(),
+
+      // column editor
+      colsOpen: st.colsOpen, colRows,
+      typeOptions: types.map(t => ({ v:t.type, label:t.label })),
+      refOptions,
+      newColLabel: st.newColLabel, newColType: st.newColType,
+      newColOptions: st.newColOptions, newColRef: st.newColRef,
+      newColNeedsOptions: !!newSpec.needs_options, newColNeedsRef: !!newSpec.needs_ref,
+      colsErr: st.colsErr, hasColsErr: !!st.colsErr,
+      colsNote: st.colsNote, hasColsNote: !!st.colsNote,
+      onOpenColumns: () => this.openColumns(),
+      onColsClose: () => this.setState({ colsOpen:false }),
+      onNewColLabel: (e) => this.setState({ newColLabel:e.target.value }),
+      onNewColType: (e) => this.setState({ newColType:e.target.value }),
+      onNewColOptions: (e) => this.setState({ newColOptions:e.target.value }),
+      onNewColRef: (e) => this.setState({ newColRef:e.target.value }),
+      onAddColumn: () => this.addColumn(),
+
+      // settings + sharing
+      setOpen: st.setOpen, setName: st.setName, setGroup: st.setGroup, setDesc: st.setDesc,
+      visWsStyle: st.setVis === 'workspace' ? CHIP_ON : CHIP_OFF,
+      visPrivStyle: st.setVis === 'private' ? CHIP_ON : CHIP_OFF,
+      visHint: st.setVis === 'workspace'
+        ? 'Anyone with TabDesk access can view it. Adding people below lets them add or edit.'
+        : 'It disappears from everyone else’s sidebar. Only you and the people you add can see it.',
+      memberRows, accessOptions, candidateOptions,
+      addMemberId: st.addMemberId, addMemberAccess: st.addMemberAccess,
+      setErr: st.setErr, hasSetErr: !!st.setErr,
+      deleteTableLabel: st.confirmDelete ? 'Tap again to delete for good' : 'Delete this table',
+      onOpenSettings: () => this.openSettings(),
+      onSetClose: () => this.setState({ setOpen:false }),
+      onSetName: (e) => this.setState({ setName:e.target.value }),
+      onSetGroup: (e) => this.setState({ setGroup:e.target.value }),
+      onSetDesc: (e) => this.setState({ setDesc:e.target.value }),
+      onSetWorkspace: () => this.setState({ setVis:'workspace' }),
+      onSetPrivate: () => this.setState({ setVis:'private' }),
+      onSetSave: () => this.saveSettings(),
+      onAddMemberId: (e) => this.setState({ addMemberId:e.target.value }),
+      onAddMemberAccess: (e) => this.setState({ addMemberAccess:e.target.value }),
+      onAddMember: () => {
+        if (!st.addMemberId) return;
+        this.setMemberAccess(parseInt(st.addMemberId, 10), st.addMemberAccess);
+      },
+      onDeleteTable: () => this.deleteTable(),
+
+      // new table
+      newOpen: st.newOpen, newName: st.newName, newGroup: st.newGroup,
+      newErr: st.newErr, hasNewErr: !!st.newErr,
+      newVisWsStyle: st.newVis === 'workspace' ? CHIP_ON : CHIP_OFF,
+      newVisPrivStyle: st.newVis === 'private' ? CHIP_ON : CHIP_OFF,
+      onNewTable: () => this.setState({ newOpen:true, newErr:'' }),
+      onNewClose: () => this.setState({ newOpen:false }),
+      onNewName: (e) => this.setState({ newName:e.target.value }),
+      onNewGroup: (e) => this.setState({ newGroup:e.target.value }),
+      onNewVisWs: () => this.setState({ newVis:'workspace' }),
+      onNewVisPriv: () => this.setState({ newVis:'private' }),
+      onNewSubmit: () => this.createTable(),
+
+      // row menu
+      menuOpen: !!menu,
+      menuLeft: menu ? (menu.x + 'px') : '0px',
+      menuTop: menu ? (menu.y + 'px') : '0px',
+      menuCanDelete: !!menu && (canDelAny || (canDelOwn && menuMine)),
+      menuDeleteLabel: st.confirmRow ? 'Click again to delete' : 'Delete entry',
+      onCloseMenu: () => this.setState({ menu:null, confirmRow:null }),
+      onMenuOpen: () => { if (menu) this.openRow(menu.row); },
+      onMenuDelete: () => { if (menu) this.deleteRow(menu.row); },
+    };
+  }
+}
+</script>
+</body>
+</html>

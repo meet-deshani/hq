@@ -6,7 +6,7 @@
 
 <script src="/static/unpkg.com_react@18.3.1_umd_react.production.min.js"></script>
 <script src="/static/unpkg.com_react-dom@18.3.1_umd_react-dom.production.min.js"></script>
-<script>window.__resources = {"./PortalPage.dc.html": "/static/PortalPage.dc.html"};</script>
+<script>window.__resources = {"./PortalPage.dc.html": "/static/PortalPage.dc.html", "./TabDeskPage.dc.html": "/static/TabDeskPage.dc.html"};</script>
 <script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
 
 <!-- Responsive / mobile layer (self-contained; see frontend/static/hq-responsive.*) -->
@@ -1188,6 +1188,11 @@ small, .caption {
      <dc-import name="PortalPage" org="{{ cOrg }}" product="{{ cProduct }}" workspace="{{ cWorkspace }}" module-name="{{ cModule }}" tab-name="{{ cTab }}" kind="{{ cKind }}" accent="{{ cAccent }}" hide-crumb="{{ hideCrumb }}" hint-size="100%,100%"></dc-import>
     </div>
    </sc-if>
+   <sc-if value="{{ isTabDeskView }}" hint-placeholder-val="{{ false }}">
+    <div class="dc-slot" style="flex:1;min-width:0;display:flex;flex-direction:column;width:100%;height:100%">
+     <dc-import name="TabDeskPage" org="{{ cOrg }}" workspace="{{ cWorkspace }}" module-name="{{ cModule }}" tab-name="{{ cTab }}" accent="{{ cAccent }}" hint-size="100%,100%"></dc-import>
+    </div>
+   </sc-if>
   </div>
 
   <sc-if value="{{ notifOpen }}">
@@ -1516,12 +1521,32 @@ function workspacesFor(orgId, productKey) {
     { name: 'Work', icon: 'work' },
     { name: 'Tickets', icon: 'bell' },
     { name: 'Comms', icon: 'chat' },
+    { name: 'TabDesk', icon: 'grid' },
     { name: 'Accounting', icon: 'billing' },
     { name: 'Config', icon: 'config' },
     { name: 'Users', icon: 'admin' },
     { name: 'Document', icon: 'document' }
   ];
 }
+
+// ── TabDesk's page list, which is NOT hardcoded ────────────────────────────
+// Every other workspace's tabs come from PRODUCT_WS_TABS below, a fixed list
+// matching registry entities. TabDesk tables are created by users at runtime, so
+// its tabs are whatever /api/tabdesk/tables returns. TabDeskPage fetches that
+// list and calls the setter, which re-renders the shell so the sidebar updates.
+let TABDESK_TABS = [];
+window.__hqSetTabDeskTables = function(tables){
+  const next = (tables || []).map(t => ({
+    module: t.group_name || 'Tables', tab: t.name, kind: 'tabdesk', count: t.row_count,
+  }));
+  // Only re-render when the list actually changed — TabDeskPage calls this on
+  // every load, and an unconditional setState would loop the shell forever.
+  const same = next.length === TABDESK_TABS.length
+    && next.every((t, i) => t.tab === TABDESK_TABS[i].tab && t.module === TABDESK_TABS[i].module
+                            && t.count === TABDESK_TABS[i].count);
+  TABDESK_TABS = next;
+  if (!same && window.__hqShellRefresh) window.__hqShellRefresh();
+};
 
 const PRODUCT_WS_TABS = {
   hq: {
@@ -1689,6 +1714,16 @@ function tabsFor(productKey, workspaceName, roleId){
     out.push({ tab:'User guide', kind:'report' });
     return out;
   }
+  // TabDesk is the one workspace whose tabs are data, not code.
+  if(workspaceName==='TabDesk'){
+    TABDESK_TABS.forEach(t=>out.push({ ...t }));
+    // With no tables (or none shared with this user) there must still be ONE tab,
+    // or firstTabOf falls back to a 'dashboard' kind and renders PortalPage —
+    // which would show a CRM dashboard under the TabDesk heading instead of
+    // TabDeskPage's "no tables yet" empty state.
+    if(!out.length) out.push({ module:'Tables', tab:'Tables', kind:'tabdesk' });
+    return out;
+  }
   const cfg = PRODUCT_WS_TABS[productKey];
   if(cfg){
     if(cfg.__all__) cfg.__all__.forEach(t=>out.push({ ...t }));
@@ -1818,11 +1853,21 @@ class Component extends DCLogic {
     document.addEventListener('keydown', this._key);
     this.syncFromUrl();
     window.onpopstate = () => this.syncFromUrl();
-    // Load the real signed-in user for the profile chip.
+    // Load the real signed-in user for the profile chip. Also published on
+    // window for TabDeskPage, which needs the caller's id to tell "my rows" from
+    // everyone else's when deciding whether a cell is editable in place. The
+    // backend enforces that regardless; this only governs the affordance.
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
-      .then(me => { if (me) this.set({ me }); })
+      .then(me => {
+        if (!me) return;
+        try { window.__hqSessionUser = me; } catch(_) {}
+        this.set({ me });
+      })
       .catch(() => {});
+    // Lets TabDeskPage re-render the shell after it loads its table list, so the
+    // sidebar picks up tables created since this page loaded.
+    window.__hqShellRefresh = () => { try { this.set({ tdTick: (this.state.tdTick || 0) + 1 }); } catch(_) {} };
     this._loadNotifs();
     this._loadNav();
   }
@@ -1832,8 +1877,17 @@ class Component extends DCLogic {
       fetch('/api/organisations').then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch('/api/products').then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch('/api/workspaces').then(r=>r.ok?r.json():[]).catch(()=>[]),
-    ]).then(([orgs, products, workspaces])=>{
+      // TabDesk's page list. Fetched HERE, by the shell, and not left to
+      // TabDeskPage: the shell resolves the URL to a tab on mount, and a
+      // /tabdesk/<group>/<table> URL cannot be resolved before the table list
+      // exists. Loading it in the page component instead meant a direct link or
+      // a refresh always fell through to the "no tables" placeholder.
+      fetch('/api/tabdesk/tables').then(r=>r.ok?r.json():{tables:[]}).catch(()=>({tables:[]})),
+    ]).then(([orgs, products, workspaces, td])=>{
       this.set({ dbOrgs:orgs||[], dbProducts:products||[], dbWorkspaces:workspaces||[] });
+      if(window.__hqSetTabDeskTables) window.__hqSetTabDeskTables((td && td.tables) || []);
+      // Re-resolve the URL now that TabDesk's tabs exist.
+      this.syncFromUrl();
     }).catch(()=>{});
   }
   _loadNotifs(){
@@ -2446,7 +2500,10 @@ class Component extends DCLogic {
       // Customers module to a separate <dc-import name="Customers">, but that
       // component is not in window.__resources, so the runtime resolved the name
       // back to this page — a circular import that rendered the shell twice.
-      isPortalView: true,
+      // TabDeskPage is the one exception, and it is registered in
+      // window.__resources at the top of this file for exactly that reason.
+      isPortalView: at.kind !== 'tabdesk',
+      isTabDeskView: at.kind === 'tabdesk',
       onCollapse: ()=>this.toggleCollapse(),
       onProfile: ()=>this.toggleProfile(),
       onLogout: ()=>this.logout(),

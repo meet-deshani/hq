@@ -21,6 +21,27 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
 
+    # Production runs on Postgres; local dev and the offline suites run on
+    # SQLite. TabDesk's SQL views and array filters are written PER DIALECT, so
+    # the Postgres-only code paths — the guarded ::numeric / ::date casts and the
+    # jsonb @> containment — get no coverage at all from a SQLite run. This
+    # service exists so those paths are tested against the engine that actually
+    # serves them before anything reaches production.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hq_ci
+          POSTGRES_PASSWORD: hq_ci_password
+          POSTGRES_DB: hq_ci_tabdesk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -46,10 +67,20 @@ jobs:
                        tests/zoho_client_test.py \
                        tests/zoho_sync_test.py \
                        tests/whatsapp_send_test.py \
-                       tests/comms_ingest_test.py; do
+                       tests/comms_ingest_test.py \
+                       tests/tabdesk_test.py; do
             echo "── $suite"
             python "$suite"
           done
+
+      # TabDesk on the engine production actually uses. Not optional: a bug in
+      # the guarded casts is invisible on SQLite and total on Postgres — one bad
+      # cell would break a whole view for every reader.
+      - name: TabDesk on Postgres
+        env:
+          TABDESK_PG_DSN: postgresql://hq_ci:hq_ci_password@127.0.0.1:5432/hq_ci_tabdesk
+          SECRET_KEY: ci-only-not-a-production-secret
+        run: python tests/tabdesk_postgres_test.py
 
       # The contract test needs a live server, so CI starts one. No WhatsApp and
       # no Zoho credentials are set here, which is deliberate: an unconfigured
