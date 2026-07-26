@@ -1034,6 +1034,10 @@ def comms_inbound(payload: dict, request: Request, db: Session = Depends(get_db)
 
     try:
         message, conversation, created = comms.ingest(db, org.id, payload or {})
+    except comms.Ignored as exc:
+        # Not an error: the carrier did its job and HQ chose not to keep this.
+        # A 200 stops the bot retrying something it will never deliver.
+        return {"created": False, "ignored": True, "reason": str(exc)}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -1527,7 +1531,9 @@ API_CATALOG = [
                    "with a shared secret, not a JWT, because the sender is a service. FAILS "
                    "CLOSED: with no COMMS_WEBHOOK_TOKEN set it refuses everything. Idempotent on "
                    "external_id, so a retried delivery is one row. An address that matches no "
-                   "customer still gets a thread rather than being dropped.",
+                   "customer still gets a thread rather than being dropped — unless "
+                   "COMMS_KNOWN_SENDERS_ONLY is on, which drops strangers and answers "
+                   "{\"ignored\": true}. That is set where the carrier is also a personal number.",
         "usage": "curl -X POST __BASE__/api/comms/inbound \\\n  -H \"X-HQ-Webhook-Token: $HOOK\" \\\n"
                  "  -H 'Content-Type: application/json' \\\n"
                  "  -d '{\"channel_type\":\"whatsapp\",\"from\":\"919825115308\",\n"
@@ -1544,12 +1550,16 @@ API_CATALOG = [
     },
     {
         "method": "POST", "path": "/api/conversations/{conversation_id}/messages", "auth": "Bearer / Cookie",
-        "summary": "Record an outbound message on a thread. RECORDS what was sent; it does not "
-                   "itself send — claiming a delivery HQ cannot guarantee would make the thread "
-                   "lie about what the client received.",
+        "summary": "Send an outbound message on a thread and record what actually happened. On a "
+                   "WhatsApp channel it really sends, via the bot at wa.dotsai.cloud; on any "
+                   "other channel it only records. delivery_status is the truth of that one "
+                   "attempt — sent, failed, or recorded — and a failed send is still a 200 with "
+                   "delivered:false and the reason, because the text belongs in the thread "
+                   "either way. Never read a stored message as proof of delivery.",
         "usage": "curl -X POST __BASE__/api/conversations/1/messages \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
                  "  -H 'Content-Type: application/json' \\\n  -d '{\"body\":\"Thanks, reviewing now.\"}'",
-        "response": "{ \"id\": 2, \"conversation_id\": 1, \"sent_at\": \"...Z\" }",
+        "response": "{\n  \"id\": 2, \"conversation_id\": 1, \"sent_at\": \"...Z\",\n"
+                    "  \"delivery_status\": \"sent\", \"delivered\": true, \"detail\": null\n}",
     },
     {
         "method": "POST", "path": "/api/conversations/{conversation_id}/read", "auth": "Bearer / Cookie",

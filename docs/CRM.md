@@ -515,23 +515,31 @@ Tickets, Communication and Accounting now have tables, registry entries and the
 full set of REST routes. That is not the same as being finished, and the gap
 matters most in Communication. Be exact with yourself and with any agent:
 
-**Communication has no ingestion.** Nothing writes a message into HQ.
+**Communication now sends and receives, and the limits are specific.**
+`POST /api/comms/inbound` lands a message; `POST /api/conversations/{id}/messages`
+sends one through the WhatsApp bot at `wa.dotsai.cloud`. What to be exact about:
 
-* There is **no webhook**, no polling job, no provider client. `GET /api/catalog`
-  lists 220 endpoints and not one of them accepts an inbound message.
-* `conversation_messages` — the only store of what a client actually said —
-  has **no registry entry and therefore no route at all**. You cannot read a
-  message through the API, let alone write one.
-* `channels` and `conversations` are list-and-form CRUD like any other entity.
-  You can record that a WhatsApp number exists and that a thread exists. The
-  messages in that thread are not there.
-* **The three-pane inbox UI is not built.** The Comms workspace renders
-  Conversations and Channels as ordinary tables
-  (`{ module: 'Inbox', tab: 'Conversations', kind: 'table' }` in
-  `frontend/home.html`), the same archetype as Customers.
-
-Do not describe live WhatsApp or email capture as working. It is a schema and a
-list.
+* **Only WhatsApp actually sends.** Email and SMS channels record an outbound
+  message and deliver nothing. The stored `delivery_status` says which happened —
+  `sent`, `failed`, or `recorded` — and `GET .../thread` returns
+  `sending_enabled` so the composer offers *Send* only where it is true. Never
+  read a row's existence as proof the client received it.
+* **Inbound needs the bot configured to forward.** HQ's endpoint is ready and
+  fails closed without `COMMS_WEBHOOK_TOKEN`; the forwarding itself lives in
+  `services/whatsapp-bot/src/hq-ingest.js` in the *meet-workstyle* repo and is a
+  no-op unless `HQ_INGEST_URL` and `HQ_INGEST_TOKEN` are set on that container.
+  The generic `WHATSAPP_WEBHOOK_URL` is not it — that one points at wa-brain and
+  carries no credential.
+* **Production keeps only known senders.** `COMMS_KNOWN_SENDERS_ONLY=true`
+  because the carrier is a number that is also a personal phone and this inbox is
+  read by the whole team. A stranger's message is dropped, not threaded, and the
+  endpoint answers `{"ignored": true}`. Off by default — see `comms.known_senders_only`.
+* **Numbers are stored as ten digits** (`comms._digits`), which is what makes one
+  person match across three systems and is *not* dialable. `whatsapp.dial_address`
+  rebuilds the full number from the linked contact and declines to send rather
+  than guess a country code.
+* **Media is a placeholder.** An image or document arrives as `[image received]`;
+  the bytes stay on the bot behind its own auth and HQ does not fetch them.
 
 **Zoho Books is a client, not a running sync.** `backend/zoho.py` is complete
 and tested (`tests/zoho_client_test.py`), but nothing in the application imports

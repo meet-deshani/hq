@@ -12,7 +12,7 @@ export SEED_HEMISH_PASSWORD="${SEED_HEMISH_PASSWORD:-hemish-local-test-pw}"
 fail=0
 echo "── offline suites ──"
 for t in tests/permissions_seed_test.py tests/zoho_client_test.py tests/zoho_sync_test.py \
-         tests/whatsapp_send_test.py; do
+         tests/whatsapp_send_test.py tests/comms_ingest_test.py; do
   printf "  %-34s " "$(basename "$t")"
   if venv/bin/python "$t" >/dev/null 2>&1; then echo "OK"; else echo "FAILED"; fail=1; fi
 done

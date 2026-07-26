@@ -34,6 +34,27 @@ def webhook_enabled():
     return bool(webhook_token())
 
 
+class Ignored(Exception):
+    """This message is not one HQ should keep. A policy, not a failure."""
+
+
+def known_senders_only():
+    """Whether a message from a stranger should be dropped instead of threaded.
+
+    Off by default, because normally a dropped message is the worst outcome: an
+    unattached thread is visible and fixable, silence is neither.
+
+    It exists because HQ's carrier is a WhatsApp bot running on a number that is
+    also somebody's personal phone, and this inbox is read by the whole team.
+    With it on, only senders already on record land here, and the family and the
+    delivery notifications stay out. Set COMMS_KNOWN_SENDERS_ONLY=true on any
+    deployment whose carrier is not a dedicated business line.
+    """
+    return (os.getenv("COMMS_KNOWN_SENDERS_ONLY") or "").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
 def _digits(value):
     """Compare phone numbers by their last 10 digits.
 
@@ -154,6 +175,16 @@ def ingest(db, organisation_id, payload):
 
     if conversation is None:
         party_id, contact_id = resolve_party(db, organisation_id, identifier, channel.channel_type)
+        if party_id is None and known_senders_only():
+            # Only ever reached for a sender with no thread here already. Once a
+            # conversation exists its continuation is kept regardless, because a
+            # half-recorded thread is worse than either whole answer.
+            logger.info("Dropped a message on %s from unknown sender %s "
+                        "(COMMS_KNOWN_SENDERS_ONLY is on)", channel.name, identifier)
+            raise Ignored(
+                "Sender %s is not a known contact, and this deployment only "
+                "accepts messages from numbers already on record." % identifier
+            )
         conversation = Conversation(
             organisation_id=organisation_id,
             channel_id=channel.id,
