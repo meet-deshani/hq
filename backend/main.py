@@ -13,7 +13,7 @@ from backend.models import User, Role, Permission, Organisation, Product, Worksp
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, crud, dashboards, permissions, registry, seed_crm
+from backend import audit, crud, dashboards, permissions, registry, seed_crm, zoho, zoho_sync
 from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
@@ -1005,6 +1005,75 @@ def ai_chat(req: AiChatRequest, current_user: User = Depends(get_current_user)):
         logger.error(f"Anthropic call failed: {e}")
         return AiChatResponse(reply="The AI service returned an error. Please try again.", model=model, configured=True)
 
+# ── ZOHO BOOKS ──
+# One-directional: HQ reads Zoho and mirrors it. There is deliberately no route
+# here that writes anything back — Zoho Books is where an invoice is raised.
+
+@app.get("/api/zoho/status")
+def zoho_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Whether the integration is connected, and when it last pulled."""
+    permissions.require(current_user, "invoices", "read")
+    return zoho.status(last_sync=zoho_sync.last_sync(db, current_user.organisation_id))
+
+
+@app.get("/api/zoho/preview")
+def zoho_preview(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """What a sync would change, without changing anything.
+
+    The first question about a freshly connected integration is "what is it
+    about to do to my data?", so it gets a real answer rather than a leap.
+    """
+    permissions.require(current_user, "invoices", "read")
+    try:
+        return zoho_sync.preview(db, current_user.organisation_id)
+    except zoho.ZohoError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.post("/api/zoho/sync")
+def zoho_pull(
+    request: Request,
+    apply_links: bool = False,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pull contacts and invoices into the read-only mirror.
+
+    `apply_links=true` additionally links customers Zoho and HQ agree on by
+    EMAIL. Name-only matches are never applied automatically, however identical
+    they look — they come back as proposals for a human.
+    """
+    # Writing the mirror is a configuration-level act, not day-to-day data entry.
+    permissions.require(current_user, "invoices", "read")
+    permissions.require(current_user, "customers", "update")
+    try:
+        report = zoho_sync.sync(db, current_user.organisation_id,
+                                actor=current_user, apply_links=apply_links)
+    except zoho.ZohoError as exc:
+        # Not configured, or Zoho refused. Either way it is an upstream
+        # condition the operator can fix, not a bug in HQ.
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    audit.record(
+        db, action="sync", entity_type="zoho_invoices",
+        entity_label="Zoho Books pull",
+        actor=current_user, request=request,
+        changes={"summary": {"from": None, "to": {
+            "contacts": report["contacts_seen"], "invoices": report["invoices_written"],
+            "receivables_updated": report["receivables_updated"],
+            "links_applied": len(report["links_applied"]),
+        }}},
+        organisation_id=current_user.organisation_id, commit=True,
+    )
+    return report
+
+
 # ── API CATALOG ──
 # A self-documenting reference of every endpoint on the platform. Public by
 # design so AI agents and CLIs can discover the full surface before authing.
@@ -1282,6 +1351,31 @@ API_CATALOG = [
         "summary": "The hq-cli command reference.",
         "usage": "curl __BASE__/api/cli",
         "response": "{ \"base_command\": \"hq-cli\", \"count\": 16, \"commands\": [ ... ] }",
+    },
+    {
+        "method": "GET", "path": "/api/zoho/status", "auth": "Bearer / Cookie",
+        "summary": "Whether Zoho Books is connected and when it last pulled. Never raises — an "
+                   "unconfigured integration is a state, not an error.",
+        "usage": "curl __BASE__/api/zoho/status \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"configured\": false, \"state\": \"not configured\", \"organisation_id\": \"60078183686\" }",
+    },
+    {
+        "method": "GET", "path": "/api/zoho/preview", "auth": "Bearer / Cookie",
+        "summary": "What a sync would change, without changing anything. Includes proposed "
+                   "customer links with a confidence and a reason.",
+        "usage": "curl __BASE__/api/zoho/preview \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"zoho_contacts\": 10, \"already_linked\": 6, \"proposals\": [ ... ] }",
+    },
+    {
+        "method": "POST", "path": "/api/zoho/sync", "auth": "Bearer / Cookie",
+        "summary": "Pull contacts and invoices into the read-only mirror. ?apply_links=true also "
+                   "links customers that match by EMAIL; name-only matches are never applied "
+                   "automatically. A figure edited by hand since the last sync is reported, "
+                   "not overwritten. Writes nothing back to Zoho Books.",
+        "usage": "curl -X POST \"__BASE__/api/zoho/sync?apply_links=true\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"contacts_seen\": 10, \"invoices_written\": 11,\n"
+                    "  \"receivables_updated\": 4, \"links_applied\": [ ... ],\n"
+                    "  \"receivables_skipped_edited\": [ ... ], \"proposals\": [ ... ]\n}",
     },
     {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
