@@ -13,7 +13,8 @@ from backend.models import User, Role, Permission, Organisation, Product, Worksp
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, crud, dashboards, permissions, seed_crm
+from backend import audit, crud, dashboards, permissions, registry, seed_crm
+from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
@@ -165,9 +166,39 @@ def seed_database():
             seed_crm.seed(db, org, admin_user, get_password_hash)
 
     except Exception as e:
-        logger.error(f"Error seeding database: {e}")
+        # exc_info, because a bare message hid a UNIQUE violation in permission
+        # seeding that left the org with no roles at all — every user then held
+        # no permissions and the whole platform answered 403.
+        logger.error("Error seeding database: %s", e, exc_info=True)
+        db.rollback()
     finally:
+        _assert_authorisation_usable(db)
         db.close()
+
+
+def _assert_authorisation_usable(db):
+    """Shout if seeding left authorisation in an unusable state.
+
+    Seeding is caught rather than fatal — a half-seeded database should not
+    stop the app booting at 2am. But a silent partial seed is how the roles
+    went missing in the first place, so the outcome is always checked and the
+    failure is impossible to miss in the logs.
+    """
+    try:
+        expected = set(permissions.ROLES)
+        found = {r.name for r in db.query(Role).all()}
+        missing = sorted(expected - found)
+        if missing:
+            logger.error(
+                "AUTHORISATION INCOMPLETE — roles missing: %s. Users holding them have NO "
+                "permissions and every request will be refused. Fix the seeding error above "
+                "and restart.", ", ".join(missing),
+            )
+        else:
+            logger.info("Authorisation ready: %d roles, %d permissions.",
+                        len(found), db.query(Permission).count())
+    except Exception as exc:  # pragma: no cover - diagnostics must never break boot
+        logger.error("Could not verify authorisation state: %s", exc)
 
 # ── API ROUTES ──
 
@@ -658,6 +689,9 @@ def grant_permission_to_role(
     return {"detail": f"Permissions updated successfully for role {role.name}"}
 
 # Dashboard
+# Dashboards are readable by any authenticated user by design: they aggregate
+# only what the caller could already list, and Meet's requirement is that
+# everyone sees the whole picture.
 @app.get("/api/dashboard/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(
     workspace: str = "hq",
@@ -679,24 +713,70 @@ def search(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Global search across every entity the caller may read.
+
+    Driven by each entity's declared `search` columns, so a new entity becomes
+    searchable with no change here. It previously covered only platform config —
+    users, orgs, products, workspaces, roles — which meant searching for a
+    customer by name found nothing at all.
+    """
     q = (q or "").strip()
     if not q:
         return {"results": []}
-    like = f"%{q}%"
+    like = "%%%s%%" % q
     results = []
-    for u in db.query(User).filter(User.name.ilike(like) | User.email.ilike(like)).limit(6).all():
-        results.append({"type": "User", "label": u.name, "sub": u.email, "product": "hq", "module": "Config", "tab": "Users"})
-    for o in db.query(Organisation).filter(Organisation.name.ilike(like) | Organisation.slug.ilike(like)).limit(4).all():
-        results.append({"type": "Organisation", "label": o.name, "sub": o.industry or o.slug, "product": "hq", "module": "Config", "tab": "Organisations"})
-    for p in db.query(Product).filter(Product.name.ilike(like) | Product.code.ilike(like)).limit(4).all():
-        results.append({"type": "Product", "label": p.name, "sub": p.code, "product": "hq", "module": "Config", "tab": "Products"})
-    for w in db.query(Workspace).filter(Workspace.name.ilike(like)).limit(4).all():
-        results.append({"type": "Workspace", "label": w.name, "sub": w.slug or "", "product": "hq", "module": "Config", "tab": "Workspaces"})
-    for r in db.query(Role).filter(Role.name.ilike(like)).limit(4).all():
-        results.append({"type": "Role", "label": r.name, "sub": r.description or "", "product": "hq", "module": "Config", "tab": "Roles"})
-    return {"results": results[:12]}
 
-# Dashboard trend — cumulative record growth over the last 6 months (from created_at).
+    for ent in registry.ENTITIES:
+        if not permissions.has(current_user, ent["key"], "read"):
+            continue
+        model = ent["model"]
+        clauses = [getattr(model, f).ilike(like) for f in ent.get("search", [])
+                   if hasattr(model, f)]
+        if not clauses:
+            continue
+
+        query = db.query(model).filter(or_(*clauses))
+        for col, val in (ent.get("scope") or {}).items():
+            query = query.filter(getattr(model, col) == val)
+
+        title_field = ent.get("title_field") or "name"
+        # The most useful second line is the first ref or text column that is
+        # not the title itself.
+        sub_field = next((c["k"] for c in ent.get("columns", [])
+                          if c["k"] != title_field and c.get("type") in ("text", "mono", "badge")), None)
+
+        for row in query.limit(5).all():
+            results.append({
+                "type": ent["label"],
+                "label": getattr(row, title_field, None) or ("#%s" % row.id),
+                "sub": (str(getattr(row, sub_field, "") or "") if sub_field else ""),
+                "product": "hq",
+                "workspace": ent["workspace"],
+                "module": ent["module"],
+                "tab": ent["plural"],
+                "entity": ent["key"],
+                "id": row.id,
+            })
+
+    # Platform config records keep their place in the results.
+    for u in db.query(User).filter(User.name.ilike(like) | User.email.ilike(like)).limit(4).all():
+        results.append({"type": "User", "label": u.name, "sub": u.email, "product": "hq",
+                        "workspace": "Config", "module": "Platform", "tab": "Users"})
+    for o in db.query(Organisation).filter(Organisation.name.ilike(like) | Organisation.slug.ilike(like)).limit(3).all():
+        results.append({"type": "Organisation", "label": o.name, "sub": o.industry or o.slug,
+                        "product": "hq", "workspace": "Config", "module": "Platform", "tab": "Organisations"})
+    for r in db.query(Role).filter(Role.name.ilike(like)).limit(3).all():
+        results.append({"type": "Role", "label": r.name, "sub": r.description or "", "product": "hq",
+                        "workspace": "Config", "module": "Platform", "tab": "Roles"})
+
+    # Whole-word matches first — searching "Pioneer" should surface Pioneer
+    # Engineering above a project that merely mentions it.
+    needle = q.lower()
+    results.sort(key=lambda r: (not str(r["label"]).lower().startswith(needle),
+                                str(r["label"]).lower()))
+    return {"results": results[:20]}
+
+
 @app.get("/api/dashboard/trend")
 def dashboard_trend(
     workspace: str = "hq",
@@ -714,6 +794,7 @@ def create_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    permissions.require(current_user, "feedback", "create")
     entry = Feedback(
         user_id=current_user.id,
         category=fb.category or "general",
@@ -786,6 +867,9 @@ def _notify(db: Session, user_ids, title, category="update", path=None, product=
         db.add(Notification(user_id=uid, title=title, category=category,
                             path=path, product=product, module=module, tab=tab))
 
+# Notifications are inherently self-scoped — every query below filters by
+# current_user.id, so a caller can only ever reach their own. A permission check
+# would add a second, weaker expression of the same rule.
 @app.get("/api/notifications", response_model=List[NotificationResponse])
 def list_notifications(
     unread: Optional[bool] = None,

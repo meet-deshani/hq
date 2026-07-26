@@ -27,7 +27,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend import audit, permissions, registry
+from backend import audit, crm_hooks, permissions, registry
 from backend.auth import get_current_user
 from backend.crm_models import Activity, Attachment, AuditLog, Comment, Lead, Party
 from backend.database import get_db
@@ -259,23 +259,55 @@ def _get_row(db, ent, row_id):
     return obj
 
 
-def _commit(db, ent, what="save"):
-    """Commit, turning a constraint violation into a 409 instead of a 500.
+def _as_conflict(db, ent, exc):
+    """Turn a constraint violation into a 409 instead of a 500.
 
     Most violations here are a duplicate natural key — a second customer with
     the same name, a second lead source called the same thing. That is a
     conflict the caller can act on, not a server fault.
     """
+    db.rollback()
+    detail = "That %s conflicts with an existing record." % ent["label"].lower()
+    raw = str(getattr(exc, "orig", exc))
+    if "UNIQUE" in raw.upper():
+        detail = ("A %s with those details already exists. "
+                  "Names must be unique within the organisation." % ent["label"].lower())
+    return HTTPException(status_code=409, detail=detail)
+
+
+def _flush(db, ent):
+    """Flush so write hooks see a row with an id — same 409 handling as commit.
+
+    This needs the conversion too: the flush happens BEFORE the commit, so
+    without it a duplicate key surfaced here as a raw 500.
+    """
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        raise _as_conflict(db, ent, exc)
+
+
+def _commit(db, ent, what="save"):
     try:
         db.commit()
     except IntegrityError as exc:
-        db.rollback()
-        detail = "That %s conflicts with an existing record." % ent["label"].lower()
-        raw = str(getattr(exc, "orig", exc))
-        if "UNIQUE" in raw.upper():
-            detail = ("A %s with those details already exists. "
-                      "Names must be unique within the organisation." % ent["label"].lower())
-        raise HTTPException(status_code=409, detail=detail)
+        raise _as_conflict(db, ent, exc)
+
+
+def _run_hook(db, obj, ent, action, user):
+    """Give an entity a chance to derive fields the caller should not type.
+
+    Failures are logged, never raised: a derived convenience must not be able to
+    reject a write the caller was entitled to make.
+    """
+    hook = crm_hooks.HOOKS.get(ent["key"])
+    if hook is None:
+        return
+    try:
+        hook(db, obj, ent, action, user)
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger("crud").error("Write hook for %s failed: %s", ent["key"], exc)
 
 
 def _refuse_if_read_only(ent, action):
@@ -561,6 +593,8 @@ def create_row(
         obj.source = _source_of(request)
 
     db.add(obj)
+    _flush(db, ent)
+    _run_hook(db, obj, ent, "create", current_user)
     _commit(db, ent)
     db.refresh(obj)
 
@@ -595,6 +629,7 @@ def update_row(
     if _column(ent, "updated_by_id") is not None:
         obj.updated_by_id = current_user.id
 
+    _run_hook(db, obj, ent, "update", current_user)
     changes = audit.diff(before, audit.snapshot(obj))
     _commit(db, ent)
     db.refresh(obj)

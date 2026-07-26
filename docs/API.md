@@ -19,7 +19,7 @@ the browser SPA.
 ```bash
 curl -s -X POST http://127.0.0.1:8077/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"meet@dotsai.in","password":"meetdeshani123"}'
+  -d '{"email":"meet@dotsai.in","password":"<your-password>"}'
 ```
 
 ```json
@@ -37,7 +37,8 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8077/api/auth/me
 curl -s -b cookies.txt http://127.0.0.1:8077/api/auth/me
 ```
 
-Both return the signed-in user:
+Both return the signed-in user, their role, the concrete permission codes they
+hold and a per-entity `can` map:
 
 ```json
 {
@@ -47,10 +48,17 @@ Both return the signed-in user:
   "organisation_id": 1,
   "id": 1,
   "role_id": 1,
-  "role": {"name": "Admin", "description": "Administrator with full permissions across all workspaces", "organisation_id": 1},
-  "created_at": "2026-07-26T04:32:08.653382"
+  "role": {"name": "Admin", "description": "Full control, including platform configuration and deletion.", "organisation_id": 1},
+  "created_at": "2026-07-26T06:11:53.639130",
+  "permissions": ["audit:create", "audit:delete", "audit:read", "…"],
+  "can": {"customers": {"read": true, "create": true, "update": true, "delete": true, "remark": true}, "…": {}}
 }
 ```
+
+`permissions` is the flat sorted list of codes; `can` is the same information
+keyed for lookup, one entry per registry entity plus one per platform surface —
+33 keys on this build. A client should branch on `can`, not on the role name:
+role names are configuration, the map is the answer. See "Authorisation".
 
 Tokens last a week (`ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7`), deliberately,
 so a CLI session does not need re-authenticating mid-task. `POST /api/auth/logout`
@@ -65,6 +73,110 @@ Missing or invalid credentials:
 Logins and failed logins are both audited (`entity_type=users`, actions `login`
 and `login_failed`).
 
+## Authorisation
+
+Authentication tells the server who you are. Authorisation decides what that
+gets you, and it is enforced — on every generated registry route and on 25
+hand-written platform routes. `backend/permissions.py` is the whole of it.
+
+A permission is the string `<entity>:<action>`. Actions are `read`, `create`,
+`update`, `delete`, `remark`. Entities are **every registry key** plus eight
+platform surfaces: `users`, `roles`, `permissions`, `organisations`, `products`,
+`workspaces`, `feedback`, `audit`. 33 keys × 5 actions = **165 codes**.
+
+The codes are derived from the registry rather than listed by hand, so a new
+entity is protected the moment it is added instead of being accidentally
+unguarded. Grants are wildcard patterns (`*:read`, `customers:*`, `*:*`); there
+are no deny rules, and absence is denial.
+
+### The matrix
+
+Observed by calling the API as each role, not read off the source. "Business"
+is every registry entity except the six Config ones (`party-groups`,
+`lead-sources`, `pipelines`, `pipeline-stages`, `lost-reasons`,
+`item-categories`) — 19 keys. "Config" is those six. "Platform" is the eight
+above.
+
+| Role | read | remark | create / update | delete | codes |
+|---|---|---|---|---|---|
+| **Admin** | everything | everything | everything | everything | 165 |
+| **Partner** | everything | everything | business + config (25) | business only (19) | 135 |
+| **Operator** | everything | everything | business only (19) | — | 104 |
+| **Advisor** | everything | everything | `tasks` only | — | 68 |
+| **Viewer** | everything | — | — | — | 33 |
+
+The shape of it is that **read is generous and delete is not**. Everyone above
+Viewer reads the whole platform, because Nishant and Hemish are meant to see
+everything. Deletion is the one irreversible action, so only Admin and Partner
+hold it — and Partner's delete stops at business records: dropping a pipeline
+stage or a lead source out from under live leads is not a thing a non-Admin
+should be able to do by accident.
+
+**Only Admin writes to the platform surfaces.** Partner, Operator, Advisor and
+Viewer can read `users`, `roles`, `permissions`, `organisations`, `products`,
+`workspaces`, `feedback` and `audit`, and remark on them, but cannot create,
+change or delete any of them. Partner is "runs the business", not "runs the
+platform".
+
+Three routes are deliberately outside this: `POST /api/feedback` checks nothing
+beyond being signed in — raising your hand should not need a grant, so
+`feedback:create` exists as a code and is never asserted. `/api/dashboard/*`
+and `/api/notifications/*` are likewise authenticated but not
+permission-checked; the dashboards only aggregate rows the caller can already
+list, and a notification belongs to its own user. `/api/search` covers platform
+config records only (users, organisations, products, workspaces, roles) and is
+not permission-checked either — treat it as a nav aid, not a data surface, and
+note it does **not** search the CRM.
+
+`remark` is deliberately separate from `update`: an advisor can add to a
+record's history without being able to alter the record. Viewer is the only
+role without it.
+
+Partner and Operator hold `invoices:create` / `update` / `delete` because
+`invoices` counts as a business entity. It makes no difference — the route
+refuses every write with `405` regardless of role. `can` reports the
+permission; `read_only` reports the refusal. Check both.
+
+### What a denial looks like
+
+Captured as `hemish@neonir.com` (Advisor):
+
+```bash
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:8077/api/customers/2
+```
+
+```json
+{"detail":"Your role (Advisor) cannot delete Customers."}
+```
+
+`403`, with the role and the action named so the message is actionable rather
+than a bare "Forbidden". The same account, same run:
+
+```
+POST   /api/customers        ->  403  {"detail":"Your role (Advisor) cannot create Customers."}
+PATCH  /api/customers/2      ->  403  {"detail":"Your role (Advisor) cannot update Customers."}
+DELETE /api/tasks/1          ->  403  {"detail":"Your role (Advisor) cannot delete Tasks."}
+POST   /api/users            ->  403  {"detail":"Your role (Advisor) cannot create Users."}
+GET    /api/customers        ->  200
+GET    /api/users            ->  200
+GET    /api/audit            ->  200
+POST   /api/tasks            ->  200
+POST   /api/customers/2/remarks -> 200
+```
+
+A `403` is a policy answer, not a transient failure. Do not retry it.
+
+### Where grants live
+
+Roles the platform defines (`Admin`, `Partner`, `Advisor`, `Operator`,
+`Viewer`) take their grants from **code** — `permissions_for()` looks the role
+name up in `permissions.ROLES` and expands the patterns — so a grant change
+ships with a deploy instead of needing a data migration. The `permissions` table
+and `role_permissions` rows are kept in step by `permissions.seed()` at boot, so
+the Permissions screen shows the truth, but they are not what the check reads. A
+hand-made role whose name is not in `ROLES` falls back to its linked rows.
+
 ## Start here: `GET /api/meta/entities`
 
 This publishes the registry. It is the only thing an agent should hardcode —
@@ -73,20 +185,21 @@ entity appears here the moment it is added, and a client that reads it never
 needs updating.
 
 ```bash
-curl -s http://127.0.0.1:8077/api/meta/entities
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8077/api/meta/entities
 ```
 
-It requires a token — it exposes every field of every table and the whole
-workspace layout, so it is not public. `/api/catalog` is the public surface. The
-data behind it is
-not.
+**It requires a token.** Without one it is a `401`, not a trimmed public
+response — it exposes every field of every table and the whole workspace layout.
+`/api/catalog` is the public surface; the data behind it is not. See
+"Discovery".
 
 Trimmed to one entity (`leads`):
 
 ```json
 {
-  "count": 17,
+  "count": 25,
   "refs": {"users": {"path": "/api/users", "title_field": "name"}},
+  "can": {"leads": {"read": true, "create": true, "update": true, "delete": true, "remark": true}, "…": {}},
   "entities": [
     {
       "key": "leads",
@@ -119,6 +232,8 @@ Trimmed to one entity (`leads`):
         {"name": "Lost", "filters": {"status": "lost"}}
       ],
       "scope": {},
+      "read_only": false,
+      "can": {"read": true, "create": true, "update": true, "delete": true, "remark": true},
       "actions": [
         {"key": "convert", "label": "Convert to customer", "method": "POST",
          "path": "/api/leads/{id}/convert",
@@ -130,21 +245,49 @@ Trimmed to one entity (`leads`):
 }
 ```
 
-The 17 keys and their paths, as returned today:
+Two keys were added when authorisation and the Zoho mirror landed:
+
+* **`can`** — appears twice, once at the top level keyed by entity (33 keys:
+  the 25 registry entities plus the eight platform surfaces) and once inside
+  each entity, scoped to the caller's role. The SPA reads the per-entity one to
+  hide buttons it cannot use.
+* **`read_only`** — `true` only on `invoices`. It is not the same thing as
+  having no `can`: an Admin's `can.invoices` says `create: true`, and the route
+  still answers `405`. `read_only` is the route's answer; `can` is the role's.
+  Check `read_only` first.
+
+The 25 keys and their paths, as returned today, grouped by workspace:
 
 ```
-customers /api/customers        contacts /api/contacts        party-groups /api/party-groups
-leads /api/leads                lead-sources /api/lead-sources pipelines /api/pipelines
-pipeline-stages /api/pipeline-stages                          lost-reasons /api/lost-reasons
-services /api/services          catalog-products /api/catalog-products
-item-categories /api/item-categories
-projects /api/projects          milestones /api/milestones     project-members /api/project-members
-tasks /api/tasks                work-streams /api/work-streams work-stream-members /api/work-stream-members
+CRM         customers /api/customers          contacts /api/contacts
+            leads /api/leads                  services /api/services
+            catalog-products /api/catalog-products
+            projects /api/projects            milestones /api/milestones
+            project-members /api/project-members
+
+Config      party-groups /api/party-groups    lead-sources /api/lead-sources
+            pipelines /api/pipelines          pipeline-stages /api/pipeline-stages
+            lost-reasons /api/lost-reasons    item-categories /api/item-categories
+
+Work        tasks /api/tasks                  work-streams /api/work-streams
+            work-stream-members /api/work-stream-members
+
+Tickets     tickets /api/tickets              job-types /api/job-types
+            sla-policies /api/sla-policies
+
+Comms       conversations /api/conversations  channels /api/channels
+
+Accounting  contracts /api/contracts          billing-schedule /api/billing-schedule
+            invoices /api/invoices            (read-only)
 ```
 
-Note `catalog-products`, not `products`: `/api/products` is the platform's own
-product-config route, and `check_route_collisions()` in `backend/crud.py` refuses
-to boot if a registry key would shadow a hand-written one.
+Two keys are not what you would guess, and both are deliberate:
+
+* `catalog-products`, not `products` — `/api/products` is the platform's own
+  product-config route, and `check_route_collisions()` in `backend/crud.py`
+  refuses to boot if a registry key would shadow a hand-written one.
+* `job-types`, on the table `ticket_categories` — the UI term and the module
+  registry's table name disagree, and the registry entry carries both.
 
 `GET /api/meta/entities/{key}` returns a single entry in the same shape.
 
@@ -162,6 +305,11 @@ key.
 | DELETE | `/api/{key}/{id}` | Delete |
 | GET | `/api/{key}/{id}/remarks` | Append-only remark history |
 | POST | `/api/{key}/{id}/remarks` | Append a remark |
+
+Each checks one permission before it runs — `<key>:read`, `<key>:create`,
+`<key>:update`, `<key>:delete`, `<key>:remark` — and answers `403` if the
+caller's role does not hold it. On `invoices` the four write routes answer `405`
+before the permission check matters at all.
 
 ### List
 
@@ -404,6 +552,91 @@ deliberately kept — it is the record that the delete happened — and a record
 detail page scopes its `_audit` to that row's own lifetime, so a reused id never
 shows a previous record's history.
 
+Verified end to end. A customer with one remark, deleted, and its id reused by a
+different record:
+
+```
+POST   /api/customers                 -> id 19, "Recycle Probe A"
+POST   /api/customers/19/remarks      -> 1 remark
+DELETE /api/customers/19              -> 200
+       comments WHERE entity_type='parties' AND entity_id=19  ->  0 rows
+       (a new row is then inserted at id 19, "Recycled Probe B")
+GET    /api/customers/19  ->  "_remarks": [], "_audit": []
+```
+
+The dead record's trail is still readable where it belongs — through the audit
+endpoint, which is not scoped to a live row:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  'http://127.0.0.1:8077/api/audit?entity_type=parties&entity_id=19'
+# -> count 3: delete / remark / create, all labelled "Recycle Probe A"
+```
+
+## `invoices` is read-only
+
+`invoices` mirrors Zoho Books, which is the only place an invoice may be raised
+or changed. Every write is refused, for every role including Admin:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"invoice_number":"X-1"}' http://127.0.0.1:8077/api/invoices
+```
+
+```json
+{"detail":"Invoices is a read-only mirror of Zoho Books. Raise or edit it in Zoho Books; HQ reflects it."}
+```
+
+`405` — same body and status for `POST /api/invoices`, `PATCH
+/api/invoices/{id}` and `DELETE /api/invoices/{id}`. The registry entry carries
+`"read_only": true` and an empty `fields[]`, so there is nothing writable to
+send in the first place.
+
+`GET /api/invoices`, `GET /api/invoices/{id}` and both remark routes work
+normally — a remark is HQ's own commentary on a mirrored document, not an edit
+to it.
+
+Allowing a write here would create a second, divergent set of books. See
+`docs/CRM.md` → "Zoho Books owns the money" for the configuration and the
+OAuth scopes.
+
+## Dashboards
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  'http://127.0.0.1:8077/api/dashboard/stats?workspace=tickets'
+```
+
+```json
+{"stats":[{"l":"Open tickets","v":"0","d":"→ awaiting us"},
+          {"l":"Unassigned","v":"0","d":"↘ nobody owns these"},
+          {"l":"Breaching SLA","v":"0","d":"→ within promise"},
+          {"l":"Urgent","v":"0","d":"→ high or urgent"},
+          {"l":"Resolved this month","v":"0","d":"↗ since the 1st"},
+          {"l":"Job types","v":"8","d":"→ configured"}]}
+```
+
+Six tiles, always: `l` label, `v` value, `d` a one-line note. Accepted
+`workspace` values are `crm`, `work`, `tickets`, `comms` (`communication` is
+accepted as an alias), `accounting` and `hq`. **An unrecognised value is not an
+error** — it falls back to the `hq` platform view and returns `200`. Omitting
+the parameter does the same.
+
+`GET /api/dashboard/trend?workspace=…` returns the six-month cumulative growth
+of that workspace's primary record — `parties` for CRM, `tasks` for Work,
+`tickets`, `conversations`, `contracts`, and everything with a `created_at` for
+`hq`:
+
+```json
+{"points":[{"label":"Feb","value":0},{"label":"Mar","value":0},{"label":"Apr","value":0},
+           {"label":"May","value":0},{"label":"Jun","value":0},{"label":"Jul","value":17}],
+ "label":"Customers"}
+```
+
+Every figure is a live count or sum over a table another workspace writes.
+There is no dashboard table and no cache, so a tile cannot diverge from the list
+it summarises. Source: `backend/dashboards.py`.
+
 ## Query parameters
 
 Five parameters control the request; everything else is treated as a column
@@ -417,8 +650,13 @@ filter.
 | `limit` | 200 | 1–1000. Outside that → `422` |
 | `offset` | 0 | ≥ 0 |
 
-`expand` is accepted and ignored — it is reserved in `_CONTROL_PARAMS` but
-nothing implements it.
+There is no `expand`. It was once reserved and ignored; it is now an unknown
+filter like any other and returns `400`:
+
+```
+GET /api/customers?expand=x
+-> 400 {"detail":"Unknown filter 'expand' for customers. Valid filters: billing_address, city, …"}
+```
 
 ### Column filters
 
@@ -435,10 +673,19 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8077/api/tasks?exter
 Three gotchas, all verified:
 
 * **A parameter that is not a column is a `400`,** listing the valid filters.
-  A typo'd filter name fails loudly rather than quietly returning every row.
-* **Repeating a parameter means OR.**
-  `?stage=Testing&stage=In+progress` returns rows in either stage. (One column
-  cannot equal two values at once, so ANDing them could only ever return zero.)
+  A typo'd filter name fails loudly rather than quietly returning every row —
+  which is the failure that matters, because a client asking "does this record
+  exist?" with a misspelled column would otherwise get the whole table back and
+  conclude yes.
+* **Repeating a parameter means OR.** (One column cannot equal two values at
+  once, so ANDing them could only ever return zero.) Captured:
+
+  ```
+  ?stage=Testing                            -> total 1
+  ?stage=Onboarding%20Completed             -> total 4
+  ?stage=Testing&stage=Onboarding%20Completed -> total 5
+  ```
+
 * **Values are coerced to the column type.** A bad value is a `400`, not a
   silent zero.
 
@@ -473,8 +720,10 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8077/api/tasks?proje
 ```
 
 `overdue` respects its value: `?overdue=true` returns rows past their due date
-and not done or cancelled, `?overdue=false` returns the rest. Omit it to not
-filter.
+and not done or cancelled, `?overdue=false` returns the rest — including rows
+with no due date at all. Omit it to not filter. On an entity with no `due_date`
+column it is a `400`: `{"detail":"'customers' has no due_date to be overdue
+against"}`.
 
 ### Ordering and pagination
 
@@ -652,7 +901,8 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ```json
 {
-  "count": 100,
+  "count": 2,
+  "limit": 100,
   "offset": 0,
   "entries": [
     {"id": 42, "action": "create", "entity_type": "tasks", "entity_id": 3,
@@ -672,12 +922,18 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 (The `deleted.from` snapshot is abbreviated; the real one carries every column.)
 
-Parameters: `entity_type` (the **table** name, e.g. `parties`, not the registry
-key `customers`), `entity_id`, `limit` (1–500, default 100), `offset`. Newest
-first.
+Requires `audit:read`, which every role holds. Parameters: `entity_type` (the
+**table** name, e.g. `parties`, not the registry key `customers`), `entity_id`,
+`limit` (1–500, default 100), `offset`. Newest first.
 
-`count` is the number of entries returned; `limit` echoes what was asked for.
-Paginate on `count < limit`.
+**`count` is the number of entries actually returned**, not a total and not an
+echo of `limit`. `limit` echoes what was asked for. Paginate on
+`count < limit`. Verified against the same database in one run:
+
+```
+?limit=3    ->  {"count": 3, "limit": 3,   "offset": 0}   # 3 entries
+?limit=500  ->  {"count": 6, "limit": 500, "offset": 0}   # 6 entries — that is all of them
+```
 
 Actions recorded: `create`, `update`, `delete`, `remark`, `convert`, `login`,
 `login_failed`. An `update` carries a field-level diff:
@@ -757,19 +1013,67 @@ comes back `"source": "ui"`. Verified.
 | 400 | Unknown saved view | `{"detail":"Unknown view 'NoSuchView' for customers"}` |
 | 400 | Empty remark body | `{"detail":"'body' is required"}` |
 | 400 | Bad remark `kind` | `{"detail":"kind must be remark, note, reply or correction"}` |
+| 400 | Unknown filter name | `{"detail":"Unknown filter 'expand' for customers. Valid filters: …"}` |
+| 400 | `overdue` on an entity with no `due_date` | `{"detail":"'customers' has no due_date to be overdue against"}` |
 | 401 | No/invalid token | `{"detail":"Could not validate credentials"}` |
+| 403 | Role lacks the permission | `{"detail":"Your role (Advisor) cannot delete Customers."}` |
 | 404 | Unknown registry key | `{"detail":"Unknown entity 'widgets'"}` |
 | 404 | Row missing, or outside the entity's scope | `{"detail":"Service 9 not found"}` |
 | 405 | Editing or deleting remark history | `{"detail":"Method Not Allowed"}` |
+| 405 | Writing to `invoices` | `{"detail":"Invoices is a read-only mirror of Zoho Books. …"}` |
+| 409 | Duplicate natural key | `{"detail":"A customer with those details already exists. Names must be unique within the organisation."}` |
 | 409 | Conversion would collide with an existing customer | `{"detail":"A customer named '…' already exists (id 18). …"}` |
 | 422 | `limit`/`offset` out of range | FastAPI validation body |
+
+A duplicate natural key is a `409`, not a `500`. `_commit()` catches the
+`IntegrityError`, rolls back and translates it, because a second customer with
+the same name is a conflict the caller can act on, not a server fault:
+
+```
+POST /api/customers {"display_name":"Dup Probe Ltd"}   -> 200
+POST /api/customers {"display_name":"Dup Probe Ltd"}   -> 409
+```
+
+## Discovery
+
+| Path | Auth | What |
+|---|---|---|
+| `GET /api/catalog` | Public | Every endpoint with a copy-paste `usage` and an example `response`. 220 on this build. |
+| `GET /api/cli` | Public | The `hq-cli` command reference. |
+| `GET /api/meta/entities` | Token | The registry: every field of every table, plus the workspace layout and your `can` map. |
+
+`/api/catalog` no longer drifts. Its per-entity half is generated from the
+registry by `crud.catalog_entries()` — 175 of the 220 entries — so an entity
+added to `backend/registry.py` appears in the catalogue on the next boot. The
+remaining 45 are hand-written and cover the bespoke platform routes — auth,
+users, roles, permissions, organisations, products, workspaces, dashboards,
+search, notifications, audit and the meta routes — which are not
+registry-driven and still have to be maintained by hand. Before it was
+generated the list
+claimed 39 endpoints while 58 existed, which is worse than publishing nothing:
+an agent that trusts a stale catalogue concludes a route does not exist.
+
+The two public endpoints are public by design, so an agent can plan before it
+authenticates. **The data behind them is not.** `GET /api/meta/entities`
+requires a token — it exposes every field of every table and the whole workspace
+layout — and returns `401` without one.
 
 ## Not implemented
 
 Be clear about the edges:
 
-* **Tickets, Communication and Accounting** from the PRD do not exist. No
-  tables, no registry entries, no routes.
+* **Communication has no ingestion.** No webhook, no polling job, no provider
+  client — nothing writes a message into HQ. `conversation_messages` has no
+  registry entry and therefore no route at all, so message text cannot be read
+  or written through the API. `conversations` and `channels` are ordinary CRUD.
+  The three-pane inbox UI is not built; the Comms workspace renders both as
+  plain tables.
+* **Nothing calls the Zoho Books client.** `backend/zoho.py` is complete and
+  tested, but no route, job or CLI command imports it. The Zoho figures in the
+  database were written by the seed from a manual read. `zoho_invoices` is empty.
+* **No SLA clock.** Nothing computes `first_response_due_at` /
+  `resolution_due_at` from an `sla_policies.targets` entry, and nothing sets the
+  breach flags. The columns are writable; they are not calculated.
 * `activities`, `attachments`, `task_participants`, `task_dependencies`,
   `saved_views` and `terminology_overrides` are tables with no REST route.
   `GET /api/activities` → `404 Unknown entity 'activities'`.
@@ -777,10 +1081,10 @@ Be clear about the edges:
 * No cursor pagination, no `ETag`, no `If-Match`, no optimistic locking. Two
   concurrent PATCHes: last write wins, and both are in the audit log.
 * No rate limiting.
-* No per-entity permissions. Any authenticated user can read and write every
-  entity; `roles` and `permissions` exist as records but are not enforced on
-  these routes.
+* **Permissions are enforced, but reads are not row-scoped.** A role either sees
+  an entity or it does not; there is no "only your own customers". Every role
+  above Viewer reads everything, by design.
 * `organisation_id` is stamped from the caller on create but is **not** applied
   as a filter on read. Listing an entity returns rows across organisations.
-* `GET /api/meta/entities` requires a token. `/api/catalog` and `/api/cli`
-  remain public, by design, so agents can discover the surface before authing.
+* `POST /api/auth/logout` clears the cookie but does not revoke the JWT. There
+  is no token blacklist, so a leaked token stays valid for its week.

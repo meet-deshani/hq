@@ -166,6 +166,23 @@ def run(base, email, password):
           any("Customer" in l for l in seen["crm"]) and not any("Permission" in l for l in seen["crm"]),
           str(seen["crm"]))
 
+    # Search used to cover only platform config, so looking for a customer by
+    # name found nothing at all.
+    for term, want_type in (("Pioneer", "Customer"), ("AquaServe", "Service"),
+                            ("Nishant", "Work stream")):
+        _, hits = api.call("GET", "/api/search?q=%s" % term, expect=200)
+        types = {h["type"] for h in hits["results"]}
+        check("search finds %s for '%s'" % (want_type.lower(), term),
+              want_type in types, "got: %s" % sorted(types))
+
+    _, first = api.call("GET", "/api/search?q=Pioneer", expect=200)
+    check("search ranks a name match above a mention",
+          first["results"] and first["results"][0]["label"].lower().startswith("pioneer"),
+          str([r["label"] for r in first["results"][:3]]))
+    check("search results carry enough to navigate to the record",
+          all("entity" in r and "id" in r for r in first["results"] if r["type"] != "User"),
+          str(first["results"][:2]))
+
     _, tr = api.call("GET", "/api/dashboard/trend?workspace=crm", expect=200)
     check("the trend is labelled with what it plots",
           tr.get("label") == "Customers" and len(tr["points"]) == 6, str(tr)[:160])
@@ -232,6 +249,30 @@ def run(base, email, password):
     _, pending = api.call("GET", "/api/tickets?view=Pending", expect=200)
     check("a resolved ticket leaves the Pending view",
           all(r["id"] != ticket["id"] for r in pending["rows"]), "still listed as pending")
+
+    # The SLA clock must start itself. Nothing used to set these, so the
+    # dashboard's "Breaching SLA" tile could only ever read zero.
+    _, urgent = api.call("POST", "/api/tickets",
+                         {"subject": "SLA clock check", "priority": "urgent"}, expect=200)
+    check("raising a ticket starts its SLA clock",
+          bool(urgent["first_response_due_at"]) and bool(urgent["resolution_due_at"])
+          and urgent["sla_policy_id"] is not None,
+          str({k: urgent[k] for k in ("sla_policy_id", "first_response_due_at", "resolution_due_at")}))
+
+    _, low = api.call("POST", "/api/tickets",
+                      {"subject": "SLA clock check low", "priority": "low"}, expect=200)
+    check("a lower priority gets a later deadline",
+          low["resolution_due_at"] > urgent["resolution_due_at"],
+          "urgent=%s low=%s" % (urgent["resolution_due_at"], low["resolution_due_at"]))
+
+    _, resolved = api.call("PATCH", "/api/tickets/%s" % urgent["id"], {"status": "resolved"}, expect=200)
+    check("resolving a ticket stamps resolved_at", bool(resolved["resolved_at"]), str(resolved)[:160])
+    _, reopened = api.call("PATCH", "/api/tickets/%s" % urgent["id"], {"status": "open"}, expect=200)
+    check("reopening clears the resolution and counts the reopen",
+          reopened["resolved_at"] is None and reopened["reopened_count"] == 1,
+          "resolved_at=%s reopened=%s" % (reopened["resolved_at"], reopened["reopened_count"]))
+    api.call("DELETE", "/api/tickets/%s" % urgent["id"], expect=200)
+    api.call("DELETE", "/api/tickets/%s" % low["id"], expect=200)
 
     _, contract = api.call("POST", "/api/contracts", {
         "title": "Smoke MSA", "contract_type": "msa", "value": 500000,

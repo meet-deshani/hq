@@ -52,13 +52,17 @@ That's all the SQL HQ needs — it builds its own tables on first start.
    deploy hq          # or: docker compose up -d --build
    ```
 
-   The app connects as `hq`, creates the 7 tables in the `hq` database, and seeds.
+   The app connects as `hq`, creates its tables in the `hq` database, and seeds.
+   42 tables on the current build — 9 platform (users, roles, permissions,
+   `role_permissions`, organisations, products, workspaces, feedback,
+   notifications) and 33 CRM. Adding a registry entity adds a table, so treat
+   the number as a checksum against the code, not a constant.
 
 ### Verify (also browsable in pgAdmin under the `hq` database)
 
 ```bash
 docker logs hq-portal | grep -i postgres          #   Successfully connected to PostgreSQL database.
-docker exec postgres psql -U hq -d hq -c '\dt'    # 7 tables
+docker exec postgres psql -U hq -d hq -c '\dt'    # 42 tables
 ```
 
 ## Notes
@@ -73,6 +77,10 @@ docker exec postgres psql -U hq -d hq -c '\dt'    # 7 tables
 
 The direct-connection path was validated end-to-end against a local PostgreSQL
 using a **non-superuser `hq` role owning an `hq` database** (mirroring the scoped
-setup above): the app connected, auto-created all 7 tables, seeded defaults, and
+setup above): the app connected, auto-created every table, seeded defaults, and
 login/reads/writes persisted. With `DB_REQUIRE=true` and an unreachable DB,
 startup fails loudly instead of falling back to SQLite.
+
+`SECRET_KEY` is required unconditionally — `backend/auth.py` raises at import if
+it is unset, with no committed fallback, so the app cannot boot on a signing key
+anyone with the repo could forge tokens against.

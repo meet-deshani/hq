@@ -35,14 +35,25 @@ From each entry you get:
 | `scope` | A hidden discriminator you cannot override (Services vs Products). |
 | `title_field` | Which column is the row's human name. |
 | `key_facts[]` | The fields a human considers load-bearing. Good default for a summary. |
+| `can` | What **your** role may do here: `read`, `create`, `update`, `delete`, `remark`. Check it before you plan a write, not after you get a 403. |
+| `read_only` | `true` means the route refuses every write, whatever `can` says. Only `invoices` today. |
+
+Twenty-five entities across six workspaces are published today (`"count": 25`) —
+CRM, Config, Work, Tickets, Comms, Accounting. Do not carry a list of them in
+your head or your prompt; read it.
 
 Things that will bite you if you hardcode instead:
 
 * The catalogue's product entity is keyed **`catalog-products`**, not
   `products` — `/api/products` is a different, pre-existing route.
+* The helpdesk's category entity is keyed **`job-types`** on the table
+  `ticket_categories`. The UI term and the table name disagree on purpose.
 * `services` and `catalog-products` are the same table split by `scope`.
 * The audit endpoint keys off the **table** name (`parties`), not the registry
   key (`customers`). `entity_type` in each registry entry gives you the mapping.
+* `can` and `read_only` are two different answers. An Admin's
+  `can.invoices.create` is `true` and `POST /api/invoices` is still `405`.
+  Check `read_only` first.
 
 ## Authenticate, and declare yourself
 
@@ -66,7 +77,53 @@ your writes are indistinguishable from a human's, and the first time someone
 asks "who set this to done?" the answer is wrong. The header is the only way to
 set `source` — passing `{"source": "agent"}` in the body is silently dropped.
 
+What it buys, on the record:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE/api/audit?entity_type=tasks&entity_id=1"
+```
+
+```
+[('remark','agent','meet@dotsai.in'),
+ ('update','agent','meet@dotsai.in'),
+ ('create','agent','meet@dotsai.in')]
+```
+
+`actor` stays the human whose credentials you are using — the header is a claim
+about the client, not an authentication factor — but `actor_kind` becomes
+`agent`, and every row you touched is separable from human edits for good. The
+map is in `docs/API.md`; `cli` and `system` are the other two values, and
+anything else (including nothing) is treated as `user`.
+
 Tokens last a week. Do not log the token, and do not write it into a record.
+
+## Authorisation: 403 and 405 are answers, not failures
+
+Every route checks a permission before it runs. The account your agent uses has
+a role, and that role decides what you may do — Admin, Partner, Advisor,
+Operator or Viewer. The matrix is in `docs/API.md`; the live answer for your own
+token is the `can` block on `GET /api/auth/me` and on every entity in
+`GET /api/meta/entities`.
+
+```json
+{"detail":"Your role (Advisor) cannot delete Customers."}
+```
+
+**Respect a `403`. Do not retry it, do not vary the request until something
+gets through, and do not route around it** — no deleting-by-blanking-fields, no
+asking a different endpoint for the same effect. It is a policy decision made
+deliberately, and the message names the role and the action so you can report it
+precisely. Retrying a policy denial is how an agent turns a working control into
+a wall of audit noise.
+
+**Respect a `405` the same way.** On `/api/invoices` it means Zoho Books owns
+that document and HQ has no write surface for it at all — not for you, not for
+an Admin. If a task needs an invoice raised, say so; the answer is Zoho Books,
+not a workaround in HQ. On `/api/{key}/{id}/remarks` it means history is
+append-only.
+
+Plan against `can` rather than discovering limits by collision: read it once
+after authenticating, and skip the writes you are not entitled to make.
 
 ## Idempotency
 
@@ -119,15 +176,27 @@ curl -s -H "Authorization: Bearer $TOKEN" -H 'X-HQ-Client: agent' \
 
 `total: 0` → create. `total: 1` → PATCH the row you found.
 
-Two traps:
+Two things to know:
 
-* **A filter on a column that does not exist is silently ignored.** Filtering on
-  a misspelled column returns the *whole* list, and your "does it exist?" check
-  will find a random unrelated row and update it. Confirm the column name
-  against `fields[]`/`columns[]` from the registry first.
+* **A filter on a column that does not exist is a `400`**, listing the valid
+  filters. It used to be ignored, which was the dangerous behaviour: a
+  misspelled column returned the *whole* list, and a "does it exist?" check
+  found a random unrelated row and updated it. Now it fails loudly. Read the
+  error rather than falling back to an unfiltered list.
 * Only `tasks` and `comments` have an `external_ref`. For other entities, match
-  on a real business key — `parties.display_name`, `items.code`, `projects.doc_no`
-  — and accept that it is fuzzier.
+  on a real business key — `parties.display_name`, `items.code`,
+  `projects.doc_no`, `contracts.doc_no`, `tickets.doc_no` — and accept that it
+  is fuzzier. `parties`, `contracts` and several others enforce a unique natural
+  key, so a duplicate create is a **`409`**, not a silent second row:
+
+  ```
+  POST /api/customers {"display_name":"Dup Probe Ltd"}  -> 200
+  POST /api/customers {"display_name":"Dup Probe Ltd"}  -> 409
+  {"detail":"A customer with those details already exists. Names must be unique within the organisation."}
+  ```
+
+  Treat that `409` the way you treat a conversion collision: report it, do not
+  rename around it.
 
 ### 3. Conversion is safe to retry
 
@@ -294,12 +363,28 @@ eventually eat records a human typed by hand.
   won."` Setting it by hand skips the customer, the contact and the stamp.
 * **Do not treat `X-HQ-Client` as optional**, and do not send `user` to make your
   writes look human.
-* **Do not assume unbuilt modules exist.** Tickets, Communication and Accounting
-  from the PRD are **not built** — no tables, no routes. Neither are
-  `activities`, `attachments`, `task_participants`, `task_dependencies`,
-  per-user `saved_views` or `terminology_overrides`; those tables exist but have
-  no API. `GET /api/activities` returns `404 Unknown entity 'activities'`. If a
-  task needs one of these, say so rather than improvising a home for the data in
+* **Do not retry a 403, and do not route around it.** It is your role's answer.
+  Report which permission you needed.
+* **Do not try to raise or edit an invoice.** `invoices` is a read-only mirror
+  of Zoho Books: `POST`, `PATCH` and `DELETE` return `405` for every role. Zoho
+  Books is the system of record for money and the only place an invoice may be
+  created or changed. HQ records the *plan* to bill (`contracts`,
+  `billing-schedule`) and mirrors the *fact* (`invoices`). If a task needs an
+  invoice, say the invoice must be raised in Zoho Books.
+* **Do not link a Zoho contact to an HQ customer on a name.** The names do not
+  match — Zoho's `GOA TRADING & TECHNICAL SERVICES` is HQ's "Michael Bhai" — and
+  attaching the wrong receivable to the wrong customer is a money error.
+  `match_contacts()` proposes; a human confirms. Nothing auto-applies.
+* **Do not assume the newer modules do more than they do.** Tickets, Comms and
+  Accounting have tables, registry entries and full CRUD, but:
+  **Communication has no ingestion at all** — no webhook, no polling, no
+  provider client, and `conversation_messages` has no route, so you can neither
+  read nor write message text; and **nothing calls the Zoho client**, so the
+  mirrored figures are whatever the seed wrote. `activities`, `attachments`,
+  `task_participants`, `task_dependencies`, per-user `saved_views` and
+  `terminology_overrides` are still tables with no API —
+  `GET /api/activities` returns `404 Unknown entity 'activities'`. If a task
+  needs one of these, say so rather than improvising a home for the data in
   `notes`.
 
 ## Things to know before you trust a read
@@ -307,9 +392,11 @@ eventually eat records a human typed by hand.
 * **Reads are not organisation-scoped.** `organisation_id` is stamped on create
   but is not applied as a filter on list or detail. Filter on it yourself if it
   matters.
-* **There are no per-entity permissions.** Any authenticated user — including
-  the account your agent uses — can read and write every entity. Scope your own
-  behaviour; the API will not do it for you.
+* **Permissions are per-entity and enforced.** What you may do depends on the
+  role of the account your agent signs in as. Read the `can` block; do not
+  assume the write will land. But reads are *not* row-scoped — a role either
+  sees a whole entity or none of it, so a read returning rows is not evidence
+  that they are yours.
 * **`?q=` only searches the entity's declared `search` columns.** For `tasks`
   that is `title`, `description`, `external_ref` — searching for a customer name
   will not find their tasks. Filter on `party_id` instead.
@@ -318,7 +405,11 @@ eventually eat records a human typed by hand.
 * **`overdue` respects its value.** `?overdue=true` returns overdue rows,
   `?overdue=false` returns the rest; omit it to not filter.
 * **An unknown filter is a 400,** not a silent no-op — a typo'd column name
-  fails loudly instead of returning the unfiltered list.
+  fails loudly instead of returning the unfiltered list. There is no `expand`
+  parameter; passing one is a `400` like any other unknown filter.
+* **A conversation with no messages is normal, not a sync bug.** Nothing
+  ingests messages. Do not conclude a thread is empty because it was read
+  wrongly, and do not invent message rows to fill it.
 * **No optimistic locking.** If a human edits a record between your read and your
   write, your write wins silently. Keep the gap short, and PATCH only the fields
   you mean to change.

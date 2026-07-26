@@ -134,7 +134,7 @@ def _grants():
             ),
             "patterns": (
                 ["*:read", "*:remark"]
-                + ["tasks:create", "tasks:update"]
+                + ["tasks:create", "tasks:update", "feedback:create"]
             ),
         },
         "Operator": {
@@ -145,8 +145,8 @@ def _grants():
             ),
         },
         "Viewer": {
-            "description": "Read-only across the platform.",
-            "patterns": ["*:read"],
+            "description": "Read-only across the platform, and can report a problem.",
+            "patterns": ["*:read", "feedback:create"],
         },
     }
 
@@ -219,13 +219,22 @@ def seed(db, organisation_id):
     keeps the Permissions screen honest instead of showing dead policies.
     """
     wanted = set(all_codes())
-
     existing = {p.code: p for p in db.query(Permission).all()}
-    for code in sorted(wanted - set(existing)):
-        db.add(Permission(name=describe(code), code=code, description=describe(code)))
+
+    # DELETE-then-flush BEFORE inserting. `permissions.name` is unique, and a
+    # retired code can share a display name with a new one — the original
+    # catalogue's `users:write` was "Create Users", which is exactly what
+    # `users:create` is called now. SQLAlchemy flushes inserts before deletes
+    # within one flush, so doing both together raised a UNIQUE violation on any
+    # database that already had the old rows. That is every deployed database,
+    # and the caller swallowed it, leaving the org with NO roles at all.
     for code, perm in existing.items():
         if code not in wanted:
             db.delete(perm)
+    db.flush()
+
+    for code in sorted(wanted - set(existing)):
+        db.add(Permission(name=describe(code), code=code, description=describe(code)))
     db.flush()
 
     catalogue = {p.code: p for p in db.query(Permission).all()}
