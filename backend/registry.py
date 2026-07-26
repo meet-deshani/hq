@@ -43,10 +43,17 @@ PROJECT_STAGES = [
 ]
 
 ENTITIES = []
+# Maintained incrementally by entity() rather than built once part-way down the
+# file: entities declared AFTER the lookup was constructed were invisible to it,
+# which made every ref and relation pointing at them fail validation.
+BY_KEY = {}
+BY_ENTITY_TYPE = {}
 
 
 def entity(**kw):
     ENTITIES.append(kw)
+    BY_KEY[kw["key"]] = kw
+    BY_ENTITY_TYPE.setdefault(kw["entity_type"], kw)
     return kw
 
 
@@ -676,12 +683,6 @@ entity(
 # Lookups
 # ────────────────────────────────────────────────────────────────────────────
 
-BY_KEY = {e["key"]: e for e in ENTITIES}
-BY_ENTITY_TYPE = {}
-for _e in ENTITIES:
-    BY_ENTITY_TYPE.setdefault(_e["entity_type"], _e)
-
-
 def public(e):
     """The JSON-safe shape published at /api/meta/entities (drops the model class)."""
     out = {k: v for k, v in e.items() if k != "model"}
@@ -690,6 +691,7 @@ def public(e):
     out.setdefault("saved_views", [{"name": "All", "filters": {}}])
     out.setdefault("actions", [])
     out.setdefault("key_facts", [])
+    out.setdefault("read_only", False)
     out["path"] = "/api/" + e["key"]
     return out
 
@@ -711,3 +713,323 @@ USER_REF = {
     "title_field": "name",
     "model": User,
 }
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Tickets · helpdesk
+# ────────────────────────────────────────────────────────────────────────────
+
+TICKET_STATUSES = ["new", "open", "waiting_on_customer", "on_hold", "resolved", "closed"]
+TICKET_CHANNELS = ["whatsapp", "email", "phone", "web", "walk_in", "internal"]
+
+entity(
+    key="tickets",
+    entity_type="tickets",
+    model=m.Ticket,
+    label="Ticket",
+    plural="Tickets",
+    workspace="Tickets",
+    module="Helpdesk",
+    icon="bell",
+    accent="#FFB5C2",
+    order_by="-created_at",
+    search=["subject", "description", "doc_no", "contact_name", "resolution"],
+    title_field="subject",
+    columns=[
+        {"k": "doc_no", "label": "Ref", "type": "mono", "width": "0.8fr"},
+        {"k": "subject", "label": "Subject", "type": "text", "width": "2.6fr", "primary": True},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.5fr"},
+        {"k": "category_id", "label": "Job type", "type": "ref", "ref": "job-types", "width": "1.3fr"},
+        {"k": "assigned_to", "label": "Assigned", "type": "ref", "ref": "users", "width": "1.2fr"},
+        {"k": "resolution_due_at", "label": "Due", "type": "date", "width": "1fr"},
+        {"k": "priority", "label": "Priority", "type": "badge", "width": "0.9fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1.4fr"},
+    ],
+    fields=[
+        {"k": "subject", "label": "Subject", "type": "text", "required": True, "group": "Ticket"},
+        {"k": "description", "label": "Description", "type": "textarea", "group": "Ticket"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Ticket"},
+        {"k": "category_id", "label": "Job type", "type": "ref", "ref": "job-types", "group": "Ticket"},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "group": "Ticket"},
+        {"k": "doc_no", "label": "Reference", "type": "text", "group": "Ticket"},
+
+        {"k": "assigned_to", "label": "Assigned to", "type": "ref", "ref": "users", "group": "Handling"},
+        {"k": "status", "label": "Status", "type": "select", "options": TICKET_STATUSES,
+         "default": "new", "group": "Handling"},
+        {"k": "priority", "label": "Priority", "type": "select", "options": PRIORITIES,
+         "default": "medium", "group": "Handling"},
+        {"k": "channel", "label": "Came in via", "type": "select", "options": TICKET_CHANNELS,
+         "default": "whatsapp", "group": "Handling"},
+        {"k": "sla_policy_id", "label": "SLA policy", "type": "ref", "ref": "sla-policies", "group": "Handling"},
+
+        {"k": "contact_name", "label": "Contact name", "type": "text", "group": "Reporter"},
+        {"k": "contact_phone", "label": "Contact phone", "type": "phone", "group": "Reporter"},
+        {"k": "contact_email", "label": "Contact email", "type": "email", "group": "Reporter"},
+
+        {"k": "first_response_due_at", "label": "First response due", "type": "datetime", "group": "SLA"},
+        {"k": "resolution_due_at", "label": "Resolution due", "type": "datetime", "group": "SLA"},
+        {"k": "first_responded_at", "label": "First responded at", "type": "datetime", "group": "SLA"},
+        {"k": "resolved_at", "label": "Resolved at", "type": "datetime", "group": "SLA"},
+        {"k": "resolution", "label": "Resolution", "type": "textarea", "group": "SLA"},
+    ],
+    key_facts=["party_id", "assigned_to", "status", "priority", "category_id", "resolution_due_at", "channel"],
+    relations=[],
+    saved_views=[
+        {"name": "Pending", "filters": {"status": ["new", "open", "waiting_on_customer", "on_hold"]}},
+        {"name": "Mine", "filters": {"assigned_to": "me"}},
+        {"name": "Unassigned", "filters": {"assigned_to": None}},
+        {"name": "Urgent", "filters": {"priority": ["high", "urgent"]}},
+        {"name": "Completed", "filters": {"status": ["resolved", "closed"]}},
+        {"name": "All", "filters": {}},
+    ],
+)
+
+entity(
+    key="job-types", entity_type="ticket_categories", model=m.TicketCategory,
+    label="Job type", plural="Job types", workspace="Tickets", module="Config",
+    icon="sliders", accent="#FFB5C2", order_by="sort_order",
+    search=["name", "description"], title_field="name",
+    columns=[
+        {"k": "name", "label": "Job type", "type": "text", "width": "2fr", "primary": True},
+        {"k": "parent_id", "label": "Parent", "type": "ref", "ref": "job-types", "width": "1.4fr"},
+        {"k": "default_priority", "label": "Default priority", "type": "badge", "width": "1.1fr"},
+        {"k": "description", "label": "Description", "type": "text", "width": "2.4fr"},
+        {"k": "is_active", "label": "Active", "type": "boolean", "width": "0.7fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "parent_id", "label": "Parent job type", "type": "ref", "ref": "job-types"},
+        {"k": "description", "label": "Description", "type": "textarea"},
+        {"k": "default_priority", "label": "Default priority", "type": "select",
+         "options": PRIORITIES, "default": "medium"},
+        {"k": "sort_order", "label": "Order", "type": "number", "default": 0},
+        {"k": "is_active", "label": "Active", "type": "boolean", "default": True},
+    ],
+    relations=[{"key": "tickets", "label": "Tickets", "entity": "tickets", "fk": "category_id"}],
+)
+
+entity(
+    key="sla-policies", entity_type="sla_policies", model=m.SlaPolicy,
+    label="SLA policy", plural="SLA policies", workspace="Tickets", module="Config",
+    icon="gauge", accent="#FFB5C2", order_by="name", search=["name"], title_field="name",
+    columns=[
+        {"k": "name", "label": "Policy", "type": "text", "width": "2fr", "primary": True},
+        {"k": "description", "label": "Description", "type": "text", "width": "3fr"},
+        {"k": "use_business_hours", "label": "Business hours", "type": "boolean", "width": "1fr"},
+        {"k": "is_default", "label": "Default", "type": "boolean", "width": "0.8fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "description", "label": "Description", "type": "textarea"},
+        {"k": "use_business_hours", "label": "Count business hours only", "type": "boolean", "default": False},
+        {"k": "is_default", "label": "Default policy", "type": "boolean", "default": False},
+    ],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Communication · the omnichannel inbox
+# ────────────────────────────────────────────────────────────────────────────
+
+entity(
+    key="conversations",
+    entity_type="conversations",
+    model=m.Conversation,
+    label="Conversation",
+    plural="Conversations",
+    workspace="Comms",
+    module="Inbox",
+    icon="message",
+    accent="#B8E0D2",
+    order_by="-last_message_at",
+    search=["contact_name", "contact_identifier", "subject"],
+    title_field="contact_name",
+    columns=[
+        {"k": "contact_name", "label": "Contact", "type": "text", "width": "1.8fr", "primary": True},
+        {"k": "contact_identifier", "label": "Address", "type": "mono", "width": "1.6fr"},
+        {"k": "channel_id", "label": "Channel", "type": "ref", "ref": "channels", "width": "1.2fr"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.6fr"},
+        {"k": "assigned_to", "label": "Assigned", "type": "ref", "ref": "users", "width": "1.2fr"},
+        {"k": "last_message_at", "label": "Last message", "type": "date", "width": "1.1fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "0.9fr"},
+    ],
+    fields=[
+        {"k": "contact_name", "label": "Contact name", "type": "text", "group": "Thread"},
+        {"k": "contact_identifier", "label": "Address", "type": "text", "required": True, "group": "Thread",
+         "help": "The number or mailbox they reach us from. One thread per address per channel."},
+        {"k": "channel_id", "label": "Channel", "type": "ref", "ref": "channels", "required": True, "group": "Thread"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Thread"},
+        {"k": "party_contact_id", "label": "Person", "type": "ref", "ref": "contacts", "group": "Thread"},
+        {"k": "subject", "label": "Subject", "type": "text", "group": "Thread"},
+        {"k": "assigned_to", "label": "Assigned to", "type": "ref", "ref": "users", "group": "Handling"},
+        {"k": "status", "label": "Status", "type": "select",
+         "options": ["open", "pending", "snoozed", "closed"], "default": "open", "group": "Handling"},
+    ],
+    key_facts=["party_id", "channel_id", "assigned_to", "status", "last_message_at", "unread_count"],
+    relations=[],
+    saved_views=[
+        {"name": "Open", "filters": {"status": "open"}},
+        {"name": "Mine", "filters": {"assigned_to": "me"}},
+        {"name": "Unlinked", "filters": {"party_id": None}},
+        {"name": "All", "filters": {}},
+    ],
+)
+
+entity(
+    key="channels", entity_type="comm_channels", model=m.CommChannel,
+    label="Channel", plural="Channels", workspace="Comms", module="Config",
+    icon="sliders", accent="#B8E0D2", order_by="name", search=["name", "identifier"], title_field="name",
+    columns=[
+        {"k": "name", "label": "Channel", "type": "text", "width": "1.8fr", "primary": True},
+        {"k": "channel_type", "label": "Type", "type": "badge", "width": "1fr"},
+        {"k": "identifier", "label": "Address", "type": "mono", "width": "1.8fr"},
+        {"k": "provider", "label": "Provider", "type": "text", "width": "1.2fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "0.9fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "channel_type", "label": "Type", "type": "select",
+         "options": ["whatsapp", "email", "sms", "instagram", "webform"], "default": "whatsapp"},
+        {"k": "identifier", "label": "Address", "type": "text",
+         "help": "The number or mailbox counterparties reach us on."},
+        {"k": "provider", "label": "Provider", "type": "text"},
+        {"k": "status", "label": "Status", "type": "select", "options": ["active", "paused"], "default": "active"},
+    ],
+    relations=[{"key": "conversations", "label": "Conversations", "entity": "conversations", "fk": "channel_id"}],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Accounting · contracts and the Zoho Books mirror.
+# Zoho Books raises every invoice; HQ plans the billing and reads the result.
+# ────────────────────────────────────────────────────────────────────────────
+
+entity(
+    key="contracts",
+    entity_type="contracts",
+    model=m.Contract,
+    label="Contract",
+    plural="Contracts",
+    workspace="Accounting",
+    module="Contracts",
+    icon="file",
+    accent="#C8B6FF",
+    order_by="-created_at",
+    search=["title", "doc_no", "signatory_name", "notes"],
+    title_field="title",
+    columns=[
+        {"k": "doc_no", "label": "Ref", "type": "mono", "width": "0.9fr"},
+        {"k": "title", "label": "Contract", "type": "text", "width": "2.4fr", "primary": True},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.6fr"},
+        {"k": "contract_type", "label": "Type", "type": "badge", "width": "0.9fr"},
+        {"k": "value", "label": "Value", "type": "money", "width": "1.2fr", "align": "right"},
+        {"k": "monthly_value", "label": "Monthly", "type": "money", "width": "1.1fr", "align": "right"},
+        {"k": "renewal_date", "label": "Renews", "type": "date", "width": "1.1fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "title", "label": "Title", "type": "text", "required": True, "group": "Contract"},
+        {"k": "doc_no", "label": "Reference", "type": "text", "group": "Contract"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Contract"},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "group": "Contract"},
+        {"k": "contract_type", "label": "Type", "type": "select",
+         "options": ["msa", "sow", "retainer", "amc", "nda"], "default": "sow", "group": "Contract"},
+        {"k": "status", "label": "Status", "type": "select",
+         "options": ["draft", "sent", "signed", "active", "expired", "terminated", "renewed"],
+         "default": "draft", "group": "Contract"},
+
+        {"k": "value", "label": "Contract value", "type": "money", "group": "Commercials"},
+        {"k": "monthly_value", "label": "Monthly value", "type": "money", "group": "Commercials"},
+
+        {"k": "start_date", "label": "Start date", "type": "date", "group": "Term"},
+        {"k": "end_date", "label": "End date", "type": "date", "group": "Term"},
+        {"k": "auto_renew", "label": "Auto-renews", "type": "boolean", "default": False, "group": "Term"},
+        {"k": "renewal_date", "label": "Renewal date", "type": "date", "group": "Term"},
+        {"k": "notice_days", "label": "Notice period (days)", "type": "number", "group": "Term"},
+        {"k": "signed_on", "label": "Signed on", "type": "date", "group": "Term"},
+        {"k": "signatory_name", "label": "Signatory", "type": "text", "group": "Term"},
+
+        {"k": "document_url", "label": "Document URL", "type": "url", "group": "Notes"},
+        {"k": "notes", "label": "Notes", "type": "textarea", "group": "Notes"},
+    ],
+    key_facts=["party_id", "contract_type", "value", "monthly_value", "start_date", "renewal_date", "status"],
+    relations=[
+        {"key": "schedule", "label": "Billing schedule", "entity": "billing-schedule", "fk": "contract_id"},
+    ],
+    saved_views=[
+        {"name": "Active", "filters": {"status": ["active", "signed"]}},
+        {"name": "Draft", "filters": {"status": ["draft", "sent"]}},
+        {"name": "All", "filters": {}},
+    ],
+)
+
+entity(
+    key="billing-schedule", entity_type="contract_billing_schedule", model=m.ContractBillingSchedule,
+    label="Billing line", plural="Billing schedule", workspace="Accounting", module="Contracts",
+    icon="list", accent="#C8B6FF", order_by="due_date", search=["name"], title_field="name",
+    columns=[
+        {"k": "seq", "label": "#", "type": "number", "width": "0.4fr"},
+        {"k": "name", "label": "Billing line", "type": "text", "width": "2.2fr", "primary": True},
+        {"k": "contract_id", "label": "Contract", "type": "ref", "ref": "contracts", "width": "1.8fr"},
+        {"k": "due_date", "label": "Due", "type": "date", "width": "1.1fr"},
+        {"k": "amount", "label": "Amount", "type": "money", "width": "1.2fr", "align": "right"},
+        {"k": "zoho_invoice_number", "label": "Zoho invoice", "type": "mono", "width": "1.3fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "contract_id", "label": "Contract", "type": "ref", "ref": "contracts", "required": True},
+        {"k": "name", "label": "Billing line", "type": "text", "required": True},
+        {"k": "seq", "label": "Sequence", "type": "number", "default": 1},
+        {"k": "trigger_type", "label": "Triggered by", "type": "select",
+         "options": ["date", "milestone", "manual"], "default": "date"},
+        {"k": "milestone_id", "label": "Milestone", "type": "ref", "ref": "milestones"},
+        {"k": "due_date", "label": "Due date", "type": "date"},
+        {"k": "amount", "label": "Amount", "type": "money"},
+        {"k": "status", "label": "Status", "type": "select",
+         "options": ["pending", "invoiced", "cancelled"], "default": "pending"},
+        {"k": "zoho_invoice_number", "label": "Zoho invoice no.", "type": "text",
+         "help": "Filled in once the invoice is raised in Zoho Books."},
+        {"k": "invoiced_on", "label": "Invoiced on", "type": "date"},
+    ],
+    saved_views=[
+        {"name": "To raise", "filters": {"status": "pending"}},
+        {"name": "Invoiced", "filters": {"status": "invoiced"}},
+        {"name": "All", "filters": {}},
+    ],
+)
+
+entity(
+    key="invoices",
+    entity_type="zoho_invoices",
+    model=m.ZohoInvoice,
+    label="Invoice",
+    plural="Invoices",
+    workspace="Accounting",
+    module="Billing",
+    icon="file",
+    accent="#C8B6FF",
+    order_by="-invoice_date",
+    search=["invoice_number", "customer_name"],
+    title_field="invoice_number",
+    # Read-only mirror: `fields` is empty so the generic CRUD has nothing
+    # writable, and the UI renders no create or edit form. Zoho Books is the
+    # only place an invoice is raised or changed.
+    read_only=True,
+    columns=[
+        {"k": "invoice_number", "label": "Invoice", "type": "mono", "width": "1.3fr", "primary": True},
+        {"k": "customer_name", "label": "Customer", "type": "text", "width": "2fr"},
+        {"k": "invoice_date", "label": "Date", "type": "date", "width": "1.1fr"},
+        {"k": "due_date", "label": "Due", "type": "date", "width": "1.1fr"},
+        {"k": "total", "label": "Amount", "type": "money", "width": "1.2fr", "align": "right"},
+        {"k": "balance_due", "label": "Balance", "type": "money", "width": "1.2fr", "align": "right"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1fr"},
+    ],
+    fields=[],
+    key_facts=["customer_name", "total", "balance_due", "status", "invoice_date", "due_date"],
+    saved_views=[
+        {"name": "Unpaid", "filters": {"status": ["sent", "overdue", "partially_paid"]}},
+        {"name": "Overdue", "filters": {"status": "overdue"}},
+        {"name": "Paid", "filters": {"status": "paid"}},
+        {"name": "All", "filters": {}},
+    ],
+)

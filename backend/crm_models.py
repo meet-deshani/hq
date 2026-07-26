@@ -766,3 +766,325 @@ class TerminologyOverride(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     created_by_id = _actor_fk()
     updated_by_id = _actor_fk()
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# F2 · helpdesk — Tickets.
+# Internal agent notes reuse the polymorphic `comments` table rather than a
+# separate ticket_messages store: one discussion mechanism, not two.
+# ────────────────────────────────────────────────────────────────────────────
+
+class TicketCategory(Base):
+    """Org-defined tree of request types. Labelled "Job Types" in the UI."""
+
+    __tablename__ = "ticket_categories"
+    __table_args__ = (UniqueConstraint("organisation_id", "name", name="uq_ticket_categories_org_name"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+    parent_id = Column(Integer, ForeignKey("ticket_categories.id", ondelete="SET NULL"), nullable=True, index=True)
+    name = Column(String(150), nullable=False)
+    description = Column(String(400))
+    default_priority = Column(String(20), default="medium")
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+
+class SlaPolicy(Base):
+    """A named response/resolution promise, with per-priority targets in hours."""
+
+    __tablename__ = "sla_policies"
+    __table_args__ = (UniqueConstraint("organisation_id", "name", name="uq_sla_policies_org_name"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+    name = Column(String(150), nullable=False)
+    description = Column(String(400))
+    # {priority: {"response_hours": n, "resolution_hours": n}}
+    targets = Column(JSON, default=dict)
+    use_business_hours = Column(Boolean, default=False, nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+
+class Ticket(Base):
+    """A client complaint or request, with its SLA timestamp trail.
+
+    `status` and `assigned_to` are orthogonal on purpose: a ticket can be
+    assigned and still new, or unassigned and already resolved.
+    """
+
+    __tablename__ = "tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+
+    doc_no = Column(String(40), index=True)
+    subject = Column(String(400), nullable=False, index=True)
+    description = Column(Text)
+
+    party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+    category_id = Column(Integer, ForeignKey("ticket_categories.id", ondelete="SET NULL"), nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_to = _actor_fk()
+
+    contact_name = Column(String(150))
+    contact_phone = Column(String(40))
+    contact_email = Column(String(150))
+
+    channel = Column(String(20), default="whatsapp")   # phone|whatsapp|email|web|walk_in|internal
+    priority = Column(String(20), default="medium", nullable=False, index=True)
+    status = Column(String(30), default="new", nullable=False, index=True)
+    # new | open | waiting_on_customer | on_hold | resolved | closed
+
+    sla_policy_id = Column(Integer, ForeignKey("sla_policies.id", ondelete="SET NULL"), nullable=True)
+    first_response_due_at = Column(DateTime)
+    resolution_due_at = Column(DateTime, index=True)
+    first_responded_at = Column(DateTime)
+    resolved_at = Column(DateTime)
+    closed_at = Column(DateTime)
+    response_sla_breached = Column(Boolean, default=False, nullable=False)
+    resolution_sla_breached = Column(Boolean, default=False, nullable=False)
+    escalation_level = Column(Integer, default=0)
+    reopened_count = Column(Integer, default=0)
+    resolution = Column(Text)
+
+    custom_fields = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+    party = relationship("Party")
+    category = relationship("TicketCategory")
+    assignee = relationship("User", foreign_keys=[assigned_to])
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# F4 · communication — the omnichannel inbox.
+# conversation_messages is the ONLY external message store; tickets reference
+# it rather than copying replies into their own table.
+# ────────────────────────────────────────────────────────────────────────────
+
+class CommChannel(Base):
+    """A connected endpoint — a WhatsApp number, a mailbox, an SMS sender."""
+
+    __tablename__ = "comm_channels"
+    __table_args__ = (UniqueConstraint("organisation_id", "name", name="uq_comm_channels_org_name"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+    name = Column(String(150), nullable=False)
+    channel_type = Column(String(30), default="whatsapp", nullable=False, index=True)
+    provider = Column(String(80))
+    # The address counterparties reach us on — a phone number or a mailbox.
+    identifier = Column(String(200))
+    status = Column(String(30), default="active", nullable=False)
+    # Credentials are NOT stored here; this holds only non-secret settings.
+    config = Column(JSON, default=dict)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+
+class Conversation(Base):
+    """One thread per counterparty per channel. The inbox row."""
+
+    __tablename__ = "conversations"
+    __table_args__ = (
+        # The dedupe key: the same person on the same channel is one thread.
+        UniqueConstraint("organisation_id", "channel_id", "contact_identifier",
+                         name="uq_conversations_channel_contact"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+    channel_id = Column(Integer, ForeignKey("comm_channels.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    contact_identifier = Column(String(200), nullable=False, index=True)
+    contact_name = Column(String(200))
+    party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+    party_contact_id = Column(
+        Integer, ForeignKey("party_contacts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    subject = Column(String(400))
+    status = Column(String(20), default="open", nullable=False, index=True)  # open|pending|snoozed|closed
+    assigned_to = _actor_fk()
+    unread_count = Column(Integer, default=0, nullable=False)
+    last_message_at = Column(DateTime, index=True)
+    last_inbound_at = Column(DateTime)
+    snoozed_until = Column(DateTime)
+    closed_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+    channel = relationship("CommChannel")
+    party = relationship("Party")
+    messages = relationship(
+        "ConversationMessage", back_populates="conversation",
+        cascade="all, delete-orphan", order_by="ConversationMessage.sent_at",
+    )
+
+
+class ConversationMessage(Base):
+    """Append-only in/out stream. The only store of what a client actually said."""
+
+    __tablename__ = "conversation_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+    conversation_id = Column(
+        Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # A message may be the origin of a ticket without the thread belonging to it —
+    # a standing thread outlives any one ticket, so the link lives on the message.
+    ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    direction = Column(String(10), default="inbound", nullable=False, index=True)  # inbound | outbound
+    message_type = Column(String(20), default="text")  # text|image|document|audio|template
+    body = Column(Text)
+    media_url = Column(String(600))
+
+    # The provider's own id, so re-ingesting the same message is a no-op.
+    external_id = Column(String(200), index=True)
+    delivery_status = Column(String(30))
+    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    author_id = _actor_fk()
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    conversation = relationship("Conversation", back_populates="messages")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# D5 · contracts — NEW, no registry equivalent (PRD §3.5 amendment).
+# The signed-agreement vault and its billing schedule. The INVOICE itself lives
+# in Zoho Books; a schedule row records only that it was billed and where.
+# ────────────────────────────────────────────────────────────────────────────
+
+class Contract(Base):
+    __tablename__ = "contracts"
+    __table_args__ = (UniqueConstraint("organisation_id", "doc_no", name="uq_contracts_org_doc"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+
+    doc_no = Column(String(40), index=True)
+    title = Column(String(300), nullable=False, index=True)
+    party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    contract_type = Column(String(30), default="sow")  # msa|sow|retainer|amc|nda
+
+    value = Column(Numeric(14, 2))
+    monthly_value = Column(Numeric(14, 2))
+    currency = Column(String(8), default="INR")
+
+    start_date = Column(Date)
+    end_date = Column(Date)
+    auto_renew = Column(Boolean, default=False, nullable=False)
+    renewal_date = Column(Date, index=True)
+    notice_days = Column(Integer)
+    signed_on = Column(Date)
+    signatory_name = Column(String(200))
+
+    status = Column(String(30), default="draft", nullable=False, index=True)
+    # draft|sent|signed|active|expired|terminated|renewed
+    document_url = Column(String(600))
+    notes = Column(Text)
+    custom_fields = Column(JSON, default=dict)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+    party = relationship("Party")
+    project = relationship("Project")
+    schedule = relationship(
+        "ContractBillingSchedule", back_populates="contract",
+        cascade="all, delete-orphan", order_by="ContractBillingSchedule.seq",
+    )
+
+
+class ContractBillingSchedule(Base):
+    """When a contract becomes an invoice. HQ plans it; Zoho Books raises it."""
+
+    __tablename__ = "contract_billing_schedule"
+    __table_args__ = (
+        UniqueConstraint("organisation_id", "contract_id", "seq", name="uq_billing_schedule_contract_seq"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False, index=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    seq = Column(Integer, default=1, nullable=False)
+    name = Column(String(200), nullable=False)
+    trigger_type = Column(String(20), default="date")  # date|milestone|manual
+    due_date = Column(Date, index=True)
+    amount = Column(Numeric(14, 2))
+    status = Column(String(20), default="pending", nullable=False, index=True)  # pending|invoiced|cancelled
+
+    # Stamped once the invoice exists in Zoho Books.
+    zoho_invoice_id = Column(String(60), index=True)
+    zoho_invoice_number = Column(String(60))
+    invoiced_on = Column(Date)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = _actor_fk()
+    updated_by_id = _actor_fk()
+
+    contract = relationship("Contract", back_populates="schedule")
+
+
+class ZohoInvoice(Base):
+    """A read-only mirror of a Zoho Books invoice.
+
+    HQ never creates, edits or deletes one of these through its own UI — the row
+    exists so a customer page can show what is owed without a round trip, and so
+    "billable but unbilled" is answerable. Zoho Books remains the only place an
+    invoice is actually raised or changed.
+    """
+
+    __tablename__ = "zoho_invoices"
+    __table_args__ = (
+        UniqueConstraint("organisation_id", "zoho_invoice_id", name="uq_zoho_invoices_org_invoice"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = _org_fk()
+
+    zoho_invoice_id = Column(String(60), nullable=False, index=True)
+    invoice_number = Column(String(60), index=True)
+    zoho_contact_id = Column(String(60), index=True)
+    customer_name = Column(String(200))
+    party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    invoice_date = Column(Date, index=True)
+    due_date = Column(Date, index=True)
+    status = Column(String(30), index=True)   # draft|sent|paid|overdue|partially_paid|void
+    total = Column(Numeric(14, 2))
+    balance_due = Column(Numeric(14, 2))
+    currency = Column(String(8), default="INR")
+
+    synced_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    party = relationship("Party")

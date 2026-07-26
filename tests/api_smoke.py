@@ -89,10 +89,12 @@ def run(base, email, password):
     entities = {e["key"]: e for e in meta["entities"]}
     check("meta lists entities", meta["count"] == len(entities) and meta["count"] > 10,
           "count=%s" % meta.get("count"))
-    check("every entity declares columns and fields",
-          all(e.get("columns") and e.get("fields") for e in meta["entities"]
-              if e["key"] not in ("work-stream-members",)),
-          "an entity is missing columns/fields")
+    # A read-only mirror has no writable fields on purpose — that is what stops
+    # the UI drawing a create form for something it must not create.
+    missing = [e["key"] for e in meta["entities"]
+               if not e.get("columns") or (not e.get("fields") and not e.get("read_only"))]
+    check("every entity declares columns, and fields unless read-only",
+          not missing, "missing: %s" % ", ".join(missing))
     check("no registry entity is shadowed by a literal route",
           "products" not in entities and "catalog-products" in entities,
           "products key must be renamed to catalog-products")
@@ -146,6 +148,52 @@ def run(base, email, password):
     st, _ = api.call("GET", "/api/services/%s" % prod["id"])
     check("a product is not reachable through the services scope", st == 404, "got %s" % st)
     api.call("DELETE", "/api/catalog-products/%s" % prod["id"], expect=200)
+
+    # ── Zoho Books ownership ────────────────────────────────────────────────
+    section("Zoho Books owns the invoices")
+    for method, body in [("POST", {"invoice_number": "FAKE/1"}), ("PATCH", {"total": 1})]:
+        path = "/api/invoices" if method == "POST" else "/api/invoices/1"
+        st, _ = api.call(method, path, body)
+        check("%s on the invoice mirror is refused" % method, st == 405, "got %s" % st)
+    st, _ = api.call("DELETE", "/api/invoices/1")
+    check("DELETE on the invoice mirror is refused", st == 405, "got %s" % st)
+    check("the mirror declares itself read-only in the registry",
+          entities.get("invoices", {}).get("read_only") is True,
+          "read_only=%s" % entities.get("invoices", {}).get("read_only"))
+
+    # ── the three later workspaces ──────────────────────────────────────────
+    section("Tickets, Communication and Accounting")
+    _, jobtypes = api.call("GET", "/api/job-types", expect=200)
+    _, slas = api.call("GET", "/api/sla-policies", expect=200)
+    _, chans = api.call("GET", "/api/channels", expect=200)
+    check("job types seeded", jobtypes["total"] >= 8, "total=%s" % jobtypes["total"])
+    check("a default SLA policy exists", slas["total"] >= 1, "total=%s" % slas["total"])
+    check("comms channels seeded", chans["total"] >= 2, "total=%s" % chans["total"])
+
+    _, ticket = api.call("POST", "/api/tickets", {
+        "subject": "Smoke ticket — export button 404s",
+        "priority": "high", "channel": "whatsapp",
+    }, expect=200)
+    check("a ticket can be raised", ticket["status"] == "new" and ticket["priority"] == "high", str(ticket)[:200])
+    api.call("PATCH", "/api/tickets/%s" % ticket["id"], {"status": "resolved"}, expect=200)
+    _, pending = api.call("GET", "/api/tickets?view=Pending", expect=200)
+    check("a resolved ticket leaves the Pending view",
+          all(r["id"] != ticket["id"] for r in pending["rows"]), "still listed as pending")
+
+    _, contract = api.call("POST", "/api/contracts", {
+        "title": "Smoke MSA", "contract_type": "msa", "value": 500000,
+    }, expect=200)
+    _, line = api.call("POST", "/api/billing-schedule", {
+        "contract_id": contract["id"], "name": "Milestone 1", "amount": 250000,
+    }, expect=200)
+    _, contract_detail = api.call("GET", "/api/contracts/%s" % contract["id"], expect=200)
+    check("a contract carries its billing schedule",
+          len(contract_detail["_related"]["schedule"]["rows"]) == 1,
+          str(contract_detail["_related"].get("schedule"))[:200])
+
+    api.call("DELETE", "/api/billing-schedule/%s" % line["id"], expect=200)
+    api.call("DELETE", "/api/contracts/%s" % contract["id"], expect=200)
+    api.call("DELETE", "/api/tickets/%s" % ticket["id"], expect=200)
 
     # ── CRUD round trip ─────────────────────────────────────────────────────
     section("CRUD round trip")

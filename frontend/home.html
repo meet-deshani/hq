@@ -1514,6 +1514,9 @@ function workspacesFor(orgId, productKey) {
     { name: 'HQ', icon: 'hq' },
     { name: 'CRM', icon: 'users' },
     { name: 'Work', icon: 'work' },
+    { name: 'Tickets', icon: 'bell' },
+    { name: 'Comms', icon: 'chat' },
+    { name: 'Accounting', icon: 'billing' },
     { name: 'Config', icon: 'config' },
     { name: 'Users', icon: 'admin' },
     { name: 'Document', icon: 'document' }
@@ -1543,6 +1546,20 @@ const PRODUCT_WS_TABS = {
     Work: [
       { tab: 'Tasks', kind: 'table' },
       { tab: 'Work streams', kind: 'table' }
+    ],
+    Tickets: [
+      { module: 'Helpdesk', tab: 'Tickets', kind: 'table' },
+      { module: 'Helpdesk', tab: 'Job types', kind: 'table' },
+      { module: 'Helpdesk', tab: 'SLA policies', kind: 'table' }
+    ],
+    Comms: [
+      { module: 'Inbox', tab: 'Conversations', kind: 'table' },
+      { module: 'Inbox', tab: 'Channels', kind: 'table' }
+    ],
+    Accounting: [
+      { module: 'Contracts', tab: 'Contracts', kind: 'table' },
+      { module: 'Contracts', tab: 'Billing schedule', kind: 'table' },
+      { module: 'Billing', tab: 'Invoices', kind: 'table' }
     ],
     Config: [
       { module: 'Platform', tab: 'Organisations', kind: 'table' },
@@ -1580,7 +1597,11 @@ function navColor(name, kind){
     'Pipeline stages':'#FFCDB2', 'Lost reasons':'#FFCDB2', Categories:'#FFCDB2',
     Milestones:'#B8E0D2', Tasks:'#B8E0D2',
     Work:'#C8B6FF', 'Work streams':'#C8B6FF',
-    Platform:'#FFB5C2', 'CRM setup':'#FFCDB2' };
+    Platform:'#FFB5C2', 'CRM setup':'#FFCDB2',
+    // Tickets · Communication · Accounting
+    Helpdesk:'#FFB5C2', 'Job types':'#FFB5C2', 'SLA policies':'#FFB5C2',
+    Comms:'#B8E0D2', Conversations:'#B8E0D2',
+    Accounting:'#C8B6FF', 'Billing schedule':'#C8B6FF', Billing:'#C8B6FF' };
   if(M[name]) return M[name];
   const K = { dashboard:'#A2D2FF', report:'#C8B6FF', table:'#B8E0D2', form:'#B8E0D2', design:'#FFCDB2', api:'#A2D2FF', cli:'#B8E0D2' };
   return K[kind] || '#C8B6FF';
@@ -1630,6 +1651,9 @@ const ICON_BY_NAME = {
   'Pipeline stages':'sliders','Lost reasons':'sliders','Categories':'package','Customer groups':'users',
   'Milestones':'calendar','Tasks':'clipboard','Work':'activity','Work streams':'activity',
   'Platform':'sliders','CRM setup':'sliders',
+  'Helpdesk':'bell','Job types':'sliders','SLA policies':'gauge',
+  'Comms':'message','Conversations':'message','Accounting':'file','Billing':'file',
+  'Billing schedule':'list',
 };
 const ICON_BY_KIND = { dashboard:'grid', form:'edit', table:'list', report:'file', design:'sliders' };
 function navIconInner(name, kind){ return ICON[ICON_BY_NAME[name]] || ICON[ICON_BY_KIND[kind]] || ICON.file; }

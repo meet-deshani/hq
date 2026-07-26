@@ -133,11 +133,15 @@
         <div sc-camel-on-click="{{ onCloseMenus }}" style="position:fixed;inset:0;z-index:80"></div>
         <div style="position:fixed;left:{{ menuLeft }};top:{{ menuTop }};z-index:81;min-width:190px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);padding:6px;box-sizing:border-box">
           <sc-if value="{{ menuIsRow }}">
+            <sc-if value="{{ menuShowEdit }}">
             <button sc-camel-on-click="{{ onMenuEdit }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Edit</button>
+            </sc-if>
             <sc-if value="{{ menuRowShowPassword }}">
               <button sc-camel-on-click="{{ onMenuPassword }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Change password</button>
             </sc-if>
+            <sc-if value="{{ menuShowDelete }}">
             <button sc-camel-on-click="{{ onMenuDelete }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#a3324c;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Delete</button>
+            </sc-if>
           </sc-if>
         </div>
       </sc-if>
@@ -971,7 +975,22 @@ class Component extends DCLogic {
     // ── list ────────────────────────────────────────────────────────────────
     const colSpecs = this.state.columns || [];
     const columns = colSpecs.map(c => c.label);
-    const canCrud = !!ent || (!!legacyName && !LEGACY[legacyName].readOnly);
+    // What this user may actually do here. `can` comes from the server with the
+    // registry; a read-only mirror (Zoho Books invoices) has no write surface at
+    // all. Showing a button that is certain to 403 or 405 is worse than not
+    // showing it — the server enforces either way, this is about honesty.
+    const perms = (ent && ent.can) || {};
+    const readOnly = !!(ent && ent.read_only);
+    const canCreate = ent
+      ? (!readOnly && perms.create !== false)
+      : (!!legacyName && !LEGACY[legacyName].readOnly);
+    const canEdit = ent
+      ? (!readOnly && perms.update !== false)
+      : (!!legacyName && !LEGACY[legacyName].readOnly);
+    const canDelete = ent
+      ? (!readOnly && perms.delete !== false)
+      : (!!legacyName && !LEGACY[legacyName].readOnly);
+    const canCrud = canEdit || canDelete;
     const entLabel = ent ? ent.label : (legacyName ? LEGACY[legacyName].label : '');
 
     const gridCols = ent
@@ -1133,7 +1152,7 @@ class Component extends DCLogic {
       views, searchValue: this.state.search,
       searchPlaceholder: 'Search ' + (ent ? ent.plural.toLowerCase() : 'records') + '…',
       onSearch: (e) => this.onSearchInput(e && e.target ? e.target.value : ''),
-      canCrud, entLabel, newLabel: 'New ' + entLabel,
+      canCrud, canCreate, canEdit, canDelete, entLabel, newLabel: 'New ' + entLabel,
       onNew: () => this.openCreate(), onCreateNew: () => this.openCreate(),
       backLabel: 'Back to ' + (ent ? ent.plural : 'list'),
       onBack: () => this.closeDetail(),
@@ -1160,6 +1179,7 @@ class Component extends DCLogic {
       menuLeft: menu ? (menu.x + 'px') : '0px', menuTop: menu ? (menu.y + 'px') : '0px',
       // Only the platform Users table has a password to change.
       menuRowShowPassword: menuIsRow && legacyName === 'Users',
+      menuShowEdit: canEdit, menuShowDelete: canDelete,
       onCloseMenus: () => this.closeMenus(),
       onMenuEdit: () => { if (menu && menu.row) this.openEdit(menu.row); },
       onMenuPassword: () => { if (menu && menu.row) this.openChangePassword(menu.row); },

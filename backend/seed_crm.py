@@ -12,8 +12,9 @@ import secrets
 from datetime import date, datetime
 
 from backend.crm_models import (
-    Item, ItemCategory, LeadSource, LostReason, Party, PartyGroup, Pipeline,
-    PipelineStage, Project, WorkStream, WorkStreamMember,
+    CommChannel, Item, ItemCategory, LeadSource, LostReason, Party, PartyGroup,
+    Pipeline, PipelineStage, Project, SlaPolicy, TicketCategory, WorkStream,
+    WorkStreamMember,
 )
 from backend.models import Organisation, Product, Role, User, Workspace
 
@@ -170,6 +171,35 @@ ZOHO_LIKELY_MATCHES = [
     ("Parag Kaka", "KAJAL PARAG TELI", "parag_teli@yahoo.com", "Gujarat", 11800),
 ]
 
+# Ticket categories — labelled "Job types" in the UI. Drawn from the kinds of
+# request the live platforms actually generate.
+JOB_TYPES = [
+    ("Bug", "Something is broken and needs fixing.", "high"),
+    ("Change request", "A behaviour or field change to an existing feature.", "medium"),
+    ("New feature", "Something that does not exist yet.", "medium"),
+    ("Onboarding", "Setup, data import or environment work for a new account.", "high"),
+    ("Training", "Walkthroughs and how-to help for a client's team.", "medium"),
+    ("Data fix", "Correcting records on a client's behalf.", "high"),
+    ("Deployment", "Release, environment or infrastructure work.", "high"),
+    ("Question", "A query that needs an answer, not a change.", "low"),
+]
+
+# Response and resolution promises, in hours, per priority.
+SLA_POLICIES = [
+    ("Standard", "Default promise for client requests.", True, {
+        "urgent": {"response_hours": 2, "resolution_hours": 8},
+        "high": {"response_hours": 4, "resolution_hours": 24},
+        "medium": {"response_hours": 8, "resolution_hours": 72},
+        "low": {"response_hours": 24, "resolution_hours": 168},
+    }),
+]
+
+# The channels ZeroOne actually receives client messages on.
+COMM_CHANNELS = [
+    ("WhatsApp Business", "whatsapp", "918320065658", "Baileys bot (wa.dotsai.cloud)"),
+    ("Email", "email", "meet@dotsai.in", "Google Workspace"),
+]
+
 # Standing work streams — the 00-Brain "Work" join, keyed by who is in them.
 WORK_STREAMS = [
     ("Meet x Nishant", "Standing partner stream — decisions, delivery and follow-ups.",
@@ -206,6 +236,9 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
     for name, slug, icon, description in [
         ("CRM", "crm", "users", "Customers, leads, catalog and delivery projects"),
         ("Work", "work", "work", "Tasks and standing work streams"),
+        ("Tickets", "tickets", "bell", "Client requests, job types and SLAs"),
+        ("Comms", "comms", "chat", "Client conversations across WhatsApp and email"),
+        ("Accounting", "accounting", "billing", "Contracts, billing schedule and the Zoho Books mirror"),
     ]:
         _get_or_create(
             db, Workspace,
@@ -341,6 +374,33 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
                 "updated_by_id": admin.id,
             },
             organisation_id=org_id, doc_no=ref,
+        )
+    db.flush()
+
+    # ── helpdesk config ─────────────────────────────────────────────────────
+    for i, (name, description, priority) in enumerate(JOB_TYPES):
+        _get_or_create(
+            db, TicketCategory,
+            {"description": description, "default_priority": priority,
+             "sort_order": i, "is_active": True, "created_by_id": admin.id},
+            organisation_id=org_id, name=name,
+        )
+
+    for name, description, business_hours, targets in SLA_POLICIES:
+        _get_or_create(
+            db, SlaPolicy,
+            {"description": description, "use_business_hours": business_hours,
+             "targets": targets, "is_default": True, "created_by_id": admin.id},
+            organisation_id=org_id, name=name,
+        )
+
+    # ── comms channels ──────────────────────────────────────────────────────
+    for name, kind, identifier, provider in COMM_CHANNELS:
+        _get_or_create(
+            db, CommChannel,
+            {"channel_type": kind, "identifier": identifier, "provider": provider,
+             "status": "active", "created_by_id": admin.id},
+            organisation_id=org_id, name=name,
         )
     db.flush()
 

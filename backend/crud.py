@@ -278,6 +278,21 @@ def _commit(db, ent, what="save"):
         raise HTTPException(status_code=409, detail=detail)
 
 
+def _refuse_if_read_only(ent, action):
+    """A mirrored entity has no write surface at all.
+
+    `invoices` mirrors Zoho Books, which is the only place an invoice may be
+    raised or changed. Allowing a write here would create a second, divergent
+    set of books — the exact duplication the ownership rule exists to prevent.
+    """
+    if ent.get("read_only"):
+        raise HTTPException(
+            status_code=405,
+            detail="%s is a read-only mirror of Zoho Books. Raise or edit it in Zoho Books; "
+                   "HQ reflects it." % ent["plural"],
+        )
+
+
 def _writable(ent):
     """Field keys that are real, writable columns.
 
@@ -512,6 +527,7 @@ def create_row(
 ):
     ent = _get_entity(key)
     permissions.require(current_user, key, "create")
+    _refuse_if_read_only(ent, "create")
     allowed = _writable(ent)
 
     values = {}
@@ -567,6 +583,7 @@ def update_row(
 ):
     ent = _get_entity(key)
     permissions.require(current_user, key, "update")
+    _refuse_if_read_only(ent, "update")
     obj = _get_row(db, ent, row_id)
     allowed = _writable(ent)
     before = audit.snapshot(obj)
@@ -601,6 +618,7 @@ def delete_row(
 ):
     ent = _get_entity(key)
     permissions.require(current_user, key, "delete")
+    _refuse_if_read_only(ent, "delete")
     obj = _get_row(db, ent, row_id)
     label = registry.label_for(obj, ent)
     org_id = getattr(obj, "organisation_id", None)
