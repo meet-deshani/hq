@@ -343,6 +343,16 @@ def run(base, email, password):
     })
     check("an inbound message creates a thread", st == 200 and first.get("created") is True,
           "%s %s" % (st, first))
+    if "conversation_id" not in first:
+        # Everything below threads off this id. Without a hard stop the run
+        # continued and died twenty lines later on a bare KeyError, which says
+        # nothing about the actual cause — almost always that the server's
+        # COMMS_WEBHOOK_TOKEN differs from this process's, so the webhook 401s.
+        raise AssertionError(
+            "Inbound webhook returned no conversation_id (HTTP %s): %s\n"
+            "The server and this test must share COMMS_WEBHOOK_TOKEN — this "
+            "process is sending %r." % (st, first, hook)
+        )
     check("a differently-formatted number still resolves to its customer",
           first.get("linked") is True, "party_id=%s" % first.get("party_id"))
 
