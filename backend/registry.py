@@ -1,0 +1,699 @@
+"""The entity registry — one declarative description of every CRM entity.
+
+This is the contract the whole platform renders from:
+
+* ``backend/crud.py``      generates REST CRUD for every entry
+* ``GET /api/meta/entities`` publishes it, so agents can discover the surface
+* ``frontend/static/PortalPage.dc.html`` builds lists, forms and detail pages
+* ``cli/hq-cli.py``        builds its commands
+
+Adding an entity means adding one entry below. No router, no CLI command and no
+frontend code. That is the property that keeps the API, the UI and the CLI from
+drifting apart, and it is what makes the platform usable by an agent that has
+only ever read ``/api/meta/entities``.
+
+Field types understood by every consumer:
+    text · textarea · email · phone · url · number · money · percent
+    date · datetime · select · boolean · ref
+
+``ref`` fields carry ``ref`` (the registry key they point at) so a consumer can
+resolve the label without knowing the schema.
+"""
+
+from backend import crm_models as m
+from backend.models import User
+
+# ── shared option sets ──────────────────────────────────────────────────────
+
+PARTY_KINDS = ["customer", "prospect", "vendor", "both"]
+GST_TREATMENTS = ["regular", "composition", "unregistered", "consumer", "overseas", "sez"]
+TASK_STATUSES = ["open", "in_progress", "blocked", "done", "cancelled"]
+PRIORITIES = ["low", "medium", "high", "urgent"]
+
+# The delivery ladder actually in use on the live board — not a generic
+# project status. Changing this list changes the Projects board columns.
+PROJECT_STAGES = [
+    "Not started",
+    "In progress",
+    "Testing",
+    "Training Completed",
+    "Onboarding Completed",
+    "Project Completed",
+    "On hold",
+]
+
+ENTITIES = []
+
+
+def entity(**kw):
+    ENTITIES.append(kw)
+    return kw
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# CRM · Customers and people
+# ────────────────────────────────────────────────────────────────────────────
+
+entity(
+    key="customers",
+    entity_type="parties",
+    model=m.Party,
+    label="Customer",
+    plural="Customers",
+    workspace="CRM",
+    module="Customers",
+    icon="users",
+    accent="#A2D2FF",
+    order_by="display_name",
+    search=["display_name", "legal_name", "gstin", "email", "phone", "city"],
+    title_field="display_name",
+    # Archetype 1B — a dense ledger. Widths are grid-template fractions.
+    columns=[
+        {"k": "display_name", "label": "Name", "type": "text", "width": "2.2fr", "primary": True},
+        {"k": "kind", "label": "Kind", "type": "badge", "width": "0.8fr"},
+        {"k": "gstin", "label": "GSTIN", "type": "mono", "width": "1.4fr"},
+        {"k": "gst_treatment", "label": "Treatment", "type": "text", "width": "1fr"},
+        {"k": "owner_id", "label": "Z9S POC", "type": "ref", "ref": "users", "width": "1.2fr"},
+        {"k": "party_group_id", "label": "Group", "type": "ref", "ref": "party-groups", "width": "1.1fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "0.9fr"},
+    ],
+    fields=[
+        {"k": "display_name", "label": "Display name", "type": "text", "required": True, "group": "Identity"},
+        {"k": "legal_name", "label": "Legal name", "type": "text", "group": "Identity"},
+        {"k": "kind", "label": "Kind", "type": "select", "options": PARTY_KINDS, "default": "customer", "group": "Identity"},
+        {"k": "party_group_id", "label": "Group", "type": "ref", "ref": "party-groups", "group": "Identity"},
+        {"k": "owner_id", "label": "Z9S POC", "type": "ref", "ref": "users", "group": "Identity",
+         "help": "Who at Z9S owns this account."},
+        {"k": "industry", "label": "Industry", "type": "text", "group": "Identity"},
+
+        {"k": "gstin", "label": "GSTIN", "type": "text", "group": "Tax"},
+        {"k": "gst_treatment", "label": "GST treatment", "type": "select", "options": GST_TREATMENTS,
+         "default": "regular", "group": "Tax"},
+        {"k": "pan", "label": "PAN", "type": "text", "group": "Tax"},
+
+        {"k": "phone", "label": "Phone", "type": "phone", "group": "Contact"},
+        {"k": "email", "label": "Email", "type": "email", "group": "Contact"},
+        {"k": "website", "label": "Website", "type": "url", "group": "Contact"},
+
+        {"k": "billing_address", "label": "Billing address", "type": "textarea", "group": "Address"},
+        {"k": "city", "label": "City", "type": "text", "group": "Address"},
+        {"k": "state_code", "label": "State code", "type": "text", "group": "Address"},
+        {"k": "pincode", "label": "PIN code", "type": "text", "group": "Address"},
+
+        {"k": "credit_limit", "label": "Credit limit", "type": "money", "group": "Commercials"},
+        {"k": "credit_days", "label": "Credit days", "type": "number", "group": "Commercials"},
+
+        {"k": "summary", "label": "Summary", "type": "textarea", "group": "Notes",
+         "help": "The living one-paragraph answer to 'who are they'. Updated over time."},
+        {"k": "notes", "label": "Notes", "type": "textarea", "group": "Notes"},
+        {"k": "status", "label": "Status", "type": "select", "options": ["Active", "Dormant", "Archived"],
+         "default": "Active", "group": "Notes"},
+    ],
+    # Archetype 1E — key facts pin to the right rail, sections stack left.
+    key_facts=["owner_id", "party_group_id", "credit_limit", "credit_days", "industry", "city"],
+    relations=[
+        {"key": "contacts", "label": "Contacts", "entity": "contacts", "fk": "party_id"},
+        {"key": "projects", "label": "Projects", "entity": "projects", "fk": "party_id"},
+        {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "party_id"},
+        {"key": "work_streams", "label": "Work streams", "entity": "work-streams", "fk": "party_id"},
+    ],
+    saved_views=[
+        {"name": "All", "filters": {}},
+        {"name": "Customers", "filters": {"kind": "customer"}},
+        {"name": "Prospects", "filters": {"kind": "prospect"}},
+        {"name": "Vendors", "filters": {"kind": "vendor"}},
+        {"name": "Active", "filters": {"status": "Active"}},
+    ],
+)
+
+entity(
+    key="contacts",
+    entity_type="party_contacts",
+    model=m.PartyContact,
+    label="Person",
+    plural="People",
+    workspace="CRM",
+    module="Customers",
+    icon="users",
+    accent="#A2D2FF",
+    order_by="name",
+    search=["name", "email", "phone", "whatsapp", "designation"],
+    title_field="name",
+    columns=[
+        {"k": "name", "label": "Name", "type": "text", "width": "1.8fr", "primary": True},
+        {"k": "party_id", "label": "Company", "type": "ref", "ref": "customers", "width": "1.8fr"},
+        {"k": "designation", "label": "Designation", "type": "text", "width": "1.3fr"},
+        {"k": "phone", "label": "Phone", "type": "mono", "width": "1.2fr"},
+        {"k": "email", "label": "Email", "type": "text", "width": "1.6fr"},
+        {"k": "is_primary", "label": "Primary", "type": "boolean", "width": "0.7fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True, "group": "Identity"},
+        {"k": "party_id", "label": "Company", "type": "ref", "ref": "customers", "group": "Identity",
+         "help": "Leave empty for a person who belongs to no company."},
+        {"k": "designation", "label": "Designation", "type": "text", "group": "Identity"},
+        {"k": "is_primary", "label": "Primary contact", "type": "boolean", "group": "Identity"},
+        {"k": "phone", "label": "Phone", "type": "phone", "group": "Contact"},
+        {"k": "whatsapp", "label": "WhatsApp", "type": "phone", "group": "Contact"},
+        {"k": "email", "label": "Email", "type": "email", "group": "Contact"},
+        {"k": "comms_preference", "label": "Comms preference", "type": "text", "group": "Contact"},
+        {"k": "summary", "label": "Summary", "type": "textarea", "group": "Notes"},
+        {"k": "relevance", "label": "Relevance", "type": "textarea", "group": "Notes",
+         "help": "Why this person matters to us."},
+        {"k": "notes", "label": "Notes", "type": "textarea", "group": "Notes"},
+        {"k": "status", "label": "Status", "type": "select", "options": ["Active", "Archived"],
+         "default": "Active", "group": "Notes"},
+    ],
+    key_facts=["party_id", "designation", "phone", "whatsapp", "email"],
+    relations=[
+        {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "party_contact_id", "via": "task_participants"},
+    ],
+    saved_views=[
+        {"name": "All", "filters": {}},
+        {"name": "Primary contacts", "filters": {"is_primary": True}},
+        {"name": "Unattached", "filters": {"party_id": None}},
+    ],
+)
+
+entity(
+    key="party-groups",
+    entity_type="party_groups",
+    model=m.PartyGroup,
+    label="Customer group",
+    plural="Customer groups",
+    workspace="CRM",
+    module="Config",
+    icon="sliders",
+    accent="#A2D2FF",
+    order_by="name",
+    search=["name"],
+    title_field="name",
+    columns=[
+        {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
+        {"k": "description", "label": "Description", "type": "text", "width": "3fr"},
+        {"k": "color", "label": "Colour", "type": "color", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "description", "label": "Description", "type": "text"},
+        {"k": "color", "label": "Colour", "type": "text", "default": "#C8B6FF"},
+    ],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# CRM · Leads and the pipeline
+# ────────────────────────────────────────────────────────────────────────────
+
+entity(
+    key="leads",
+    entity_type="leads",
+    model=m.Lead,
+    label="Lead",
+    plural="Leads",
+    workspace="CRM",
+    module="Leads",
+    icon="trend",
+    accent="#FFCDB2",
+    order_by="-created_at",
+    search=["title", "company_name", "contact_name", "email", "phone"],
+    title_field="title",
+    columns=[
+        {"k": "title", "label": "Lead", "type": "text", "width": "2.2fr", "primary": True},
+        {"k": "company_name", "label": "Company", "type": "text", "width": "1.6fr"},
+        {"k": "stage_id", "label": "Stage", "type": "ref", "ref": "pipeline-stages", "width": "1.2fr"},
+        {"k": "estimated_value", "label": "One-time", "type": "money", "width": "1.1fr", "align": "right"},
+        {"k": "monthly_value", "label": "Monthly", "type": "money", "width": "1fr", "align": "right"},
+        {"k": "owner_id", "label": "Owner", "type": "ref", "ref": "users", "width": "1.1fr"},
+        {"k": "next_action_date", "label": "Next action", "type": "date", "width": "1.1fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "0.9fr"},
+    ],
+    fields=[
+        {"k": "title", "label": "Lead title", "type": "text", "required": True, "group": "Lead"},
+        {"k": "company_name", "label": "Company", "type": "text", "group": "Lead"},
+        {"k": "source_id", "label": "Source", "type": "ref", "ref": "lead-sources", "group": "Lead"},
+        {"k": "pipeline_id", "label": "Pipeline", "type": "ref", "ref": "pipelines", "group": "Lead"},
+        {"k": "stage_id", "label": "Stage", "type": "ref", "ref": "pipeline-stages", "group": "Lead"},
+        {"k": "owner_id", "label": "Owner", "type": "ref", "ref": "users", "group": "Lead"},
+
+        {"k": "contact_name", "label": "Contact name", "type": "text", "group": "Contact"},
+        {"k": "phone", "label": "Phone", "type": "phone", "group": "Contact"},
+        {"k": "email", "label": "Email", "type": "email", "group": "Contact"},
+
+        {"k": "estimated_value", "label": "One-time value", "type": "money", "group": "Commercials"},
+        {"k": "monthly_value", "label": "Monthly value", "type": "money", "group": "Commercials"},
+        {"k": "expected_close_date", "label": "Expected close", "type": "date", "group": "Commercials"},
+
+        {"k": "next_action", "label": "Next action", "type": "text", "group": "Next move"},
+        {"k": "next_action_date", "label": "Next action date", "type": "date", "group": "Next move"},
+        {"k": "next_action_owner_id", "label": "Next action owner", "type": "ref", "ref": "users", "group": "Next move"},
+
+        {"k": "status", "label": "Status", "type": "select", "options": ["open", "won", "lost"],
+         "default": "open", "group": "Outcome", "readonly_hint": "Use Convert to mark a lead won."},
+        {"k": "lost_reason_id", "label": "Lost reason", "type": "ref", "ref": "lost-reasons", "group": "Outcome"},
+        {"k": "notes", "label": "Notes", "type": "textarea", "group": "Outcome"},
+    ],
+    key_facts=["stage_id", "owner_id", "estimated_value", "monthly_value", "expected_close_date", "source_id"],
+    relations=[
+        {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "lead_id"},
+    ],
+    saved_views=[
+        {"name": "Open", "filters": {"status": "open"}},
+        {"name": "All", "filters": {}},
+        {"name": "Won", "filters": {"status": "won"}},
+        {"name": "Lost", "filters": {"status": "lost"}},
+    ],
+    actions=[
+        {"key": "convert", "label": "Convert to customer", "method": "POST",
+         "path": "/api/leads/{id}/convert",
+         "description": "Creates a parties row from the lead, stamps converted_party_id, "
+                        "marks the lead won. The lead is kept — the funnel history is the point."},
+    ],
+)
+
+entity(
+    key="lead-sources", entity_type="lead_sources", model=m.LeadSource,
+    label="Lead source", plural="Lead sources", workspace="CRM", module="Config",
+    icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
+    columns=[
+        {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
+        {"k": "description", "label": "Description", "type": "text", "width": "3fr"},
+        {"k": "is_active", "label": "Active", "type": "boolean", "width": "0.8fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "description", "label": "Description", "type": "text"},
+        {"k": "is_active", "label": "Active", "type": "boolean", "default": True},
+    ],
+)
+
+entity(
+    key="pipelines", entity_type="pipelines", model=m.Pipeline,
+    label="Pipeline", plural="Pipelines", workspace="CRM", module="Config",
+    icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
+    columns=[
+        {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
+        {"k": "description", "label": "Description", "type": "text", "width": "3fr"},
+        {"k": "is_default", "label": "Default", "type": "boolean", "width": "0.8fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "description", "label": "Description", "type": "text"},
+        {"k": "is_default", "label": "Default pipeline", "type": "boolean", "default": False},
+    ],
+    relations=[{"key": "stages", "label": "Stages", "entity": "pipeline-stages", "fk": "pipeline_id"}],
+)
+
+entity(
+    key="pipeline-stages", entity_type="pipeline_stages", model=m.PipelineStage,
+    label="Pipeline stage", plural="Pipeline stages", workspace="CRM", module="Config",
+    icon="sliders", accent="#FFCDB2", order_by="sort_order", search=["name"], title_field="name",
+    columns=[
+        {"k": "sort_order", "label": "#", "type": "number", "width": "0.4fr"},
+        {"k": "name", "label": "Stage", "type": "text", "width": "2fr", "primary": True},
+        {"k": "pipeline_id", "label": "Pipeline", "type": "ref", "ref": "pipelines", "width": "1.5fr"},
+        {"k": "probability", "label": "Probability", "type": "percent", "width": "1fr", "align": "right"},
+        {"k": "is_won", "label": "Won", "type": "boolean", "width": "0.6fr"},
+        {"k": "is_lost", "label": "Lost", "type": "boolean", "width": "0.6fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "pipeline_id", "label": "Pipeline", "type": "ref", "ref": "pipelines", "required": True},
+        {"k": "sort_order", "label": "Order", "type": "number", "default": 0},
+        {"k": "probability", "label": "Probability %", "type": "number"},
+        {"k": "is_won", "label": "Counts as won", "type": "boolean", "default": False},
+        {"k": "is_lost", "label": "Counts as lost", "type": "boolean", "default": False},
+        {"k": "color", "label": "Colour", "type": "text", "default": "#C8B6FF"},
+    ],
+)
+
+entity(
+    key="lost-reasons", entity_type="lost_reasons", model=m.LostReason,
+    label="Lost reason", plural="Lost reasons", workspace="CRM", module="Config",
+    icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
+    columns=[{"k": "name", "label": "Reason", "type": "text", "width": "1fr", "primary": True}],
+    fields=[{"k": "name", "label": "Reason", "type": "text", "required": True}],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# CRM · Catalog — Services and Products are one table split by item_type
+# ────────────────────────────────────────────────────────────────────────────
+
+_ITEM_COLUMNS = [
+    {"k": "name", "label": "Name", "type": "text", "width": "2.2fr", "primary": True},
+    {"k": "code", "label": "Code", "type": "mono", "width": "1fr"},
+    {"k": "category_id", "label": "Category", "type": "ref", "ref": "item-categories", "width": "1.3fr"},
+    {"k": "selling_price", "label": "One-time", "type": "money", "width": "1.1fr", "align": "right"},
+    {"k": "monthly_price", "label": "Monthly", "type": "money", "width": "1.1fr", "align": "right"},
+    {"k": "gst_rate", "label": "GST %", "type": "percent", "width": "0.8fr", "align": "right"},
+    {"k": "is_active", "label": "Active", "type": "boolean", "width": "0.7fr"},
+]
+
+_ITEM_FIELDS = [
+    {"k": "name", "label": "Name", "type": "text", "required": True, "group": "Item"},
+    {"k": "code", "label": "Code", "type": "text", "group": "Item"},
+    {"k": "category_id", "label": "Category", "type": "ref", "ref": "item-categories", "group": "Item"},
+    {"k": "description", "label": "Description", "type": "textarea", "group": "Item"},
+    {"k": "selling_price", "label": "One-time price", "type": "money", "group": "Pricing"},
+    {"k": "monthly_price", "label": "Monthly price", "type": "money", "group": "Pricing"},
+    {"k": "hsn_sac_code", "label": "HSN / SAC", "type": "text", "group": "Tax"},
+    {"k": "gst_rate", "label": "GST rate %", "type": "number", "group": "Tax"},
+    {"k": "is_active", "label": "Active", "type": "boolean", "default": True, "group": "Tax"},
+]
+
+entity(
+    key="services", entity_type="items", model=m.Item,
+    label="Service", plural="Services", workspace="CRM", module="Catalog",
+    icon="package", accent="#FFCDB2", order_by="name",
+    search=["name", "code", "description"], title_field="name",
+    # Two tabs, one table: the scope filter is what makes them different.
+    scope={"item_type": "service"},
+    columns=_ITEM_COLUMNS, fields=_ITEM_FIELDS,
+    key_facts=["category_id", "selling_price", "monthly_price", "gst_rate", "hsn_sac_code"],
+    relations=[{"key": "projects", "label": "Projects", "entity": "projects", "fk": "item_id"}],
+)
+
+entity(
+    # NOT `products`: /api/products is already the platform's own product-config
+    # route, and a registry key that collides with a hand-written route is
+    # silently unreachable. `check_route_collisions` in main.py enforces this.
+    key="catalog-products", entity_type="items", model=m.Item,
+    label="Product", plural="Products", workspace="CRM", module="Catalog",
+    icon="package", accent="#FFCDB2", order_by="name",
+    search=["name", "code", "description"], title_field="name",
+    scope={"item_type": "goods"},
+    columns=_ITEM_COLUMNS, fields=_ITEM_FIELDS,
+    key_facts=["category_id", "selling_price", "monthly_price", "gst_rate", "hsn_sac_code"],
+    relations=[{"key": "projects", "label": "Projects", "entity": "projects", "fk": "item_id"}],
+)
+
+entity(
+    key="item-categories", entity_type="item_categories", model=m.ItemCategory,
+    label="Category", plural="Categories", workspace="CRM", module="Config",
+    icon="sliders", accent="#FFCDB2", order_by="name", search=["name"], title_field="name",
+    columns=[
+        {"k": "name", "label": "Name", "type": "text", "width": "2fr", "primary": True},
+        {"k": "kind", "label": "Kind", "type": "badge", "width": "1fr"},
+        {"k": "parent_id", "label": "Parent", "type": "ref", "ref": "item-categories", "width": "1.5fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "kind", "label": "Kind", "type": "select", "options": ["service", "product"], "default": "service"},
+        {"k": "parent_id", "label": "Parent category", "type": "ref", "ref": "item-categories"},
+        {"k": "sort_order", "label": "Order", "type": "number", "default": 0},
+    ],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# CRM · Projects — delivery
+# ────────────────────────────────────────────────────────────────────────────
+
+entity(
+    key="projects",
+    entity_type="projects",
+    model=m.Project,
+    label="Project",
+    plural="Projects",
+    workspace="CRM",
+    module="Projects",
+    icon="clipboard",
+    accent="#B8E0D2",
+    order_by="-created_at",
+    search=["name", "doc_no", "description", "next_action"],
+    title_field="name",
+    columns=[
+        {"k": "name", "label": "Project", "type": "text", "width": "2.4fr", "primary": True},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.6fr"},
+        {"k": "stage", "label": "Stage", "type": "badge", "width": "1.3fr"},
+        {"k": "next_action", "label": "Next action", "type": "text", "width": "2.2fr"},
+        {"k": "next_action_date", "label": "By", "type": "date", "width": "1fr"},
+        {"k": "next_action_owner_id", "label": "Owner", "type": "ref", "ref": "users", "width": "1.1fr"},
+        {"k": "one_time_amount", "label": "One-time", "type": "money", "width": "1.1fr", "align": "right"},
+        {"k": "monthly_amount", "label": "Monthly", "type": "money", "width": "1fr", "align": "right"},
+    ],
+    fields=[
+        {"k": "name", "label": "Project name", "type": "text", "required": True, "group": "Project",
+         "help": "The working convention is '<Customer> — <Service>'."},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Project"},
+        {"k": "item_id", "label": "Service / product", "type": "ref", "ref": "services", "group": "Project"},
+        {"k": "manager_id", "label": "Manager", "type": "ref", "ref": "users", "group": "Project"},
+        {"k": "stage", "label": "Stage", "type": "select", "options": PROJECT_STAGES,
+         "default": "Not started", "group": "Project"},
+        {"k": "status", "label": "Status", "type": "select",
+         "options": ["active", "on_hold", "completed", "cancelled"], "default": "active", "group": "Project"},
+        {"k": "description", "label": "Description", "type": "textarea", "group": "Project"},
+
+        {"k": "next_action", "label": "Next action", "type": "text", "group": "Next move"},
+        {"k": "next_action_date", "label": "Next action date", "type": "date", "group": "Next move"},
+        {"k": "next_action_owner_id", "label": "Next action owner", "type": "ref", "ref": "users", "group": "Next move"},
+
+        {"k": "billing_type", "label": "Billing type", "type": "select",
+         "options": ["fixed", "milestone", "monthly", "time_material"], "default": "fixed", "group": "Commercials"},
+        {"k": "one_time_amount", "label": "One-time amount", "type": "money", "group": "Commercials"},
+        {"k": "monthly_amount", "label": "Monthly amount", "type": "money", "group": "Commercials"},
+        {"k": "duration_months", "label": "Duration (months)", "type": "number", "group": "Commercials"},
+
+        {"k": "start_date", "label": "Start date", "type": "date", "group": "Dates"},
+        {"k": "go_live_date", "label": "Go-live date", "type": "date", "group": "Dates"},
+        {"k": "end_date", "label": "End date", "type": "date", "group": "Dates"},
+        {"k": "completion_pct", "label": "Completion %", "type": "number", "group": "Dates"},
+
+        {"k": "prod_url", "label": "Production URL", "type": "url", "group": "Links"},
+        {"k": "document_url", "label": "Document URL", "type": "url", "group": "Links"},
+        {"k": "gdrive_url", "label": "Drive URL", "type": "url", "group": "Links"},
+        {"k": "notes", "label": "Notes", "type": "textarea", "group": "Links"},
+    ],
+    key_facts=["party_id", "manager_id", "stage", "one_time_amount", "monthly_amount", "start_date", "prod_url"],
+    relations=[
+        {"key": "milestones", "label": "Milestones", "entity": "milestones", "fk": "project_id"},
+        {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "project_id"},
+        {"key": "members", "label": "Team", "entity": "project-members", "fk": "project_id"},
+    ],
+    saved_views=[
+        {"name": "Ongoing", "filters": {"status": "active"}},
+        {"name": "All", "filters": {}},
+        {"name": "Not started", "filters": {"stage": "Not started"}},
+        {"name": "In progress", "filters": {"stage": "In progress"}},
+        {"name": "Completed", "filters": {"stage": "Project Completed"}},
+    ],
+)
+
+entity(
+    key="milestones", entity_type="milestones", model=m.Milestone,
+    label="Milestone", plural="Milestones", workspace="CRM", module="Projects",
+    icon="calendar", accent="#B8E0D2", order_by="sort_order",
+    search=["name", "description"], title_field="name",
+    columns=[
+        {"k": "sort_order", "label": "#", "type": "number", "width": "0.4fr"},
+        {"k": "name", "label": "Milestone", "type": "text", "width": "2.2fr", "primary": True},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "width": "1.8fr"},
+        {"k": "due_date", "label": "Due", "type": "date", "width": "1fr"},
+        {"k": "amount", "label": "Amount", "type": "money", "width": "1.1fr", "align": "right"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "required": True},
+        {"k": "description", "label": "Description", "type": "textarea"},
+        {"k": "sort_order", "label": "Order", "type": "number", "default": 0},
+        {"k": "due_date", "label": "Due date", "type": "date"},
+        {"k": "completed_on", "label": "Completed on", "type": "date"},
+        {"k": "amount", "label": "Amount", "type": "money"},
+        {"k": "status", "label": "Status", "type": "select",
+         "options": ["pending", "in_progress", "completed", "invoiced"], "default": "pending"},
+    ],
+)
+
+entity(
+    key="project-members", entity_type="project_members", model=m.ProjectMember,
+    label="Team member", plural="Team", workspace="CRM", module="Projects",
+    icon="users", accent="#B8E0D2", order_by="id", search=[], title_field="role",
+    columns=[
+        {"k": "user_id", "label": "Member", "type": "ref", "ref": "users", "width": "2fr", "primary": True},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "width": "2fr"},
+        {"k": "role", "label": "Role", "type": "badge", "width": "1fr"},
+        {"k": "allocation_pct", "label": "Allocation", "type": "percent", "width": "1fr", "align": "right"},
+        {"k": "is_active", "label": "Active", "type": "boolean", "width": "0.7fr"},
+    ],
+    fields=[
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "required": True},
+        {"k": "user_id", "label": "Member", "type": "ref", "ref": "users", "required": True},
+        {"k": "role", "label": "Role", "type": "select", "options": ["manager", "member", "viewer"],
+         "default": "member"},
+        {"k": "allocation_pct", "label": "Allocation %", "type": "number"},
+        {"k": "joined_on", "label": "Joined on", "type": "date"},
+        {"k": "is_active", "label": "Active", "type": "boolean", "default": True},
+    ],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Work · tasks and standing work streams — the Google Tasks replacement
+# ────────────────────────────────────────────────────────────────────────────
+
+entity(
+    key="tasks",
+    entity_type="tasks",
+    model=m.Task,
+    label="Task",
+    plural="Tasks",
+    workspace="Work",
+    module="Tasks",
+    icon="clipboard",
+    accent="#B8E0D2",
+    order_by="-created_at",
+    search=["title", "description", "external_ref"],
+    title_field="title",
+    columns=[
+        {"k": "title", "label": "Task", "type": "text", "width": "3fr", "primary": True},
+        {"k": "owner_id", "label": "Owner", "type": "ref", "ref": "users", "width": "1.2fr"},
+        {"k": "party_id", "label": "For", "type": "ref", "ref": "customers", "width": "1.4fr"},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "width": "1.6fr"},
+        {"k": "due_date", "label": "Due", "type": "date", "width": "1fr"},
+        {"k": "priority", "label": "Priority", "type": "badge", "width": "0.9fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "title", "label": "Task", "type": "text", "required": True, "group": "Task"},
+        {"k": "description", "label": "Description", "type": "textarea", "group": "Task"},
+        {"k": "owner_id", "label": "Owner", "type": "ref", "ref": "users", "group": "Task"},
+        {"k": "status", "label": "Status", "type": "select", "options": TASK_STATUSES,
+         "default": "open", "group": "Task"},
+        {"k": "priority", "label": "Priority", "type": "select", "options": PRIORITIES,
+         "default": "medium", "group": "Task"},
+
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Context"},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "group": "Context"},
+        {"k": "work_stream_id", "label": "Work stream", "type": "ref", "ref": "work-streams", "group": "Context"},
+        {"k": "lead_id", "label": "Lead", "type": "ref", "ref": "leads", "group": "Context"},
+        {"k": "milestone_id", "label": "Milestone", "type": "ref", "ref": "milestones", "group": "Context"},
+
+        {"k": "task_date", "label": "Task date", "type": "date", "group": "Dates",
+         "help": "The day this sits on, mirroring a Daily Task date page."},
+        {"k": "due_date", "label": "Due date", "type": "date", "group": "Dates"},
+        {"k": "start_date", "label": "Start date", "type": "date", "group": "Dates"},
+        {"k": "estimated_hours", "label": "Estimated hours", "type": "number", "group": "Dates"},
+        {"k": "is_billable", "label": "Billable", "type": "boolean", "default": False, "group": "Dates"},
+
+        {"k": "external_ref", "label": "External ref", "type": "text", "group": "Sync",
+         "help": "Back-reference to a wiki row or an external task id."},
+    ],
+    key_facts=["owner_id", "status", "priority", "due_date", "project_id", "party_id", "source"],
+    relations=[],
+    saved_views=[
+        {"name": "Open", "filters": {"status": ["open", "in_progress", "blocked"]}},
+        {"name": "Today", "filters": {"due_date": "today"}},
+        {"name": "Overdue", "filters": {"overdue": True}},
+        {"name": "Mine", "filters": {"owner_id": "me"}},
+        {"name": "Done", "filters": {"status": "done"}},
+        {"name": "All", "filters": {}},
+    ],
+    actions=[
+        {"key": "remark", "label": "Add remark", "method": "POST", "path": "/api/tasks/{id}/remarks",
+         "description": "Append an Owner Remark. Append-only: remarks are never edited or deleted, "
+                        "a correction is a new remark."},
+    ],
+)
+
+entity(
+    key="work-streams",
+    entity_type="work_streams",
+    model=m.WorkStream,
+    label="Work stream",
+    plural="Work streams",
+    workspace="Work",
+    module="Work",
+    icon="activity",
+    accent="#C8B6FF",
+    order_by="name",
+    search=["name", "description"],
+    title_field="name",
+    columns=[
+        {"k": "name", "label": "Work stream", "type": "text", "width": "2.4fr", "primary": True},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.6fr"},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "width": "1.6fr"},
+        {"k": "waiting_on_id", "label": "Waiting on", "type": "ref", "ref": "users", "width": "1.2fr"},
+        {"k": "status", "label": "Status", "type": "badge", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "name", "label": "Name", "type": "text", "required": True,
+         "help": "A standing stream keyed by the people in it, e.g. 'Meet x Nishant'."},
+        {"k": "description", "label": "Description", "type": "textarea"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers"},
+        {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects"},
+        {"k": "waiting_on_id", "label": "Waiting on", "type": "ref", "ref": "users"},
+        {"k": "status", "label": "Status", "type": "select", "options": ["active", "paused", "closed"],
+         "default": "active"},
+        {"k": "notes", "label": "Notes", "type": "textarea"},
+    ],
+    key_facts=["party_id", "project_id", "waiting_on_id", "status"],
+    relations=[
+        {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "work_stream_id"},
+        {"key": "members", "label": "Members", "entity": "work-stream-members", "fk": "work_stream_id"},
+    ],
+    saved_views=[
+        {"name": "Active", "filters": {"status": "active"}},
+        {"name": "All", "filters": {}},
+    ],
+)
+
+entity(
+    key="work-stream-members", entity_type="work_stream_members", model=m.WorkStreamMember,
+    label="Member", plural="Members", workspace="Work", module="Work",
+    icon="users", accent="#C8B6FF", order_by="id", search=[], title_field="role",
+    columns=[
+        {"k": "work_stream_id", "label": "Work stream", "type": "ref", "ref": "work-streams", "width": "2fr"},
+        {"k": "user_id", "label": "User", "type": "ref", "ref": "users", "width": "1.5fr", "primary": True},
+        {"k": "party_contact_id", "label": "Contact", "type": "ref", "ref": "contacts", "width": "1.5fr"},
+        {"k": "role", "label": "Role", "type": "text", "width": "1fr"},
+    ],
+    fields=[
+        {"k": "work_stream_id", "label": "Work stream", "type": "ref", "ref": "work-streams", "required": True},
+        {"k": "user_id", "label": "Platform user", "type": "ref", "ref": "users"},
+        {"k": "party_contact_id", "label": "External contact", "type": "ref", "ref": "contacts"},
+        {"k": "role", "label": "Role", "type": "text"},
+    ],
+)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Lookups
+# ────────────────────────────────────────────────────────────────────────────
+
+BY_KEY = {e["key"]: e for e in ENTITIES}
+BY_ENTITY_TYPE = {}
+for _e in ENTITIES:
+    BY_ENTITY_TYPE.setdefault(_e["entity_type"], _e)
+
+
+def public(e):
+    """The JSON-safe shape published at /api/meta/entities (drops the model class)."""
+    out = {k: v for k, v in e.items() if k != "model"}
+    out.setdefault("scope", {})
+    out.setdefault("relations", [])
+    out.setdefault("saved_views", [{"name": "All", "filters": {}}])
+    out.setdefault("actions", [])
+    out.setdefault("key_facts", [])
+    out["path"] = "/api/" + e["key"]
+    return out
+
+
+def label_for(obj, ent):
+    """Human-readable label for a row, used by refs and the audit log."""
+    if obj is None:
+        return None
+    return getattr(obj, ent.get("title_field") or "name", None) or "#%s" % getattr(obj, "id", "?")
+
+
+# `users` is not a registry entity (it predates the CRM model and has its own
+# router), but ref fields point at it, so consumers need a way to resolve it.
+USER_REF = {
+    "key": "users",
+    "path": "/api/users",
+    "label": "User",
+    "plural": "Users",
+    "title_field": "name",
+    "model": User,
+}

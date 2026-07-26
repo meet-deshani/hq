@@ -9,6 +9,10 @@ from typing import List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
 from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
+# Imported for the side effect of registering the CRM tables on Base.metadata
+# before create_all runs below.
+from backend import crm_models  # noqa: F401
+from backend import audit, crud, seed_crm
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
@@ -188,7 +192,13 @@ def seed_database():
             ])
             db.commit()
             logger.info("Default Admin user 'meet@dotsai.in' successfully seeded.")
-            
+
+        # CRM config, the team and the real book of work. Idempotent — it
+        # re-checks every natural key, so a restart never duplicates a row.
+        admin_user = db.query(User).filter(User.email == "meet@dotsai.in").first()
+        if admin_user:
+            seed_crm.seed(db, org, admin_user, get_password_hash)
+
     except Exception as e:
         logger.error(f"Error seeding database: {e}")
     finally:
@@ -198,15 +208,26 @@ def seed_database():
 
 # Auth
 @app.post("/api/auth/login", response_model=Token)
-def login(login_data: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(login_data: LoginRequest, response: Response, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.password_hash):
+        # Failed attempts are audited too — an unexplained lockout or a probe
+        # is only diagnosable if the misses are on the record, not just the hits.
+        audit.record(
+            db, action="login_failed", entity_type="users", entity_label=login_data.email,
+            actor=None, request=request, commit=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    audit.record(
+        db, action="login", entity_type="users", entity_id=user.id, entity_label=user.email,
+        actor=user, request=request, organisation_id=user.organisation_id, commit=True,
+    )
+
     access_token = create_access_token(data={"sub": user.email})
     
     # Set HTTP-only cookie for easy frontend browser access
@@ -1255,6 +1276,19 @@ CLI_CATALOG = [
 def get_cli_catalog():
     commands = [CliCommandItem(**c) for c in CLI_CATALOG]
     return {"base_command": "hq-cli", "count": len(commands), "commands": commands}
+
+# ── GENERIC CRM CRUD ──
+# Registered here, AFTER every hand-written /api route, because this router
+# owns the catch-all `/api/{key}`. Starlette matches in registration order, so
+# moving this line earlier would let /api/{key} swallow /api/users, /api/catalog
+# and friends. It must also stay BEFORE the frontend catch-all below, which
+# would otherwise match /api/customers/5 as an org/product/workspace path.
+app.include_router(crud.router)
+
+# Refuse to boot on a registry that lies: a key shadowed by a literal /api route
+# above, or a field/ref/relation that does not exist in the schema.
+crud.check_route_collisions(app)
+crud.validate_registry()
 
 # ── SERVING FRONTEND PAGES ──
 
