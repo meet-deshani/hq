@@ -14,7 +14,7 @@ from backend.crm_models import Conversation
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, comms, crud, dashboards, permissions, registry, seed_crm, zoho, zoho_sync
+from backend import audit, comms, crud, dashboards, permissions, registry, seed_crm, whatsapp, zoho, zoho_sync
 from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
@@ -1059,6 +1059,10 @@ def comms_thread(
     data = comms.thread(db, current_user.organisation_id, conversation_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    # Whether a reply on this thread will actually leave the building, so the
+    # composer can offer to Send instead of quietly promising one and recording
+    # the other. comms stays carrier-agnostic; only this layer knows the bot.
+    data["sending_enabled"] = data["channel_type"] == "whatsapp" and whatsapp.is_configured()
     return data
 
 
@@ -1070,11 +1074,20 @@ def comms_reply(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Record an outbound message on a thread.
+    """Send an outbound message on a thread, and record what actually happened.
 
-    This RECORDS what was sent; it does not itself send. Wiring the send to the
-    WhatsApp bot is a separate step, and claiming delivery HQ cannot guarantee
-    would make the thread lie about what the client actually received.
+    On a WhatsApp thread this really sends, through the bot at wa.dotsai.cloud.
+    The stored delivery_status is the truth of that one attempt: `sent` only when
+    the bot took the message, `failed` when it did not, `recorded` when no bot is
+    wired up at all. A thread must never claim a delivery HQ cannot stand behind.
+
+    A failed send is still a 200 with the message recorded and `delivered: false`
+    — the text was written and belongs in the thread. Losing it *and* the reason
+    would leave the operator with nothing to act on.
+
+    The send is attempted before the record is written so the status stored is
+    the outcome that actually occurred, never an optimistic guess awaiting a
+    correction that may never arrive.
     """
     permissions.require(current_user, "conversations", "update")
     convo = db.query(Conversation).filter(
@@ -1088,23 +1101,59 @@ def comms_reply(
     if not body:
         raise HTTPException(status_code=400, detail="'body' is required")
 
+    channel_type = convo.channel.channel_type if convo.channel else None
+    delivery_status, external_id, detail = "recorded", None, None
+
+    if channel_type == "whatsapp" and whatsapp.is_configured():
+        number = whatsapp.dial_address(db, convo)
+        if not number:
+            delivery_status = "failed"
+            detail = (
+                "No dialable number for this thread. HQ holds '%s', which carries no "
+                "country code, and the linked contact has none either. Add the full "
+                "international number to the contact and send again."
+                % convo.contact_identifier
+            )
+        else:
+            try:
+                external_id = whatsapp.send_text(number, body)
+                delivery_status = "sent"
+            except whatsapp.WhatsAppError as exc:
+                delivery_status, detail = "failed", str(exc)
+                logger.warning("WhatsApp send failed on conversation %s: %s", convo.id, exc)
+    elif channel_type == "whatsapp":
+        detail = (
+            "Recorded only — WhatsApp sending is not configured on this server, so "
+            "nothing was delivered. " + whatsapp.SETUP_HINT
+        )
+
     message, _, _ = comms.ingest(db, current_user.organisation_id, {
         "channel_id": convo.channel_id,
         "from": convo.contact_identifier,
         "direction": "outbound",
         "body": body,
         "author_id": current_user.id,
-        "external_id": (payload or {}).get("external_id"),
-        "delivery_status": "recorded",
+        # The bot's own id, so the copy WhatsApp echoes back to the bot as a
+        # sent message is recognised as this message rather than a second one.
+        "external_id": external_id or (payload or {}).get("external_id"),
+        "delivery_status": delivery_status,
     })
     db.commit()
     audit.record(
         db, action="reply", entity_type="conversations", entity_id=convo.id,
         entity_label=convo.contact_name, actor=current_user, request=request,
-        changes={"message": {"from": None, "to": body[:500]}},
+        changes={"message": {"from": None, "to": body[:500]},
+                 "delivery": {"from": None, "to": delivery_status}},
         organisation_id=convo.organisation_id, commit=True,
     )
-    return {"id": message.id, "conversation_id": convo.id, "sent_at": message.sent_at.isoformat() + "Z"}
+    return {
+        "id": message.id,
+        "conversation_id": convo.id,
+        "sent_at": message.sent_at.isoformat() + "Z",
+        "delivery_status": delivery_status,
+        "delivered": delivery_status == "sent",
+        "detail": detail,
+    }
 
 
 @app.post("/api/conversations/{conversation_id}/read")

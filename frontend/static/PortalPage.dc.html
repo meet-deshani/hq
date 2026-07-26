@@ -242,6 +242,9 @@
                 </div>
               </sc-for>
             </div>
+            <sc-if value="{{ replyError }}">
+              <div style="flex:0 0 auto;padding:9px 16px;border-top:1px solid #E9C4C0;background:#FDF3F2;font-family:'Satoshi',sans-serif;font-size:12px;line-height:1.45;color:#B4261B">{{ replyErrorText }}</div>
+            </sc-if>
             <div style="flex:0 0 auto;display:flex;gap:9px;padding:12px 16px;border-top:1px solid #EEEDE8;background:#fff">
               <input value="{{ replyDraft }}" sc-camel-on-change="{{ onReplyInput }}" placeholder="{{ replyPlaceholder }}" style="flex:1;min-width:0;box-sizing:border-box;padding:10px 14px;border-radius:999px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
               <button sc-camel-on-click="{{ onReplySubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 20px;border-radius:999px;white-space:nowrap">{{ replyLabel }}</button>
@@ -667,6 +670,7 @@ class Component extends DCLogic {
     previewLabel: 'Computed output',
     menu: null,
     inboxChannel: null, inboxThread: null, inboxMessages: [], replyDraft: '', replyBusy: false,
+    replyErrorText: '',
     pwOpen: false, pwUserId: null, pwUserName: '', pwValue: '', pwErr: '', pwBusy: false,
     createdCred: null, credCopied: false
   };
@@ -812,7 +816,11 @@ class Component extends DCLogic {
   }
 
   openThread(id){
-    this.setState({ inboxThread: id, inboxMessages: [], replyDraft: '' });
+    // Re-opening the same thread is the refresh that follows a send, so a
+    // delivery warning has to survive it; moving to another thread clears it.
+    const switching = this.state.inboxThread !== id;
+    this.setState(Object.assign({ inboxThread: id, inboxMessages: [], replyDraft: '' },
+                                switching ? { replyErrorText: '' } : {}));
     fetch('/api/conversations/' + id + '/thread')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -839,13 +847,22 @@ class Component extends DCLogic {
     const id = this.state.inboxThread;
     const body = (this.state.replyDraft || '').trim();
     if(!id || !body || this.state.replyBusy) return;
-    this.setState({ replyBusy: true });
+    this.setState({ replyBusy: true, replyErrorText: '' });
     fetch('/api/conversations/' + id + '/messages', {
       method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ body })
     })
       .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
-      .then(() => { this.setState({ replyDraft:'', replyBusy:false }); this.openThread(id); })
-      .catch(e => { this.setState({ replyBusy:false }); window.alert('Could not record the reply: ' + (e.message||e)); });
+      .then(d => {
+        // A message that was stored but not delivered is a success for the
+        // request and a failure for the client, so the draft clears and the
+        // reason stays on screen. Silently treating the two alike is how a
+        // thread ends up claiming a delivery that never happened.
+        this.setState({ replyDraft:'', replyBusy:false,
+                        replyErrorText: (d && !d.delivered && d.detail) ? d.detail : '' });
+        this.openThread(id);
+      })
+      .catch(e => this.setState({ replyBusy:false,
+                                  replyErrorText: 'Nothing was sent or saved: ' + (e.message||e) }));
   }
 
   _fetchDashboard(){
@@ -1235,7 +1252,7 @@ class Component extends DCLogic {
     // ── inbox ───────────────────────────────────────────────────────────────
     const isInbox = kind === 'inbox';
     let inboxChannels = [], inboxThreads = [], threadMessages = [];
-    let threadName = '', threadMeta = '', threadHasCustomer = false;
+    let threadName = '', threadMeta = '', threadHasCustomer = false, threadCanSend = false;
     if(isInbox){
       const chans = this.state.channels || [];
       const all = this.state.rows || [];
@@ -1278,17 +1295,27 @@ class Component extends DCLogic {
         threadName = data.contact_name || data.contact_identifier || '';
         threadMeta = [data.channel, data.party || 'Not linked to a customer'].filter(Boolean).join(' · ');
         threadHasCustomer = !!data.party_id;
+        threadCanSend = !!data.sending_enabled;
       }
+      // 'sent' is the only status that means the client actually has it. Anything
+      // else is a message that exists in HQ and nowhere else, so it is spelled
+      // out in words and the bubble is coloured to match — an outbound message
+      // that merely looks delivered is the one failure mode worth shouting about.
+      const DELIVERY = { sent: 'Delivered', failed: 'Not delivered',
+                         recorded: 'Logged in HQ only — not sent' };
       threadMessages = (this.state.inboxMessages || []).map(m => {
         const out = m.direction === 'outbound';
+        const undelivered = out && m.delivery_status && m.delivery_status !== 'sent';
         return {
           body: m.body || '',
           meta: (out ? 'Sent' : 'Received') + ' · ' + fmtWhen(m.sent_at)
-                + (m.delivery_status ? ' · ' + m.delivery_status : ''),
+                + (out && m.delivery_status
+                    ? ' · ' + (DELIVERY[m.delivery_status] || m.delivery_status) : ''),
           rowStyle: 'display:flex;justify-content:' + (out ? 'flex-end' : 'flex-start') + ';width:100%',
           bubbleStyle: 'max-width:min(560px,78%);padding:11px 14px;border-radius:14px;'
-            + (out ? 'background:' + tint(accent, 0.3) + ';border:1px solid ' + tint(accent, 0.5) + ';'
-                   : 'background:#fff;border:1px solid #E8E6E0;'),
+            + (undelivered ? 'background:#FDF3F2;border:1px solid #E9C4C0;'
+               : out ? 'background:' + tint(accent, 0.3) + ';border:1px solid ' + tint(accent, 0.5) + ';'
+                     : 'background:#fff;border:1px solid #E8E6E0;'),
         };
       });
     }
@@ -1366,8 +1393,14 @@ class Component extends DCLogic {
         ? 'Pick a thread on the left.'
         : 'Nothing to show yet. Once a channel is wired up, client messages land here automatically and attach themselves to the right customer.',
       replyDraft: this.state.replyDraft,
-      replyLabel: this.state.replyBusy ? 'Saving\u2026' : 'Record',
-      replyPlaceholder: 'Record what you sent\u2026',
+      // The button must not promise a send the server cannot make. It says Send
+      // only on a thread whose channel HQ can actually deliver on.
+      replyLabel: this.state.replyBusy
+        ? (threadCanSend ? 'Sending\u2026' : 'Saving\u2026')
+        : (threadCanSend ? 'Send' : 'Record'),
+      replyPlaceholder: threadCanSend ? 'Write a message\u2026' : 'Record what you sent\u2026',
+      replyError: !!this.state.replyErrorText,
+      replyErrorText: this.state.replyErrorText || '',
       onReplyInput: (e) => this.onReplyInput(e && e.target ? e.target.value : ''),
       onReplySubmit: () => this.submitReply(),
       onOpenCustomer: () => {

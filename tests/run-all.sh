@@ -3,9 +3,16 @@
 set -u
 cd /Users/meetdeshani/Desktop/HQ
 BASE="${HQ_BASE:-http://127.0.0.1:8077}"
+# Must match scripts/dev.sh. These are the passwords the server seeded with, and
+# a mismatch fails at the login with no hint that the credentials are the
+# problem — which is exactly what a freshly created database used to do here.
+export SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-local-admin-test-pw}"
+export SEED_NISHANT_PASSWORD="${SEED_NISHANT_PASSWORD:-nishant-local-test-pw}"
+export SEED_HEMISH_PASSWORD="${SEED_HEMISH_PASSWORD:-hemish-local-test-pw}"
 fail=0
 echo "── offline suites ──"
-for t in tests/permissions_seed_test.py tests/zoho_client_test.py tests/zoho_sync_test.py; do
+for t in tests/permissions_seed_test.py tests/zoho_client_test.py tests/zoho_sync_test.py \
+         tests/whatsapp_send_test.py; do
   printf "  %-34s " "$(basename "$t")"
   if venv/bin/python "$t" >/dev/null 2>&1; then echo "OK"; else echo "FAILED"; fail=1; fi
 done

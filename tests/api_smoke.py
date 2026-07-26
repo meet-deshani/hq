@@ -362,6 +362,23 @@ def run(base, email, password):
     check("replying clears the unread count", thread2["unread_count"] == 0,
           "unread=%s" % thread2["unread_count"])
 
+    # The whole point of the send wiring: a reply says what actually happened to
+    # it. This server has no bot token, so the honest answer is "recorded" and
+    # delivered=False — never a bare 200 the UI would render as delivered.
+    check("a reply reports its delivery status rather than implying success",
+          reply.get("delivery_status") in ("sent", "failed", "recorded"),
+          str(reply))
+    check("an unconfigured server admits nothing was sent",
+          reply.get("delivery_status") == "recorded" and reply.get("delivered") is False
+          and reply.get("detail"),
+          str(reply))
+    check("the stored message carries the same status the reply claimed",
+          thread2["messages"][-1]["delivery_status"] == reply["delivery_status"],
+          "stored=%s reported=%s" % (thread2["messages"][-1]["delivery_status"],
+                                     reply.get("delivery_status")))
+    check("the thread tells the composer whether it can really send",
+          thread2.get("sending_enabled") is False, str(thread2.get("sending_enabled")))
+
     # A client replying to a closed thread reopens it — they neither know nor
     # care that someone marked it done.
     api.call("PATCH", "/api/conversations/%s" % convo_id, {"status": "closed"}, expect=200)
