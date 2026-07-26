@@ -1,5 +1,6 @@
 import os
 import secrets
+import hashlib
 import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -1762,12 +1763,66 @@ class RevalidatingStaticFiles(StaticFiles):
     `no-cache` does not mean "do not store": the file is still cached, but the
     browser must revalidate, so an unchanged file costs a 304 and a changed one
     is picked up immediately.
+
+    This header alone is NOT enough, and the reason is worth keeping: it only
+    governs entries cached *after* it shipped. Browsers that had already stored
+    a copy under the old header-less response keep applying their own heuristic
+    freshness to it and never revalidate, so the fix cannot reach exactly the
+    people who need it. `asset_url` below is what actually closes that door.
     """
 
     async def get_response(self, path, scope):
         response = await super().get_response(path, scope)
         response.headers.setdefault("Cache-Control", "no-cache, must-revalidate")
         return response
+
+
+# ── cache-busting ───────────────────────────────────────────────────────────
+# A component is fetched by the dc runtime with a plain `fetch`, which consults
+# the HTTP cache. On 2026-07-26 that served a *pre-deploy* PortalPage.dc.html to
+# every returning browser: the file on disk was correct, the response was
+# correct, and the app still rendered the previous release's UI — silently, with
+# no error anywhere, because a stale component is a complete valid component.
+#
+# Stamping the content hash into the URL makes a changed file a URL the cache
+# has never seen, so the question of whether it revalidates stops mattering.
+
+_ASSET_HASHES = {}
+
+
+def asset_url(relative_path):
+    """`/static/<path>?v=<content hash>`, recomputed when the file changes.
+
+    Keyed on (size, mtime) so a normal request costs one stat, not a re-read of
+    the file. A missing file returns the bare path rather than raising — a
+    cache-busting helper must never be the thing that takes the page down.
+    """
+    full = os.path.join(STATIC_DIR, relative_path)
+    try:
+        stat = os.stat(full)
+    except OSError:
+        return "/static/%s" % relative_path
+
+    key = (stat.st_size, stat.st_mtime_ns)
+    digest = _ASSET_HASHES.get(relative_path, (None, None))
+    if digest[0] != key:
+        with open(full, "rb") as handle:
+            digest = (key, hashlib.sha1(handle.read()).hexdigest()[:12])
+        _ASSET_HASHES[relative_path] = digest
+    return "/static/%s?v=%s" % (relative_path, digest[1])
+
+
+def render_shell(path):
+    """Read a frontend page and version every static URL it hands the runtime.
+
+    Only the resource map is rewritten. Everything else in the page is left
+    exactly as authored, so this cannot change behaviour it does not intend to.
+    """
+    with open(path, "r", encoding="utf-8") as handle:
+        html = handle.read()
+    for name in ("PortalPage.dc.html", "hq-responsive.css", "hq-responsive.js"):
+        html = html.replace('"/static/%s"' % name, '"%s"' % asset_url(name))
+    return html
 
 
 # Mount frontend/static directory to serve CSS, JS, and Fonts
@@ -1782,9 +1837,7 @@ def serve_login(request: Request, db: Session = Depends(get_db)):
     if token and get_user_from_token(token, db):
         return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
 
-    with open(LOGIN_FILE, "r", encoding="utf-8") as f:
-        html_content = f.read()
-    response = HTMLResponse(content=html_content)
+    response = HTMLResponse(content=render_shell(LOGIN_FILE))
     if token:
         # Clear the stale/invalid cookie so it stops bouncing on every request.
         response.delete_cookie("access_token")
@@ -1815,6 +1868,4 @@ def serve_portal_route(
     if not (token and get_user_from_token(token, db)):
         return RedirectResponse(url="/login")
 
-    with open(HOME_FILE, "r", encoding="utf-8") as f:
-        html_content = f.read()
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(content=render_shell(HOME_FILE))
