@@ -12,6 +12,7 @@ Exits non-zero on the first failure with the offending response body.
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -82,6 +83,25 @@ def run(base, email, password):
           "expected 401 without a token")
     status, me = api.call("GET", "/api/auth/me", expect=200)
     check("auth/me returns the signed-in user", me.get("email") == email, str(me)[:200])
+
+    # ── the shell must defeat the browser cache ─────────────────────────────
+    # A component is fetched by the dc runtime with a plain fetch, so it is
+    # served from the HTTP cache. Without a content-stamped URL, browsers that
+    # cached the file before Cache-Control shipped keep the OLD component for
+    # ever: the app renders the previous release with no error anywhere. That
+    # shipped once and cost a long afternoon; this is the guard.
+    section("Cache busting")
+    shell = urllib.request.Request(base + "/z9s-ai/hq/crm/customers/customers")
+    shell.add_header("Cookie", "access_token=" + api.token)
+    page = urllib.request.urlopen(shell).read().decode()
+    stamped = re.findall(r"/static/(PortalPage\.dc\.html|hq-responsive\.(?:css|js))\?v=([0-9a-f]{6,})", page)
+    check("the shell stamps a content hash onto every runtime asset",
+          {name for name, _ in stamped} ==
+          {"PortalPage.dc.html", "hq-responsive.css", "hq-responsive.js"},
+          "found: %s" % sorted({n for n, _ in stamped}))
+    check("no runtime asset is referenced without a version",
+          "\"/static/PortalPage.dc.html\"" not in page,
+          "an unversioned PortalPage URL is still in the shell")
 
     # ── discovery ───────────────────────────────────────────────────────────
     section("Discovery")
