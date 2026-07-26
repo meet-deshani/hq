@@ -1691,8 +1691,28 @@ STATIC_DIR = os.path.join(BASE_DIR, "frontend", "static")
 LOGIN_FILE = os.path.join(BASE_DIR, "frontend", "login.html")
 HOME_FILE = os.path.join(BASE_DIR, "frontend", "home.html")
 
+class RevalidatingStaticFiles(StaticFiles):
+    """Static files that must be re-checked on every request.
+
+    Nothing here is content-hashed, so a deploy reuses the same URLs. With no
+    Cache-Control header a browser applies its own heuristic freshness and keeps
+    serving the OLD file — which meant a shipped CSS or JS change silently did
+    not reach anyone until they happened to hard-refresh. That is a very
+    expensive class of bug to chase, because the server is serving the fix.
+
+    `no-cache` does not mean "do not store": the file is still cached, but the
+    browser must revalidate, so an unchanged file costs a 304 and a changed one
+    is picked up immediately.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers.setdefault("Cache-Control", "no-cache, must-revalidate")
+        return response
+
+
 # Mount frontend/static directory to serve CSS, JS, and Fonts
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", RevalidatingStaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/login", response_class=HTMLResponse)
 def serve_login(request: Request, db: Session = Depends(get_db)):

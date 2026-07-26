@@ -182,10 +182,10 @@
     </sc-if>
 
     <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:0;width:100%;height:calc(100vh - 210px);min-height:420px;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-sizing:border-box">
+      <div class="hq-inbox" style="display:flex;gap:0;width:100%;height:calc(100vh - 210px);min-height:420px;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;background:#fff;box-sizing:border-box">
 
         <!-- pane 1 · channels -->
-        <div style="flex:0 0 190px;min-width:150px;border-right:1px solid #EEEDE8;background:#FBFAF7;display:flex;flex-direction:column">
+        <div class="hq-inbox-channels" style="flex:0 0 190px;min-width:150px;border-right:1px solid #EEEDE8;background:#FBFAF7;display:flex;flex-direction:column">
           <div style="padding:14px 16px 10px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Channels</div>
           <sc-for list="{{ inboxChannels }}" as="ch" hint-placeholder-count="3">
             <button sc-camel-on-click="{{ ch.onPick }}" style="{{ ch.style }}">
@@ -196,7 +196,7 @@
         </div>
 
         <!-- pane 2 · threads -->
-        <div style="flex:0 0 288px;min-width:220px;border-right:1px solid #EEEDE8;display:flex;flex-direction:column;overflow:hidden">
+        <div class="hq-inbox-threads" style="flex:0 0 288px;min-width:220px;border-right:1px solid #EEEDE8;display:flex;flex-direction:column;overflow:hidden">
           <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 14px;height:52px;border-bottom:1px solid #EEEDE8">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
             <input value="{{ searchValue }}" sc-camel-on-change="{{ onSearch }}" placeholder="Search threads…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924">
@@ -221,7 +221,7 @@
         </div>
 
         <!-- pane 3 · messages -->
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+        <div class="hq-inbox-messages" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
           <sc-if value="{{ hasThread }}">
             <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 18px;height:52px;border-bottom:1px solid #EEEDE8;background:rgba(253,252,250,.9)">
               <div style="flex:1;min-width:0">

@@ -148,4 +148,43 @@
 
   /* Anything explicitly marked desktop-only during QA. */
   .hq-hide-mobile { display: none !important; }
+
+  /* ── Inbox: three side-by-side panes do not fit a phone ────────────────
+     At 375px the channel rail (190px) plus the thread list (288px) already
+     overflow the viewport, which pushed the message pane off-screen entirely —
+     the conversation was unreachable. They stack instead: the channel filter
+     collapses to a horizontal strip, the thread list gets a capped height, and
+     the messages take the rest. */
+  #dc-root aside + div .hq-inbox {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  #dc-root aside + div .hq-inbox > div {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #EEEDE8;
+  }
+  /* Channels become a scrolling row of chips rather than a tall column. */
+  #dc-root aside + div .hq-inbox-channels {
+    flex-direction: row !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #dc-root aside + div .hq-inbox-channels::-webkit-scrollbar { display: none; }
+  #dc-root aside + div .hq-inbox-channels > div:first-child { display: none; }
+  #dc-root aside + div .hq-inbox-channels button {
+    width: auto !important;
+    white-space: nowrap;
+    padding: 10px 14px !important;
+  }
+  /* Enough threads to choose from without burying the conversation. */
+  #dc-root aside + div .hq-inbox-threads { max-height: 224px !important; }
+  #dc-root aside + div .hq-inbox-messages {
+    min-height: 340px !important;
+    border-bottom: none !important;
+  }
 }
