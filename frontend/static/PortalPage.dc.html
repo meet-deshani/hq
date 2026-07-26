@@ -292,7 +292,7 @@
           </sc-for>
         </div>
         <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px;width:100%;box-sizing:border-box">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · last 6 periods</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · {{ trendLabel }}, last 6 months</div>
           <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden;width:100%">
             <svg width="100%" height="100%" viewBox="0 0 600 150" preserveAspectRatio="none">
               <path d="{{ trendPath }}" stroke="{{ accent }}" stroke-width="2.5" fill="none"></path>
@@ -709,10 +709,15 @@ class Component extends DCLogic {
   }
 
   _fetchDashboard(){
+    const ws = this.props.workspace || 'hq';
     this.setState({ loading: true });
     Promise.all([
-      fetch('/api/dashboard/stats').then(r => { if(!this._authed(r)) return { stats: [] }; return r.json(); }),
-      fetch('/api/dashboard/trend').then(r => r.ok ? r.json() : { points: [] }).catch(() => ({ points: [] }))
+      // Each workspace asks for its own numbers; a shared set told a CRM user
+      // how many permission rows exist, which is nobody's question.
+      fetch('/api/dashboard/stats?workspace=' + encodeURIComponent(ws))
+        .then(r => { if(!this._authed(r)) return { stats: [] }; return r.json(); }),
+      fetch('/api/dashboard/trend?workspace=' + encodeURIComponent(ws))
+        .then(r => r.ok ? r.json() : { points: [] }).catch(() => ({ points: [] }))
     ]).then(([s, t]) => {
       const pts = (t && t.points) || [];
       const max = Math.max(1, ...pts.map(p => p.value));
@@ -722,7 +727,8 @@ class Component extends DCLogic {
         const y = (140 - (p.value / max) * 120).toFixed(1);
         return (i === 0 ? 'M' : 'L') + x + ',' + y;
       }).join(' ') : 'M0,140 L600,140';
-      this.setState({ stats: s.stats || [], trendPath: path, loading: false });
+      this.setState({ stats: s.stats || [], trendPath: path,
+                      trendLabel: (t && t.label) || 'Records', loading: false });
     }).catch(e => { console.error('dashboard failed', e); this.setState({ loading: false }); });
   }
 
@@ -1148,7 +1154,8 @@ class Component extends DCLogic {
       isDashboard: kind === 'dashboard', isReport: kind === 'report', isDesign: kind === 'design',
       isApi: kind === 'api', isCli: kind === 'cli',
       fields: [], columns, rows, gridCols, gridColsX, tableCount,
-      stats: this.state.stats || [], trendPath: this.state.trendPath, reportLines: [],
+      stats: this.state.stats || [], trendPath: this.state.trendPath,
+      trendLabel: this.state.trendLabel || 'Records', reportLines: [],
       views, searchValue: this.state.search,
       searchPlaceholder: 'Search ' + (ent ? ent.plural.toLowerCase() : 'records') + '…',
       onSearch: (e) => this.onSearchInput(e && e.target ? e.target.value : ''),

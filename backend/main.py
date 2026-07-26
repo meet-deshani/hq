@@ -13,7 +13,7 @@ from backend.models import User, Role, Permission, Organisation, Product, Worksp
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
 from backend import crm_models  # noqa: F401
-from backend import audit, crud, permissions, seed_crm
+from backend import audit, crud, dashboards, permissions, seed_crm
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
@@ -660,27 +660,17 @@ def grant_permission_to_role(
 # Dashboard
 @app.get("/api/dashboard/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(
+    workspace: str = "hq",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    total_users = db.query(User).count()
-    active_users = db.query(User).filter(User.status == "Active").count()
-    total_roles = db.query(Role).count()
-    total_perms = db.query(Permission).count()
-    total_orgs = db.query(Organisation).count()
-    total_products = db.query(Product).count()
-    total_workspaces = db.query(Workspace).count()
-    
-    return {
-        "stats": [
-            StatItem(l="Total Users", v=str(total_users), d=f"↗ Active: {active_users}"),
-            StatItem(l="Total Roles", v=str(total_roles), d="↘ Configured Roles"),
-            StatItem(l="Total Permissions", v=str(total_perms), d="→ Auth Policies"),
-            StatItem(l="Organisations", v=str(total_orgs), d="→ Active Orgs"),
-            StatItem(l="Products", v=str(total_products), d="→ HQ Products"),
-            StatItem(l="Workspaces", v=str(total_workspaces), d="→ Resource Segments")
-        ]
-    }
+    """Metrics for one workspace.
+
+    Each workspace answers its own question rather than repeating the platform's
+    user/role counts, which told a CRM user nothing. See backend/dashboards.py.
+    """
+    return {"stats": [StatItem(**s) for s in dashboards.stats_for(db, current_user, workspace)]}
+
 
 # Global search — searches real DB entities (not the static nav tree).
 @app.get("/api/search")
@@ -709,28 +699,13 @@ def search(
 # Dashboard trend — cumulative record growth over the last 6 months (from created_at).
 @app.get("/api/dashboard/trend")
 def dashboard_trend(
+    workspace: str = "hq",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    from datetime import datetime
-    now = datetime.utcnow()
-    seq = []
-    for i in range(5, -1, -1):
-        mm, yy = now.month - i, now.year
-        while mm <= 0:
-            mm += 12
-            yy -= 1
-        seq.append((yy, mm))
-    stamps = []
-    for model in (User, Organisation, Product, Workspace, Role, Feedback):
-        stamps += [row[0] for row in db.query(model.created_at).all() if row[0] is not None]
-    points = []
-    for (yy, mm) in seq:
-        nm, ny = (mm + 1, yy) if mm < 12 else (1, yy + 1)
-        boundary = datetime(ny, nm, 1)
-        points.append({"label": datetime(yy, mm, 1).strftime("%b"),
-                       "value": sum(1 for s in stamps if s < boundary)})
-    return {"points": points}
+    """Cumulative growth of the workspace's primary record over six months."""
+    return dashboards.trend_for(db, workspace)
+
 
 # Feedback
 @app.post("/api/feedback", response_model=FeedbackResponse)
@@ -1180,6 +1155,51 @@ API_CATALOG = [
         "response": "{\n  \"reply\": \"On the Users page you can ...\",\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"configured\": true\n}",
     },
     {
+        "method": "GET", "path": "/api/meta/entities", "auth": "Bearer / Cookie",
+        "summary": "THE discovery endpoint. Every entity with its columns, form fields, saved views, "
+                   "relations, actions and what YOU may do with it. Start here — the UI and the CLI "
+                   "both build themselves from this.",
+        "usage": "curl __BASE__/api/meta/entities \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"count\": 25,\n  \"entities\": [ { \"key\": \"customers\", \"path\": \"/api/customers\",\n"
+                    "    \"columns\": [...], \"fields\": [...], \"can\": { \"read\": true, \"delete\": false } } ]\n}",
+    },
+    {
+        "method": "GET", "path": "/api/meta/entities/{key}", "auth": "Bearer / Cookie",
+        "summary": "One entity's definition.",
+        "usage": "curl __BASE__/api/meta/entities/customers \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"key\": \"customers\", \"label\": \"Customer\", \"fields\": [ ... ] }",
+    },
+    {
+        "method": "GET", "path": "/api/audit", "auth": "Bearer / Cookie",
+        "summary": "The change history — who changed what, when, and from where. Filter by "
+                   "?entity_type= (the TABLE name, e.g. parties) and ?entity_id=.",
+        "usage": "curl \"__BASE__/api/audit?entity_type=parties&limit=25\" \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"count\": 3, \"entries\": [\n    { \"action\": \"update\", \"actor\": \"meet@dotsai.in\",\n"
+                    "      \"actor_kind\": \"agent\", \"changes\": { \"city\": { \"from\": \"...\", \"to\": \"...\" } } }\n  ]\n}",
+    },
+    {
+        "method": "POST", "path": "/api/leads/{lead_id}/convert", "auth": "Bearer / Cookie",
+        "summary": "Convert a lead into a customer. The lead is kept and stamped, never deleted — "
+                   "the funnel history is the point. Safe to retry: a second call returns the "
+                   "customer already created. A name clash with an existing customer is a 409.",
+        "usage": "curl -X POST __BASE__/api/leads/1/convert \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -d '{}'",
+        "response": "{\n  \"detail\": \"Lead converted\", \"already_converted\": false,\n"
+                    "  \"customer\": { \"id\": 18, \"display_name\": \"...\" }\n}",
+    },
+    {
+        "method": "POST", "path": "/api/users/{user_id}/password", "auth": "Bearer / Cookie",
+        "summary": "Set a user's password. Admin only.",
+        "usage": "curl -X POST __BASE__/api/users/2/password \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"password\":\"...\"}'",
+        "response": "{ \"detail\": \"Password updated\" }",
+    },
+    {
+        "method": "GET", "path": "/api/cli", "auth": "Public",
+        "summary": "The hq-cli command reference.",
+        "usage": "curl __BASE__/api/cli",
+        "response": "{ \"base_command\": \"hq-cli\", \"count\": 16, \"commands\": [ ... ] }",
+    },
+    {
         "method": "GET", "path": "/api/catalog", "auth": "Public",
         "summary": "This catalog — every endpoint with usage + response. Start here.",
         "usage": "curl __BASE__/api/catalog",
@@ -1191,6 +1211,9 @@ API_CATALOG = [
 def get_api_catalog(request: Request):
     # Derive the live base URL so copy-paste examples target the right host.
     base = str(request.base_url).rstrip("/")
+    # Hand-written entries cover the bespoke routes; the rest are generated from
+    # the entity registry so the catalogue cannot drift from the actual surface.
+    catalog = API_CATALOG + crud.catalog_entries()
     endpoints = [
         ApiCatalogItem(
             method=e["method"],
@@ -1200,7 +1223,7 @@ def get_api_catalog(request: Request):
             usage=e["usage"].replace("__BASE__", base),
             response=e["response"].replace("__BASE__", base),
         )
-        for e in API_CATALOG
+        for e in catalog
     ]
     return {"base_url": base, "count": len(endpoints), "endpoints": endpoints}
 

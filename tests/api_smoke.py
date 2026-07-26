@@ -117,6 +117,59 @@ def run(base, email, password):
             shadowed.append("%s returned %s %s" % (path, st, type(data).__name__))
     check("pre-existing routes are not shadowed by /api/{key}", not shadowed, "; ".join(shadowed))
 
+    # ── the catalogue must not lie ──────────────────────────────────────────
+    section("Self-documentation")
+    _, catalog = api.call("GET", "/api/catalog", expect=200)
+    documented = {(e["method"], e["path"]) for e in catalog["endpoints"]}
+    doc_paths = {p for _, p in documented}
+
+    # Every registry entity's CRUD must appear, or an agent reading the
+    # catalogue concludes the route does not exist.
+    undocumented = []
+    for key, ent in entities.items():
+        # NOT `base` — that is the server URL this whole run depends on.
+        route = "/api/" + key
+        wanted = [("GET", route), ("GET", route + "/{id}"),
+                  ("GET", route + "/{id}/remarks"), ("POST", route + "/{id}/remarks")]
+        if not ent.get("read_only"):
+            wanted += [("POST", route), ("PATCH", route + "/{id}"), ("DELETE", route + "/{id}")]
+        for pair in wanted:
+            if pair not in documented:
+                undocumented.append("%s %s" % pair)
+    check("every entity's routes are in the catalogue", not undocumented,
+          "missing: %s" % ", ".join(undocumented[:8]))
+
+    # And every hand-written route the server actually serves.
+    _, spec = api.call("GET", "/openapi.json", expect=200)
+    real = {p for p in spec["paths"] if p.startswith("/api/")}
+    generic = {"/api/{key}", "/api/{key}/{row_id}", "/api/{key}/{row_id}/remarks"}
+    missing_literal = sorted(p for p in real - generic if p not in doc_paths)
+    check("every literal API route is in the catalogue", not missing_literal,
+          "missing: %s" % ", ".join(missing_literal[:8]))
+
+    check("the catalogue count matches what it returns",
+          catalog["count"] == len(catalog["endpoints"]),
+          "count=%s len=%s" % (catalog["count"], len(catalog["endpoints"])))
+
+    # ── per-workspace dashboards ────────────────────────────────────────────
+    section("Dashboards")
+    seen = {}
+    for ws in ("crm", "work", "tickets", "comms", "accounting", "hq"):
+        _, d = api.call("GET", "/api/dashboard/stats?workspace=%s" % ws, expect=200)
+        labels = tuple(s["l"] for s in d["stats"])
+        check("the %s dashboard returns metrics" % ws, len(d["stats"]) >= 4, str(labels))
+        seen[ws] = labels
+    check("each workspace shows different metrics",
+          len(set(seen.values())) == len(seen),
+          "two workspaces returned identical tiles: %s" % str(seen))
+    check("the CRM dashboard is about customers, not platform plumbing",
+          any("Customer" in l for l in seen["crm"]) and not any("Permission" in l for l in seen["crm"]),
+          str(seen["crm"]))
+
+    _, tr = api.call("GET", "/api/dashboard/trend?workspace=crm", expect=200)
+    check("the trend is labelled with what it plots",
+          tr.get("label") == "Customers" and len(tr["points"]) == 6, str(tr)[:160])
+
     # ── seeded data ─────────────────────────────────────────────────────────
     section("Seeded data")
     _, customers = api.call("GET", "/api/customers?limit=500", expect=200)
@@ -197,6 +250,11 @@ def run(base, email, password):
 
     # ── CRUD round trip ─────────────────────────────────────────────────────
     section("CRUD round trip")
+    # A previous aborted run may have left this behind; a smoke test that cannot
+    # be run twice is not much of a smoke test.
+    _, leftovers = api.call("GET", "/api/customers?q=Smoke%20Test%20Industries", expect=200)
+    for row in leftovers["rows"]:
+        api.call("DELETE", "/api/customers/%s" % row["id"])
     _, created = api.call("POST", "/api/customers", {
         "display_name": "Smoke Test Industries", "kind": "prospect",
         "email": "smoke@example.com", "city": "Vadodara", "credit_days": 15,

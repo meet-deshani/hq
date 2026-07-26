@@ -281,7 +281,7 @@ entity(
     ],
     actions=[
         {"key": "convert", "label": "Convert to customer", "method": "POST",
-         "path": "/api/leads/{id}/convert",
+         "path": "/api/leads/{lead_id}/convert",
          "description": "Creates a parties row from the lead, stamps converted_party_id, "
                         "marks the lead won. The lead is kept — the funnel history is the point."},
     ],

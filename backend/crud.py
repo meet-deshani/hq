@@ -874,3 +874,99 @@ def convert_lead(
         "lead_id": lead.id,
         "customer": serialize(party, ent, _resolve_refs(db, ent, [party])),
     }
+
+
+# ── self-documentation ──────────────────────────────────────────────────────
+
+def catalog_entries(base="__BASE__"):
+    """Generate /api/catalog entries for every registry entity.
+
+    Hand-maintaining this list meant it drifted the moment an entity was added —
+    it documented 39 endpoints while 58 existed, which is worse than documenting
+    none: an agent that trusts the catalogue concludes a route does not exist.
+    Generating it from the same registry the routes come from makes drift
+    impossible.
+    """
+    out = []
+    for ent in registry.ENTITIES:
+        key, label, plural = ent["key"], ent["label"], ent["plural"]
+        path = "/api/" + key
+        views = ", ".join(v["name"] for v in ent.get("saved_views", [])) or "none"
+        required = [f["label"] for f in ent.get("fields", []) if f.get("required")]
+
+        out.append({
+            "method": "GET", "path": path, "auth": "Bearer / Cookie",
+            "summary": "List %s. Filter by any column, ?q= to search, ?view= for a saved view (%s), "
+                       "?limit/?offset to page." % (plural.lower(), views),
+            "usage": "curl \"%s%s?view=%s&limit=25\" \\\n  -H \"Authorization: Bearer $TOKEN\""
+                     % (base, path, (ent.get("saved_views") or [{"name": "All"}])[0]["name"]),
+            "response": "{\n  \"entity\": \"%s\", \"total\": 17, \"count\": 17,\n"
+                        "  \"rows\": [ { \"id\": 1, \"_label\": \"...\", \"_refs\": { ... } } ]\n}" % key,
+        })
+        if not ent.get("read_only"):
+            out.append({
+                "method": "POST", "path": path, "auth": "Bearer / Cookie",
+                "summary": "Create a %s.%s" % (
+                    label.lower(),
+                    (" Required: %s." % ", ".join(required)) if required else ""),
+                "usage": "curl -X POST %s%s \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                         "  -H 'Content-Type: application/json' \\\n  -d '{...}'" % (base, path),
+                "response": "{ \"id\": 18, \"_entity\": \"%s\" }" % key,
+            })
+        out.append({
+            "method": "GET", "path": path + "/{id}", "auth": "Bearer / Cookie",
+            "summary": "One %s, with its related lists, remark history and audit trail."
+                       % label.lower(),
+            "usage": "curl %s%s/1 \\\n  -H \"Authorization: Bearer $TOKEN\"" % (base, path),
+            "response": "{\n  \"id\": 1, \"_related\": { ... },\n"
+                        "  \"_remarks\": [ ... ], \"_audit\": [ ... ]\n}",
+        })
+        if not ent.get("read_only"):
+            out.append({
+                "method": "PATCH", "path": path + "/{id}", "auth": "Bearer / Cookie",
+                "summary": "Update a %s. Only declared fields are writable." % label.lower(),
+                "usage": "curl -X PATCH %s%s/1 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                         "  -H 'Content-Type: application/json' \\\n  -d '{...}'" % (base, path),
+                "response": "{ \"id\": 1 }",
+            })
+            out.append({
+                "method": "DELETE", "path": path + "/{id}", "auth": "Bearer / Cookie",
+                "summary": "Delete a %s. Its remarks and attachments go with it; the audit "
+                           "entry keeps the row's final state." % label.lower(),
+                "usage": "curl -X DELETE %s%s/1 \\\n  -H \"Authorization: Bearer $TOKEN\"" % (base, path),
+                "response": "{ \"detail\": \"%s deleted\", \"id\": 1 }" % label,
+            })
+        else:
+            out.append({
+                "method": "POST / PATCH / DELETE", "path": path, "auth": "Refused",
+                "summary": "%s is a read-only mirror of Zoho Books. Writes return 405 — raise or "
+                           "edit the document in Zoho Books." % plural,
+                "usage": "# not available by design",
+                "response": "{ \"detail\": \"%s is a read-only mirror of Zoho Books...\" }" % plural,
+            })
+
+        out.append({
+            "method": "GET", "path": path + "/{id}/remarks", "auth": "Bearer / Cookie",
+            "summary": "Append-only remark history for one %s." % label.lower(),
+            "usage": "curl %s%s/1/remarks \\\n  -H \"Authorization: Bearer $TOKEN\"" % (base, path),
+            "response": "{ \"remarks\": [ { \"body\": \"...\", \"author\": \"...\" } ] }",
+        })
+        out.append({
+            "method": "POST", "path": path + "/{id}/remarks", "auth": "Bearer / Cookie",
+            "summary": "Append a remark. Never edited or deleted — a correction is a new remark. "
+                       "Pass external_ref to make a replay idempotent.",
+            "usage": "curl -X POST %s%s/1/remarks \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                     "  -H 'Content-Type: application/json' \\\n"
+                     "  -d '{\"body\":\"Spoke to them today.\"}'" % (base, path),
+            "response": "{ \"id\": 7, \"author\": \"Meet Deshani\", \"duplicate\": false }",
+        })
+
+        for action in ent.get("actions", []):
+            out.append({
+                "method": action["method"], "path": action["path"], "auth": "Bearer / Cookie",
+                "summary": action.get("description") or action["label"],
+                "usage": "curl -X %s %s%s \\\n  -H \"Authorization: Bearer $TOKEN\""
+                         % (action["method"], base, action["path"].replace("{id}", "1")),
+                "response": "{ ... }",
+            })
+    return out
