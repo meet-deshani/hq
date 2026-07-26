@@ -12,15 +12,15 @@ services:
     # it is NOT published to the host, so it can never collide with other apps.
     expose:
       - "8000"
-    # App secrets / DB config, loaded only if the file exists. Marked optional so
-    # a deploy succeeds before .env is provisioned (the app falls back to SQLite
-    # when DATABASE_URL is unset). To move HQ onto the shared Postgres, drop a
-    # /opt/apps/hq/.env on the VPS with:
+    # App secrets / DB config. REQUIRED — HQ runs on the shared Postgres, so a
+    # missing .env must FAIL the deploy loudly, not silently boot on ephemeral
+    # SQLite (no volume here — a SQLite DB would be wiped on every deploy). The
+    # VPS .env (/opt/apps/hq/.env) provides:
     #   DATABASE_URL=postgresql://USER:PASS@postgres:5432/hq
     #   DB_REQUIRE=true
     env_file:
       - path: .env
-        required: false
+        required: true
     restart: unless-stopped
 
 # Shared VPS network: nginx and the central `postgres` container both live here,

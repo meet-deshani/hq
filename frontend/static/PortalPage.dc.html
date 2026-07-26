@@ -69,9 +69,9 @@
             <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ tableCount }}</span>
           </div>
           <sc-if value="{{ canCrud }}">
-            <button sc-camel-on-click="{{ onNew }}" style="display:flex;align-items:center;gap:6px;border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px">
+            <button sc-camel-on-click="{{ onCreateNew }}" title="Create new" style="display:flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:none;cursor:pointer;background:#191924;color:#fff;border-radius:9px;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600" style-hover="background:#2D1B4E">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              {{ newLabel }}
+              New {{ entLabel }}
             </button>
           </sc-if>
         </div>
@@ -87,9 +87,10 @@
               <div style="{{ cell.cellStyle }}"><span style="{{ cell.inkStyle }}">{{ cell.v }}</span></div>
             </sc-for>
             <sc-if value="{{ canCrud }}">
-              <div style="display:flex;gap:6px;justify-content:flex-end">
-                <button sc-camel-on-click="{{ row.onEdit }}" title="Edit" style="border:1px solid #E4E2DB;cursor:pointer;background:#fff;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:11.5px;font-weight:500;padding:5px 11px;border-radius:8px">Edit</button>
-                <button sc-camel-on-click="{{ row.onDelete }}" title="Delete" style="border:1px solid rgba(255,181,194,.6);cursor:pointer;background:rgba(255,181,194,.14);color:#a3324c;font-family:'Satoshi',sans-serif;font-size:11.5px;font-weight:500;padding:5px 11px;border-radius:8px">Del</button>
+              <div style="display:flex;justify-content:flex-end">
+                <button sc-camel-on-click="{{ row.onMenu }}" title="Actions" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid #E4E2DB;cursor:pointer;background:#fff;color:#4A4842;border-radius:8px">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </button>
               </div>
             </sc-if>
           </div>
@@ -124,6 +125,53 @@
           <div style="display:flex;gap:10px;margin-top:20px">
             <button sc-camel-on-click="{{ onFormSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ submitLabel }}</button>
             <button sc-camel-on-click="{{ onFormClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ menuOpen }}">
+        <div sc-camel-on-click="{{ onCloseMenus }}" style="position:fixed;inset:0;z-index:80"></div>
+        <div style="position:fixed;left:{{ menuLeft }};top:{{ menuTop }};z-index:81;min-width:190px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);padding:6px;box-sizing:border-box">
+          <sc-if value="{{ menuIsRow }}">
+            <button sc-camel-on-click="{{ onMenuEdit }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Edit</button>
+            <sc-if value="{{ menuRowShowPassword }}">
+              <button sc-camel-on-click="{{ onMenuPassword }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#3A3A44;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Change password</button>
+            </sc-if>
+            <button sc-camel-on-click="{{ onMenuDelete }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;cursor:pointer;background:transparent;color:#a3324c;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;padding:9px 11px;border-radius:8px">Delete</button>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pwOpen }}">
+        <div sc-camel-on-click="{{ onPwClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(430px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 22px 20px;box-sizing:border-box">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:4px">Change password</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#6E6B62;margin-bottom:16px">{{ pwUserName }}</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">New password</div>
+          <div style="display:flex;gap:8px">
+            <input value="{{ pwValue }}" sc-camel-on-change="{{ onPwInput }}" placeholder="Type a password or generate one" style="flex:1;min-width:0;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'JetBrains Mono',monospace;font-size:13.5px;color:#191924;outline:none">
+            <button sc-camel-on-click="{{ onPwGen }}" style="flex:none;border:1.5px solid #E8E6E0;cursor:pointer;background:#F8F7F4;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:0 14px;border-radius:11px">Generate</button>
+          </div>
+          <sc-if value="{{ hasPwErr }}">
+            <div style="margin-top:12px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ pwErr }}</div>
+          </sc-if>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button sc-camel-on-click="{{ onPwSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ pwSubmitLabel }}</button>
+            <button sc-camel-on-click="{{ onPwClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ credOpen }}" hint-placeholder-val="{{ false }}">
+        <div sc-camel-on-click="{{ onCredClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:97"></div>
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:98;padding:22px 22px 20px;box-sizing:border-box">
+          <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:6px">User created</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:13px;line-height:1.5;color:#6E6B62;margin-bottom:16px">Share this one-time password with {{ credEmail }} securely — it won't be shown again.</div>
+          <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Temporary password</div>
+          <div style="padding:12px 15px;border-radius:11px;background:#F6F5F1;border:1.5px solid #E8E6E0;font-family:'JetBrains Mono',monospace;font-size:15px;color:#191924;word-break:break-all">{{ credPassword }}</div>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button sc-camel-on-click="{{ onCredCopy }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ credCopyLabel }}</button>
+            <button sc-camel-on-click="{{ onCredClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Done</button>
           </div>
         </div>
       </sc-if>
@@ -537,7 +585,10 @@ class Component extends DCLogic {
     roleOptions: [],
     refOptions: {},
     previewValue: '—',
-    previewLabel: 'Computed output'
+    previewLabel: 'Computed output',
+    menu: null,
+    pwOpen: false, pwUserId: null, pwUserName: '', pwValue: '', pwErr: '', pwBusy: false,
+    createdCred: null, credCopied: false
   };
 
   componentDidMount() {
@@ -762,7 +813,7 @@ class Component extends DCLogic {
     if(!ent && !this._legacy()) return;
     const form = {};
     this._formFieldsFor(ent).forEach(f => { if(f.default !== undefined && f.default !== null) form[f.k] = String(f.default); });
-    this.setState({ formOpen:true, formMode:'create', editId:null, form, formErr:'' });
+    this.setState({ menu:null, formOpen:true, formMode:'create', editId:null, form, formErr:'' });
     this._ensureRefOptions(ent);
   }
 
@@ -774,12 +825,55 @@ class Component extends DCLogic {
       let v = (!ent && f.k === 'role_name') ? (rec.role ? rec.role.name : '') : rec[f.k];
       form[f.k] = (v === null || v === undefined) ? '' : String(v);
     });
-    this.setState({ formOpen:true, formMode:'edit', editId:row.id, form, formErr:'' });
+    this.setState({ menu:null, formOpen:true, formMode:'edit', editId:row.id, form, formErr:'' });
     this._ensureRefOptions(ent);
+  }
+
+  // ── row action menu (from main) ─────────────────────────────────────────
+  openMenu(type, e, row) {
+    if(e && e.stopPropagation) e.stopPropagation();
+    const x = e && e.clientX ? Math.max(8, e.clientX - 168) : 40;
+    const y = e && e.clientY ? e.clientY + 10 : 90;
+    this.setState({ menu: { type, x, y, row: row || null } });
+  }
+  closeMenus() { this.setState({ menu: null }); }
+
+  // ── admin change-password (from main) ───────────────────────────────────
+  openChangePassword(row) {
+    const rec = row.record || {};
+    this.setState({ menu: null, pwOpen: true, pwUserId: row.id,
+      pwUserName: rec.name || rec.email || ('#' + row.id), pwValue: '', pwErr: '', pwBusy: false });
+  }
+  closePw() { this.setState({ pwOpen: false, pwErr: '' }); }
+  onPwField(v) { this.setState({ pwValue: v }); }
+  genPw() {
+    const cs = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    const n = 16; let out = '';
+    const buf = new Uint32Array(n); (window.crypto || window.msCrypto).getRandomValues(buf);
+    for (let i = 0; i < n; i++) out += cs[buf[i] % cs.length];
+    this.setState({ pwValue: out, pwErr: '' });
+  }
+  submitPw() {
+    const pw = (this.state.pwValue || '').trim();
+    if (pw.length < 8) { this.setState({ pwErr: 'Password must be at least 8 characters' }); return; }
+    this.setState({ pwBusy: true, pwErr: '' });
+    fetch('/api/users/' + this.state.pwUserId + '/password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw })
+    }).then(async r => {
+      if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (_) {} throw new Error(d || ('HTTP ' + r.status)); }
+      return r.json();
+    }).then(() => this.setState({ pwOpen: false, pwBusy: false }))
+      .catch(e => this.setState({ pwBusy: false, pwErr: String(e.message || e) }));
   }
 
   closeForm() { this.setState({ formOpen:false, formErr:'' }); }
   onFormField(k, v) { this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }) })); }
+
+  closeCred() { this.setState({ createdCred: null, credCopied: false }); }
+  copyCred() {
+    const c = this.state.createdCred; if (!c) return;
+    try { navigator.clipboard.writeText(c.password); this.setState({ credCopied: true }); } catch (_) {}
+  }
 
   submitForm() {
     const ent = this._entity();
@@ -821,7 +915,17 @@ class Component extends DCLogic {
       body: JSON.stringify(body)
     })
       .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
-      .then(() => { this.setState({ formOpen:false, busy:false }); this.fetchData(); })
+      .then((rec) => {
+        // The server mints a strong password for a new user and returns it
+        // exactly once — surface it so it can be shared, then forget it.
+        if(!ent && legacyName === 'Users' && mode === 'create' && rec && rec.initial_password){
+          this.setState({ formOpen:false, busy:false,
+            createdCred:{ email: rec.email, password: rec.initial_password }, credCopied:false });
+        } else {
+          this.setState({ formOpen:false, busy:false });
+        }
+        this.fetchData();
+      })
       .catch(e => this.setState({ busy:false, formErr:String(e.message || e) }));
   }
 
@@ -882,10 +986,11 @@ class Component extends DCLogic {
     const rows = (this.state.rows || []).map(r => {
       const record = ent ? r : (r.record || r);
       const cells = ent ? colSpecs.map(c => renderCell(r, c)) : r.cells;
-      const wrapped = { id: ent ? r.id : r.id, record, cells, style: rowStyle };
+      const wrapped = { id: r.id, record, cells, style: rowStyle };
       wrapped.onOpen = ent ? (() => this.openDetail(r.id)) : (() => {});
       wrapped.onEdit = (e) => { if(e && e.stopPropagation) e.stopPropagation(); this.openEdit(wrapped); };
       wrapped.onDelete = (e) => { if(e && e.stopPropagation) e.stopPropagation(); this.doDelete(wrapped); };
+      wrapped.onMenu = (e) => this.openMenu('row', e, wrapped);
       return wrapped;
     });
 
@@ -1012,6 +1117,9 @@ class Component extends DCLogic {
     const apis = this.state.apis || [];
     const cmds = this.state.cmds || [];
 
+    const menu = this.state.menu;
+    const menuIsRow = !!(menu && menu.type === 'row');
+
     return {
       crumb, moduleName, tabName, sub, accent, accentSoft: tint(accent, 0.16),
       showCrumb: this.props.hideCrumb !== true,
@@ -1025,7 +1133,8 @@ class Component extends DCLogic {
       views, searchValue: this.state.search,
       searchPlaceholder: 'Search ' + (ent ? ent.plural.toLowerCase() : 'records') + '…',
       onSearch: (e) => this.onSearchInput(e && e.target ? e.target.value : ''),
-      canCrud, entLabel, newLabel: 'New ' + entLabel, onNew: () => this.openCreate(),
+      canCrud, entLabel, newLabel: 'New ' + entLabel,
+      onNew: () => this.openCreate(), onCreateNew: () => this.openCreate(),
       backLabel: 'Back to ' + (ent ? ent.plural : 'list'),
       onBack: () => this.closeDetail(),
       onDetailEdit: () => { if(detail) this.openEdit({ id: detail.id, record: detail }); },
@@ -1044,6 +1153,27 @@ class Component extends DCLogic {
       onFormClose: () => this.closeForm(), onFormSubmit: () => this.submitForm(),
       apis, apiCount: this.state.apiCount || (apis.length + ' endpoints'),
       cmds, cliCount: this.state.cliCount || (cmds.length + ' commands'),
+
+      // ── row action menu, change-password and the one-time credential
+      //    panel — carried over from main's PR #9 / #8.
+      menuOpen: !!menu, menuIsRow: menuIsRow,
+      menuLeft: menu ? (menu.x + 'px') : '0px', menuTop: menu ? (menu.y + 'px') : '0px',
+      // Only the platform Users table has a password to change.
+      menuRowShowPassword: menuIsRow && legacyName === 'Users',
+      onCloseMenus: () => this.closeMenus(),
+      onMenuEdit: () => { if (menu && menu.row) this.openEdit(menu.row); },
+      onMenuPassword: () => { if (menu && menu.row) this.openChangePassword(menu.row); },
+      onMenuDelete: () => { if (menu && menu.row) this.doDelete(menu.row); },
+      pwOpen: this.state.pwOpen, pwUserName: this.state.pwUserName, pwValue: this.state.pwValue,
+      pwErr: this.state.pwErr, hasPwErr: !!this.state.pwErr,
+      pwSubmitLabel: this.state.pwBusy ? 'Saving…' : 'Set password',
+      onPwClose: () => this.closePw(), onPwInput: (e) => this.onPwField(e && e.target ? e.target.value : ''),
+      onPwGen: () => this.genPw(), onPwSubmit: () => this.submitPw(),
+      credOpen: !!this.state.createdCred,
+      credEmail: this.state.createdCred ? this.state.createdCred.email : '',
+      credPassword: this.state.createdCred ? this.state.createdCred.password : '',
+      credCopyLabel: this.state.credCopied ? 'Copied ✓' : 'Copy password',
+      onCredCopy: () => this.copyCred(), onCredClose: () => this.closeCred(),
       previewValue: this.state.previewValue, previewLabel: this.state.previewLabel,
     };
   }

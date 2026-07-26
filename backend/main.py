@@ -1,4 +1,5 @@
 import os
+import secrets
 import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ from backend.models import User, Role, Permission, Organisation, Product, Worksp
 from backend import crm_models  # noqa: F401
 from backend import audit, crud, permissions, seed_crm
 from backend.schemas import (
-    LoginRequest, Token, UserResponse, UserCreate, UserUpdate,
+    LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, OrganisationUpdate,
     ProductResponse, ProductCreate, ProductUpdate,
@@ -25,7 +26,8 @@ from backend.schemas import (
 )
 import requests as _http
 from backend.auth import (
-    verify_password, get_password_hash, create_access_token, get_current_user
+    verify_password, get_password_hash, create_access_token, get_current_user,
+    get_user_from_token
 )
 
 # Setup logging
@@ -123,12 +125,21 @@ def seed_database():
 
         # Check if default admin user is seeded
         if db.query(User).filter(User.email == "meet@dotsai.in").count() == 0:
+            # Admin password comes from the environment — never commit a real one
+            # to the repo. If unset, skip the seed rather than ship a weak default.
+            seed_admin_password = os.getenv("SEED_ADMIN_PASSWORD")
+            if not seed_admin_password or not seed_admin_password.strip():
+                logger.warning(
+                    "SEED_ADMIN_PASSWORD is not set — skipping default admin seed. "
+                    "Set it in the app's .env and restart to create meet@dotsai.in."
+                )
+                return
             logger.info("Seeding default admin user meet@dotsai.in...")
             admin_role = db.query(Role).filter(Role.name == "Admin", Role.organisation_id == org.id).first()
             admin_user = User(
                 email="meet@dotsai.in",
                 name="Meet Deshani",
-                password_hash=get_password_hash("meetdeshani123"),
+                password_hash=get_password_hash(seed_admin_password),
                 role_id=admin_role.id if admin_role else None,
                 organisation_id=org.id,
                 status="Active"
@@ -209,7 +220,9 @@ def get_me(current_user: User = Depends(get_current_user)):
     would 403 is never shown. The server still enforces every action — this is
     for honesty in the interface, not security.
     """
-    data = UserResponse.model_validate(current_user).model_dump()
+    # from_attributes must be explicit here: without it the nested `role`
+    # relationship is rejected as "not a dict or RoleBase".
+    data = UserResponse.model_validate(current_user, from_attributes=True).model_dump()
     data["permissions"] = sorted(permissions.permissions_for(current_user))
     data["can"] = permissions.can_map(current_user)
     return data
@@ -227,7 +240,7 @@ def list_users(
         query = query.join(Role).filter(Role.name == role)
     return query.all()
 
-@app.post("/api/users", response_model=UserResponse)
+@app.post("/api/users", response_model=UserCreateResponse)
 def create_user(
     user_data: UserCreate,
     current_user: User = Depends(get_current_user),
@@ -241,17 +254,22 @@ def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A user with this email already exists"
         )
-        
+
     # Get role
     role = db.query(Role).filter(Role.name == user_data.role_name).first()
     if not role:
         # Fallback to Admin or create it
         role = db.query(Role).filter(Role.name == "Admin").first()
-        
+
+    # Honour a caller-supplied password, else mint a strong random one so no
+    # account is ever created with a committed/guessable default.
+    supplied = (user_data.password or "").strip()
+    raw_password = supplied or secrets.token_urlsafe(12)
+
     db_user = User(
         email=user_data.email,
         name=user_data.name,
-        password_hash=get_password_hash("password123"),  # default password
+        password_hash=get_password_hash(raw_password),
         role_id=role.id if role else None,
         organisation_id=user_data.organisation_id,
         status=user_data.status
@@ -265,6 +283,9 @@ def create_user(
     _notify(db, [db_user.id], "Welcome to Z9S-AI HQ — your account is ready.",
             category="platform", path="/hq/hq/dashboard", product="hq", module="HQ", tab="Dashboard")
     db.commit()
+    # Surface the generated password ONCE (transient, never persisted) so an admin
+    # can share it. Stays None when the caller set their own password.
+    db_user.initial_password = None if supplied else raw_password
     return db_user
 
 @app.patch("/api/users/{user_id}", response_model=UserResponse)
@@ -316,6 +337,33 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"detail": "User deleted successfully"}
+
+@app.post("/api/users/{user_id}/password")
+def set_user_password(
+    user_id: int,
+    payload: PasswordSet,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Admin-only: setting another user's password is a privileged action, so it
+    # is gated on the Admin role rather than mere authentication.
+    if not (current_user.role and current_user.role.name == "Admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can change user passwords"
+        )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    new_password = (payload.password or "").strip()
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    return {"detail": f"Password updated for {user.email}"}
 
 # Organisations
 @app.get("/api/organisations", response_model=List[OrganisationResponse])
@@ -906,7 +954,7 @@ API_CATALOG = [
     {
         "method": "POST", "path": "/api/auth/login", "auth": "Public",
         "summary": "Authenticate with email + password. Returns a JWT and sets an httpOnly access_token cookie.",
-        "usage": "curl -X POST __BASE__/api/auth/login \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"meet@dotsai.in\",\"password\":\"meetdeshani123\"}'",
+        "usage": "curl -X POST __BASE__/api/auth/login \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"meet@dotsai.in\",\"password\":\"<your-password>\"}'",
         "response": "{\n  \"access_token\": \"<jwt>\",\n  \"token_type\": \"bearer\"\n}",
     },
     {
@@ -929,9 +977,9 @@ API_CATALOG = [
     },
     {
         "method": "POST", "path": "/api/users", "auth": "Bearer / Cookie",
-        "summary": "Create a user. role_name defaults to Admin; a default password is assigned.",
+        "summary": "Create a user. role_name defaults to Admin. Omit \"password\" to auto-generate a strong one, returned once as initial_password.",
         "usage": "curl -X POST __BASE__/api/users \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"jane@acme.com\",\"name\":\"Jane\",\"role_name\":\"Operator\",\"status\":\"Active\"}'",
-        "response": "{\n  \"id\": 2, \"email\": \"jane@acme.com\",\n  \"name\": \"Jane\", \"status\": \"Active\"\n}",
+        "response": "{\n  \"id\": 2, \"email\": \"jane@acme.com\",\n  \"name\": \"Jane\", \"status\": \"Active\",\n  \"initial_password\": \"tqf7Kd2pRxM_\"\n}",
     },
     {
         "method": "PATCH", "path": "/api/users/{user_id}", "auth": "Bearer / Cookie",
@@ -1164,7 +1212,7 @@ def get_api_catalog(request: Request):
 CLI_CATALOG = [
     {
         "group": "auth", "command": "hq-cli login",
-        "usage": "hq-cli login --email meet@dotsai.in --password meetdeshani123",
+        "usage": "hq-cli login --email meet@dotsai.in --password <your-password>",
         "description": "Authenticate with the HQ backend and cache the JWT at ~/.hq_token.",
         "output": "Successfully logged in! Token saved to ~/.hq_token",
     },
@@ -1188,9 +1236,9 @@ CLI_CATALOG = [
     },
     {
         "group": "users", "command": "hq-cli users create",
-        "usage": "hq-cli users create --email jane@acme.com --name \"Jane\" --role Operator",
-        "description": "Create a new user (a default password is assigned).",
-        "output": "User Jane (jane@acme.com) created successfully with role Operator!",
+        "usage": "hq-cli users create --email jane@acme.com --name \"Jane\" --role Operator [--password ...]",
+        "description": "Create a new user. A strong password is auto-generated and printed once; pass --password to set your own.",
+        "output": "User Jane (jane@acme.com) created successfully with role Operator!\nInitial password (share securely): tqf7Kd2pRxM_",
     },
     {
         "group": "users", "command": "hq-cli users delete",
@@ -1290,21 +1338,27 @@ HOME_FILE = os.path.join(BASE_DIR, "frontend", "home.html")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/login", response_class=HTMLResponse)
-def serve_login(request: Request):
-    # Check if user already logged in via cookie
+def serve_login(request: Request, db: Session = Depends(get_db)):
+    # Redirect into the app only for a VALID session. Checking mere cookie
+    # presence here — while the client redirects to /login on any 401 — created
+    # an infinite /login <-> dashboard reload loop for expired/invalid tokens.
     token = request.cookies.get("access_token")
-    if token:
+    if token and get_user_from_token(token, db):
         return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
-        
+
     with open(LOGIN_FILE, "r", encoding="utf-8") as f:
         html_content = f.read()
-    return HTMLResponse(content=html_content)
+    response = HTMLResponse(content=html_content)
+    if token:
+        # Clear the stale/invalid cookie so it stops bouncing on every request.
+        response.delete_cookie("access_token")
+    return response
 
 @app.get("/home", response_class=HTMLResponse)
 @app.get("/", response_class=HTMLResponse)
-def serve_home_redirect(request: Request):
+def serve_home_redirect(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("access_token")
-    if not token:
+    if not (token and get_user_from_token(token, db)):
         return RedirectResponse(url="/login")
     return RedirectResponse(url="/z9s-ai/hq/hq/operations/dashboard")
 
@@ -1317,13 +1371,14 @@ def serve_portal_route(
     product: str,
     workspace: str,
     module: Optional[str] = None,
-    tab: Optional[str] = None
+    tab: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
-    # Enforce login redirect
+    # Enforce a VALID session (not just cookie presence) to avoid redirect loops.
     token = request.cookies.get("access_token")
-    if not token:
+    if not (token and get_user_from_token(token, db)):
         return RedirectResponse(url="/login")
-        
+
     with open(HOME_FILE, "r", encoding="utf-8") as f:
         html_content = f.read()
     return HTMLResponse(content=html_content)

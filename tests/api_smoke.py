@@ -11,6 +11,7 @@ Exits non-zero on the first failure with the offending response body.
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -359,6 +360,61 @@ def run(base, email, password):
                and del_entry["changes"]["deleted"]["from"]["title"] == "Smoke test task"),
           str(del_entry)[:300])
 
+    # ── authorisation ───────────────────────────────────────────────────────
+    section("Authorisation")
+    _, me = api.call("GET", "/api/auth/me", expect=200)
+    check("auth/me publishes what the caller may do",
+          isinstance(me.get("can"), dict) and me["can"].get("customers", {}).get("delete") is True,
+          "can=%s" % str(me.get("can"))[:200])
+
+    _, meta2 = api.call("GET", "/api/meta/entities", expect=200)
+    check("the registry publishes per-entity permissions",
+          all("can" in e for e in meta2["entities"]),
+          "an entity is missing its `can` block")
+
+    advisor_pw = os.environ.get("SEED_HEMISH_PASSWORD", "hemish-local-test-pw")
+    advisor = Client(base)
+    st, _ = advisor.call("POST", "/api/auth/login",
+                         {"email": "hemish@neonir.com", "password": advisor_pw})
+    if st != 200:
+        check("advisor login", False, "could not log in as the Advisor to test authz (status %s)" % st)
+    else:
+        advisor.token = advisor.call("POST", "/api/auth/login",
+                                     {"email": "hemish@neonir.com", "password": advisor_pw},
+                                     expect=200)[1]["access_token"]
+        st_read, adv_rows = advisor.call("GET", "/api/customers")
+        check("an advisor sees every customer", st_read == 200 and adv_rows["total"] >= 15,
+              "status=%s" % st_read)
+
+        st_create, _ = advisor.call("POST", "/api/customers", {"display_name": "Advisor should not create"})
+        check("an advisor cannot create a customer", st_create == 403, "got %s" % st_create)
+
+        st_del, _ = advisor.call("DELETE", "/api/customers/%s" % cid)
+        check("an advisor cannot delete a customer", st_del == 403, "got %s" % st_del)
+
+        st_cfg, _ = advisor.call("POST", "/api/lead-sources", {"name": "Advisor should not configure"})
+        check("an advisor cannot change configuration", st_cfg == 403, "got %s" % st_cfg)
+
+        st_remark, _ = advisor.call("POST", "/api/customers/%s/remarks" % cid,
+                                    {"body": "An advisor may always comment."})
+        check("an advisor CAN comment", st_remark == 200, "got %s" % st_remark)
+
+        st_user, _ = advisor.call("POST", "/api/users",
+                                  {"email": "nope@example.com", "name": "Nope", "role_name": "Viewer"})
+        check("an advisor cannot create a user", st_user == 403, "got %s" % st_user)
+
+        _, adv_me = advisor.call("GET", "/api/auth/me", expect=200)
+        check("the advisor's own `can` reflects the denial",
+              adv_me["can"]["customers"]["delete"] is False and adv_me["can"]["customers"]["read"] is True,
+              str(adv_me["can"].get("customers")))
+
+    # A duplicate natural key is a conflict the caller can act on, not a 500.
+    _, dupe_target = api.call("GET", "/api/customers?limit=1", expect=200)
+    if dupe_target["rows"]:
+        st_dup, _ = api.call("POST", "/api/customers",
+                             {"display_name": dupe_target["rows"][0]["display_name"]})
+        check("a duplicate name returns 409, not 500", st_dup == 409, "got %s" % st_dup)
+
     # ── a recycled id must not inherit a dead row's history ─────────────────
     section("Orphaned history after delete")
     _, victim = api.call("POST", "/api/tasks", {"title": "Doomed task"}, expect=200)
@@ -401,7 +457,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:8077")
     parser.add_argument("--email", default="meet@dotsai.in")
-    parser.add_argument("--password", default="meetdeshani123")
+    parser.add_argument("--password", default=os.environ.get("SEED_ADMIN_PASSWORD", "meetdeshani123"))
     args = parser.parse_args()
 
     print("HQ API smoke test against %s" % args.base)
