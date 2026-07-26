@@ -76,7 +76,9 @@ needs updating.
 curl -s http://127.0.0.1:8077/api/meta/entities
 ```
 
-It answers `200` **without a token** — discovery is public, the data behind it is
+It requires a token — it exposes every field of every table and the whole
+workspace layout, so it is not public. `/api/catalog` is the public surface. The
+data behind it is
 not.
 
 Trimmed to one entity (`leads`):
@@ -395,12 +397,12 @@ Hard delete — there is no soft-delete flag and no undo. The row's **final stat
 is preserved in the audit entry (`changes.deleted.from`), which is the only
 record of what was lost.
 
-Caveat, and it is a real one: remarks, activities and attachments are attached
-polymorphically by `entity_type` + `entity_id`, with no foreign key and no
-cascade. Deleting a record leaves its remarks behind. On Postgres the id is never
-reissued so they are merely orphaned; on the SQLite dev database ids **are**
-reused, and the orphans then show up as the history of whatever record next takes
-that id.
+Remarks, activities and attachments are attached polymorphically by
+`entity_type` + `entity_id`, with no foreign key, so nothing cascades them at the
+database level. `delete_row` removes them explicitly instead. The audit trail is
+deliberately kept — it is the record that the delete happened — and a record's
+detail page scopes its `_audit` to that row's own lifetime, so a reused id never
+shows a previous record's history.
 
 ## Query parameters
 
@@ -432,13 +434,11 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8077/api/tasks?exter
 
 Three gotchas, all verified:
 
-* **A parameter that is not a column is silently ignored.**
-  `?not_a_column=zzz` returns the unfiltered list (`total 15`), not a `400`.
-  Typo a filter name and you get too many rows, with no warning.
-* **Repeating a parameter ANDs, it does not OR.**
-  `?stage=Testing&stage=In+progress` applies both equality filters in turn and
-  returns `total 0`. List-valued (`IN`) filters only work from a saved view's
-  JSON, e.g. the tasks `Open` view's `{"status": ["open","in_progress","blocked"]}`.
+* **A parameter that is not a column is a `400`,** listing the valid filters.
+  A typo'd filter name fails loudly rather than quietly returning every row.
+* **Repeating a parameter means OR.**
+  `?stage=Testing&stage=In+progress` returns rows in either stage. (One column
+  cannot equal two values at once, so ANDing them could only ever return zero.)
 * **Values are coerced to the column type.** A bad value is a `400`, not a
   silent zero.
 
@@ -472,8 +472,9 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8077/api/tasks?overd
 curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8077/api/tasks?project_id=null'
 ```
 
-`overdue` ignores whatever value you pass it; `?overdue=false` filters exactly
-the same as `?overdue=true`. Omit the parameter to not filter.
+`overdue` respects its value: `?overdue=true` returns rows past their due date
+and not done or cancelled, `?overdue=false` returns the rest. Omit it to not
+filter.
 
 ### Ordering and pagination
 
@@ -675,8 +676,8 @@ Parameters: `entity_type` (the **table** name, e.g. `parties`, not the registry
 key `customers`), `entity_id`, `limit` (1–500, default 100), `offset`. Newest
 first.
 
-`count` is the requested `limit`, not the number of entries returned. Use
-`len(entries)`.
+`count` is the number of entries returned; `limit` echoes what was asked for.
+Paginate on `count < limit`.
 
 Actions recorded: `create`, `update`, `delete`, `remark`, `convert`, `login`,
 `login_failed`. An `update` carries a field-level diff:
@@ -781,4 +782,5 @@ Be clear about the edges:
   these routes.
 * `organisation_id` is stamped from the caller on create but is **not** applied
   as a filter on read. Listing an entity returns rows across organisations.
-* `GET /api/meta/entities` needs no token.
+* `GET /api/meta/entities` requires a token. `/api/catalog` and `/api/cli`
+  remain public, by design, so agents can discover the surface before authing.

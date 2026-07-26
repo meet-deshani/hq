@@ -17,7 +17,9 @@ nothing but that one path.**
 curl -s https://hq.dotsai.in/api/meta/entities
 ```
 
-It answers `200` without a token, so you can plan before you authenticate.
+It requires a token: it exposes every field of every table, so it is not a
+public surface. `/api/catalog` stays public if you need to plan before you
+authenticate.
 
 From each entry you get:
 
@@ -271,10 +273,9 @@ eventually eat records a human typed by hand.
 
 * **Do not delete records without explicit confirmation.** `DELETE` is a hard
   delete — no soft-delete flag, no undo. The only trace left is the row snapshot
-  in the audit entry. Deleting also orphans that record's remarks: they are
-  attached by `entity_type` + `entity_id` with no foreign key and no cascade, so
-  they survive the record and, on any database that reuses ids, reappear as the
-  history of whatever record takes that id next.
+  in the audit entry. The record's remarks, activities and attachments are
+  removed with it, and the audit trail on a detail page is scoped to the row's
+  own lifetime, so a reused id never inherits a dead record's history.
 * **Do not rewrite history.** No editing remarks, no deleting them by proxy, no
   writing to the audit log. Corrections are new remarks.
 * **Do not fabricate money.** `estimated_value`, `monthly_value`,
@@ -312,12 +313,12 @@ eventually eat records a human typed by hand.
 * **`?q=` only searches the entity's declared `search` columns.** For `tasks`
   that is `title`, `description`, `external_ref` — searching for a customer name
   will not find their tasks. Filter on `party_id` instead.
-* **Repeating a query parameter ANDs.** `?stage=A&stage=B` returns nothing. Use a
-  saved view for `IN`-style filters, or make separate calls.
-* **`overdue` is a filter name, not a value.** `?overdue=true` and
-  `?overdue=false` behave identically; omit it to not filter.
-* **`count` on `/api/audit` is the requested `limit`, not the number of entries.**
-  Use `len(entries)`.
+* **Repeating a query parameter means OR.** `?stage=A&stage=B` returns rows in
+  either stage.
+* **`overdue` respects its value.** `?overdue=true` returns overdue rows,
+  `?overdue=false` returns the rest; omit it to not filter.
+* **An unknown filter is a 400,** not a silent no-op — a typo'd column name
+  fails loudly instead of returning the unfiltered list.
 * **No optimistic locking.** If a human edits a record between your read and your
   write, your write wins silently. Keep the gap short, and PATCH only the fields
   you mean to change.
