@@ -238,15 +238,10 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
     # switcher reads these rows, so the two must agree.
     product = db.query(Product).filter(Product.code == "hq").first()
     for name, slug, icon, description in [
-        ("CRM", "crm", "users", "Customers, leads, catalog and delivery projects"),
-        ("Work", "work", "work", "Tasks and standing work streams"),
-        ("Tickets", "tickets", "bell", "Client requests, job types and SLAs"),
-        ("Comms", "comms", "chat", "Client conversations across WhatsApp and email"),
         # TabDesk is the one workspace whose PAGES are not defined in the
         # frontend — they are the user-defined tables in tabdesk_tables. This row
         # only puts the workspace in the switcher; see docs/TABDESK.md.
         ("TabDesk", "tabdesk", "grid", "Tables you define yourself — columns, entries, filters"),
-        ("Accounting", "accounting", "billing", "Contracts, billing schedule and the Zoho Books mirror"),
     ]:
         _get_or_create(
             db, Workspace,
@@ -254,6 +249,25 @@ def seed(db, org: Organisation, admin: User, get_password_hash):
              "product_id": product.id if product else None, "status": "Active"},
             organisation_id=org_id, name=name,
         )
+
+    # CRM, Work, Tickets, Comms and Accounting were workspaces of their own until
+    # 2026-07-26. They are all the same business and belong inside HQ, and as
+    # separate entries they overflowed the sidebar's workspace rail — three icons
+    # were clipped off the edge and could not be reached at all. They are modules
+    # under HQ now (see PRODUCT_WS_TABS in frontend/home.html); these rows are
+    # removed so the switcher, which reads this table, agrees with the sidebar.
+    #
+    # Safe to delete: nothing has a foreign key to `workspaces`, so these are
+    # pure navigation rows. Idempotent — a second run finds nothing to remove.
+    retired = ["CRM", "Work", "Tickets", "Comms", "Accounting"]
+    stale = db.query(Workspace).filter(
+        Workspace.organisation_id == org_id, Workspace.name.in_(retired)
+    ).all()
+    for workspace in stale:
+        db.delete(workspace)
+    if stale:
+        logger.info("Retired %d workspace(s) now living inside HQ: %s",
+                    len(stale), ", ".join(w.name for w in stale))
     db.flush()
 
     # Roles and their grants are owned by backend/permissions.py, which runs
