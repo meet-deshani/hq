@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="/static/unpkg.com_react@18.3.1_umd_react.production.min.js"></script>
+<script src="/static/unpkg.com_react-dom@18.3.1_umd_react-dom.production.min.js"></script>
+<script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family:'Chubbo'; font-style:normal; font-weight:200 700; font-display:swap;
+      src:url("/static/e929d16a-cc3b-4586-a30d-3a55811439c5") format('woff2-variations'); }
+    @font-face { font-family:'Supreme'; font-style:normal; font-weight:100 800; font-display:swap;
+      src:url("/static/b9688901-bd1c-4cdb-a5f1-5ce45a41e22c") format('woff2-variations'); }
+    @font-face { font-family:'Satoshi'; font-style:normal; font-weight:300 900; font-display:swap;
+      src:url("/static/271a769a-00c8-40e2-b7a5-fc09eb13acc3") format('woff2-variations'); }
+    @font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:100 800; font-display:swap;
+      src:url("/static/0ee4bd90-a829-4a5f-9e48-6fc518c42cf8") format('woff2-variations'); }
+  </style>
+</helmet>
+<div style="height:100%;width:100%;display:flex;flex-direction:column;background:#FDFCFA;font-family:'Satoshi',sans-serif;color:#191924;overflow:hidden">
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;width:100%;box-sizing:border-box">
+    <div style="padding:30px 34px 40px;width:100%;box-sizing:border-box">
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#918D82;margin-bottom:9px">Users</div>
+      <h1 style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:33px;line-height:1.04;letter-spacing:-0.02em;margin:0;color:#191924">{{ title }}</h1>
+      <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14.5px;line-height:1.55;color:#6E6B62;margin:12px 0 8px;max-width:900px">{{ sub }}</p>
+      <sc-if value="{{ showMirrorNote }}">
+        <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:13px;line-height:1.55;color:#8A8578;margin:0 0 22px;max-width:900px">{{ mirrorNote }}</p>
+      </sc-if>
+
+      <!-- ── the grid ─────────────────────────────────────────────────── -->
+      <sc-if value="{{ isMatrix }}">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0 16px">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:#fff;border:1.5px solid #E8E6E0;min-width:min(260px,100%)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+            <input value="{{ filter }}" sc-camel-on-change="{{ onFilter }}" placeholder="Filter permissions…" style="flex:1;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;min-width:0">
+          </div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:#918D82">{{ countLabel }}</span>
+          <div style="flex:1;min-width:8px"></div>
+          <sc-if value="{{ dirty }}">
+            <span style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;font-weight:600">{{ dirtyLabel }}</span>
+          </sc-if>
+          <sc-if value="{{ canEdit }}">
+            <button sc-camel-on-click="{{ onSave }}" style="{{ saveStyle }}">{{ saveLabel }}</button>
+          </sc-if>
+        </div>
+
+        <div class="hq-datagrid" style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:auto;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
+          <div style="display:grid;grid-template-columns:{{ gridCols }};padding:12px 18px;border-bottom:1px solid #EEEDE8;background:#F8F7F4;position:sticky;top:0;z-index:2">
+            <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#4A4842">Permission</div>
+            <sc-for list="{{ roleCols }}" as="r" hint-placeholder-count="5">
+              <div style="text-align:center">
+                <div style="font-family:'Satoshi',sans-serif;font-size:12px;font-weight:700;color:#191924">{{ r.name }}</div>
+                <button sc-camel-on-click="{{ r.onToggleAll }}" title="{{ r.toggleTitle }}" style="border:none;background:transparent;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:#A7A399;padding:2px 0">{{ r.toggleLabel }}</button>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-for list="{{ matrixRows }}" as="row" hint-placeholder-count="8">
+            <div style="{{ row.style }}">
+              <sc-if value="{{ row.isGroup }}">
+                <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6E6B62">{{ row.label }}</div>
+              </sc-if>
+              <sc-if value="{{ row.isCode }}">
+                <div style="min-width:0">
+                  <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#3A3A44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.label }}</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#B4B0A6">{{ row.code }}</div>
+                </div>
+                <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;justify-content:center">
+                    <button sc-camel-on-click="{{ cell.onToggle }}" title="{{ cell.title }}" style="{{ cell.style }}">{{ cell.mark }}</button>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ── exceptions ───────────────────────────────────────────────── -->
+      <sc-if value="{{ isExceptions }}">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0 16px">
+          <select value="{{ personId }}" sc-camel-on-change="{{ onPerson }}" style="padding:10px 13px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none;min-width:min(300px,100%)">
+            <option value="">Choose a person…</option>
+            <sc-for list="{{ people }}" as="p" hint-placeholder-count="4">
+              <option value="{{ p.v }}">{{ p.label }}</option>
+            </sc-for>
+          </select>
+          <sc-if value="{{ hasPerson }}">
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:#fff;border:1.5px solid #E8E6E0;min-width:min(240px,100%)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A7A399" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg>
+              <input value="{{ filter }}" sc-camel-on-change="{{ onFilter }}" placeholder="Filter permissions…" style="flex:1;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13px;color:#191924;min-width:0">
+            </div>
+            <button sc-camel-on-click="{{ onOnlyChanged }}" style="{{ onlyChangedStyle }}">{{ onlyChangedLabel }}</button>
+          </sc-if>
+          <div style="flex:1;min-width:8px"></div>
+          <sc-if value="{{ dirty }}">
+            <span style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;font-weight:600">{{ dirtyLabel }}</span>
+          </sc-if>
+          <sc-if value="{{ showSaveExceptions }}">
+            <button sc-camel-on-click="{{ onSave }}" style="{{ saveStyle }}">{{ saveLabel }}</button>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ noPerson }}">
+          <div style="border:1.5px dashed #E0DDD5;border-radius:18px;padding:48px 30px;text-align:center;background:#fff">
+            <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924;margin-bottom:9px">Pick somebody</div>
+            <p style="font-family:'Supreme','Satoshi',sans-serif;font-size:14px;color:#6E6B62;margin:0 auto;max-width:460px;line-height:1.6">Everyone follows their role until they are given an exception here. Choose a person to see where they differ.</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasPerson }}">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+            <span style="font-family:'Satoshi',sans-serif;font-size:15px;font-weight:700;color:#191924">{{ personName }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:rgba(162,210,255,.22);font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;color:#2F5D8A">{{ personRole }}</span>
+            <span style="font-family:'Supreme','Satoshi',sans-serif;font-size:12.5px;color:#918D82">{{ personSummary }}</span>
+          </div>
+
+          <div class="hq-datagrid" style="width:100%;border:1px solid #E8E6E0;border-radius:16px;overflow:auto;background:#fff;box-shadow:0 1px 3px rgba(25,25,36,.05);box-sizing:border-box">
+            <div style="display:grid;grid-template-columns:{{ excCols }};padding:12px 18px;border-bottom:1px solid #EEEDE8;background:#F8F7F4;position:sticky;top:0;z-index:2">
+              <div style="font-family:'Satoshi',sans-serif;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#4A4842">Permission</div>
+              <div style="text-align:center;font-family:'Satoshi',sans-serif;font-size:11px;font-weight:700;color:#191924">Inherit</div>
+              <div style="text-align:center;font-family:'Satoshi',sans-serif;font-size:11px;font-weight:700;color:#191924">Allow</div>
+              <div style="text-align:center;font-family:'Satoshi',sans-serif;font-size:11px;font-weight:700;color:#191924">Deny</div>
+              <div style="text-align:center;font-family:'Satoshi',sans-serif;font-size:11px;font-weight:700;color:#191924">Ends up</div>
+            </div>
+
+            <sc-for list="{{ excRows }}" as="row" hint-placeholder-count="8">
+              <div style="{{ row.style }}">
+                <sc-if value="{{ row.isGroup }}">
+                  <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6E6B62">{{ row.label }}</div>
+                </sc-if>
+                <sc-if value="{{ row.isCode }}">
+                  <div style="min-width:0">
+                    <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#3A3A44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.label }} <span style="font-family:'Supreme','Satoshi',sans-serif;font-size:11.5px;color:#B4B0A6">{{ row.roleHint }}</span></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#B4B0A6">{{ row.code }}</div>
+                  </div>
+                  <sc-for list="{{ row.choices }}" as="c" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;justify-content:center">
+                      <button sc-camel-on-click="{{ c.onPick }}" title="{{ c.title }}" style="{{ c.style }}">{{ c.mark }}</button>
+                    </div>
+                  </sc-for>
+                  <div style="display:flex;align-items:center;justify-content:center">
+                    <span style="{{ row.endsUpStyle }}">{{ row.endsUp }}</span>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ hasError }}">
+        <div style="margin-top:16px;font-family:'Satoshi',sans-serif;font-size:13px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:11px;padding:12px 15px">{{ error }}</div>
+      </sc-if>
+      <sc-if value="{{ hasNote }}">
+        <div style="margin-top:16px;font-family:'Satoshi',sans-serif;font-size:13px;color:#3d6b52;background:rgba(184,224,210,.28);border:1px solid rgba(184,224,210,.7);border-radius:11px;padding:12px 15px">{{ note }}</div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1000,&quot;height&quot;:640},&quot;org&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tabName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Permissions&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;permissions&quot;,&quot;exceptions&quot;],&quot;default&quot;:&quot;permissions&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#FFB5C2&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+// ─────────────────────────────────────────────────────────────────────────────
+// Permissions and Exceptions.
+//
+// Two screens over one model. The matrix is what each ROLE may do; exceptions
+// are where one PERSON differs from their role.
+//
+// Nothing here decides anything. Every tick, and the "Ends up" column in
+// particular, comes from the backend — which computes it with the same function
+// the routes enforce with. A screen that worked out the answer for itself would
+// eventually disagree with reality, and a permissions screen that lies is worse
+// than none.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function pmFetch(url, init){
+  return fetch(url, init).then(res => {
+    if (res.status === 401) { try { window.location.href = '/login'; } catch(_) {} return new Promise(() => {}); }
+    return res;
+  });
+}
+
+const ON  = "display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1.5px solid #191924;background:#191924;color:#fff;cursor:pointer;font-size:13px;line-height:1;padding:0";
+const OFF = "display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1.5px solid #DDD9D0;background:#fff;color:transparent;cursor:pointer;font-size:13px;line-height:1;padding:0";
+const LOCK= "display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1.5px solid #E4E2DB;background:#EFEDE7;color:#A7A399;cursor:not-allowed;font-size:13px;line-height:1;padding:0";
+const RON = "display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:5px solid #191924;background:#fff;cursor:pointer;padding:0";
+const ROFF= "display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid #DDD9D0;background:#fff;cursor:pointer;padding:0";
+const PILL_ON  = "border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:600;padding:7px 14px;border-radius:999px";
+const PILL_OFF = "border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;font-family:'Satoshi',sans-serif;font-size:12px;font-weight:500;padding:7px 14px;border-radius:999px";
+
+class Component extends DCLogic {
+  state = {
+    loading: true, error: '', note: '',
+    matrix: null,            // GET /api/permissions/matrix
+    grants: {},              // role -> Set(codes), the working copy
+    people: [], personId: '', person: null,
+    effects: {},             // code -> allow|deny, the working copy
+    filter: '', onlyChanged: false,
+    busy: false, dirty: false,
+  };
+
+  componentDidMount(){ this.load(); }
+
+  componentDidUpdate(prevProps){
+    if (prevProps.kind !== this.props.kind || prevProps.tabName !== this.props.tabName) {
+      this.setState({ filter:'', error:'', note:'', dirty:false }, () => this.load());
+    }
+  }
+
+  isExceptions(){ return (this.props.kind || '') === 'exceptions'; }
+
+  load(){
+    this.setState({ loading:true, error:'' });
+    if (this.isExceptions()) {
+      pmFetch('/api/permissions/exceptions')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => this.setState({ people: (d && d.people) || [], loading:false }))
+        .catch(() => this.setState({ loading:false, error:'Could not load people.' }));
+      return;
+    }
+    pmFetch('/api/permissions/matrix')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { this.setState({ loading:false, error:'Could not load the matrix.' }); return; }
+        const grants = {};
+        Object.keys(d.grants || {}).forEach(role => { grants[role] = new Set(d.grants[role]); });
+        this.setState({ matrix:d, grants, loading:false, dirty:false });
+      })
+      .catch(() => this.setState({ loading:false, error:'Could not reach the server.' }));
+  }
+
+  loadPerson(id){
+    if (!id) { this.setState({ personId:'', person:null, effects:{}, dirty:false }); return; }
+    this.setState({ personId:String(id), loading:true, error:'', note:'' });
+    pmFetch('/api/permissions/exceptions/' + id)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { this.setState({ loading:false, error:'Could not load that person.' }); return; }
+        this.setState({ person:d, effects: Object.assign({}, d.effects || {}), loading:false, dirty:false });
+      })
+      .catch(() => this.setState({ loading:false, error:'Could not reach the server.' }));
+  }
+
+  // ── matrix editing ────────────────────────────────────────────────────
+
+  lockedFor(roleName){
+    const m = this.state.matrix;
+    return new Set(((m && m.locked) || {})[roleName] || []);
+  }
+
+  toggle(roleName, code){
+    if (this.lockedFor(roleName).has(code)) return;
+    const grants = Object.assign({}, this.state.grants);
+    const set = new Set(grants[roleName] || []);
+    if (set.has(code)) set.delete(code); else set.add(code);
+    grants[roleName] = set;
+    this.setState({ grants, dirty:true, note:'' });
+  }
+
+  toggleColumn(roleName){
+    const codes = this.visibleCodes();
+    const grants = Object.assign({}, this.state.grants);
+    const set = new Set(grants[roleName] || []);
+    const allOn = codes.every(c => set.has(c));
+    codes.forEach(c => { if (allOn) set.delete(c); else set.add(c); });
+    this.lockedFor(roleName).forEach(c => set.add(c));
+    grants[roleName] = set;
+    this.setState({ grants, dirty:true, note:'' });
+  }
+
+  saveMatrix(){
+    if (this.state.busy) return;
+    this.setState({ busy:true, error:'', note:'' });
+    const body = {};
+    Object.keys(this.state.grants).forEach(role => { body[role] = Array.from(this.state.grants[role]).sort(); });
+    pmFetch('/api/permissions/matrix', {
+      method:'PUT', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body),
+    })
+      .then(r => r.json().then(d => ({ ok:r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ busy:false, error: d.detail || 'Could not save.' }); return; }
+        const n = Object.keys(d.changed || {}).length;
+        this.setState({
+          busy:false, dirty:false,
+          note: n ? ('Saved. ' + n + ' role(s) changed — this screen is now the authority, and a deploy will not overwrite it.')
+                  : 'Saved. Nothing changed.',
+        }, () => this.load());
+      })
+      .catch(() => this.setState({ busy:false, error:'Could not reach the server.' }));
+  }
+
+  // ── exception editing ─────────────────────────────────────────────────
+
+  pick(code, effect){
+    const effects = Object.assign({}, this.state.effects);
+    if (effect === 'inherit') delete effects[code]; else effects[code] = effect;
+    this.setState({ effects, dirty:true, note:'' });
+  }
+
+  saveExceptions(){
+    const st = this.state;
+    if (st.busy || !st.person) return;
+    this.setState({ busy:true, error:'', note:'' });
+    pmFetch('/api/permissions/exceptions/' + st.person.user.id, {
+      method:'PUT', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(st.effects),
+    })
+      .then(r => r.json().then(d => ({ ok:r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) { this.setState({ busy:false, error: d.detail || 'Could not save.' }); return; }
+        const n = Object.keys(d.effects || {}).length;
+        this.setState({
+          busy:false, dirty:false,
+          note: n ? (n + ' exception(s) in force for ' + st.person.user.name + '.')
+                  : (st.person.user.name + ' now follows their role exactly.'),
+        }, () => this.loadPerson(st.person.user.id));
+      })
+      .catch(() => this.setState({ busy:false, error:'Could not reach the server.' }));
+  }
+
+  // ── shared ────────────────────────────────────────────────────────────
+
+  groups(){
+    const src = this.isExceptions() ? this.state.person : this.state.matrix;
+    return (src && src.groups) || [];
+  }
+
+  matches(group, entry){
+    const q = (this.state.filter || '').trim().toLowerCase();
+    if (!q) return true;
+    return (group.label + ' ' + entry.code + ' ' + entry.action_label).toLowerCase().indexOf(q) >= 0;
+  }
+
+  visibleCodes(){
+    const out = [];
+    this.groups().forEach(g => g.codes.forEach(c => { if (this.matches(g, c)) out.push(c.code); }));
+    return out;
+  }
+
+  renderVals() {
+    const st = this.state;
+    const exceptions = this.isExceptions();
+
+    const base = {
+      title: exceptions ? 'Exceptions' : 'Permissions',
+      sub: exceptions
+        ? 'Everyone follows their role until they are given an exception here — a person who also needs one more thing, or is kept away from one. Inherit means no exception at all.'
+        : 'What each role is allowed to do. A role is the normal answer: change a tick and it applies to everyone who holds that role.',
+      isMatrix: !exceptions, isExceptions: exceptions,
+      filter: st.filter,
+      onFilter: (e) => this.setState({ filter: e.target.value }),
+      error: st.error, hasError: !!st.error,
+      note: st.note, hasNote: !!st.note,
+      dirty: st.dirty,
+      dirtyLabel: 'Unsaved changes',
+      saveLabel: st.busy ? 'Saving…' : 'Save changes',
+      saveStyle: st.dirty ? PILL_ON : PILL_OFF,
+      showMirrorNote: false, mirrorNote: '',
+      // Defaults so no binding is ever unresolved on the branch that is hidden.
+      roleCols: [], matrixRows: [], gridCols: '1fr', countLabel: '', canEdit: false,
+      people: [], personId: '', hasPerson: false, noPerson: false,
+      personName: '', personRole: '', personSummary: '',
+      excRows: [], excCols: '1fr', showSaveExceptions: false,
+      onlyChangedLabel: 'Only differences', onlyChangedStyle: PILL_OFF,
+      onOnlyChanged: () => this.setState({ onlyChanged: !st.onlyChanged }),
+      onPerson: (e) => this.loadPerson(e.target.value),
+      onSave: () => (exceptions ? this.saveExceptions() : this.saveMatrix()),
+    };
+
+    // ── the grid ────────────────────────────────────────────────────────
+    if (!exceptions) {
+      const m = st.matrix;
+      if (!m) return Object.assign(base, { sub: st.loading ? 'Loading…' : base.sub });
+
+      const roles = m.roles || [];
+      const visible = this.visibleCodes();
+      const visibleSet = {};
+      visible.forEach(c => { visibleSet[c] = 1; });
+
+      base.canEdit = !!m.can_edit;
+      base.showMirrorNote = !m.custom;
+      base.mirrorNote = 'These ticks mirror the rules built into the app. The first save here writes them down, and this screen becomes the authority — after that a deploy will not overwrite them.';
+      base.countLabel = visible.length + ' of ' + (m.groups || []).reduce((n, g) => n + g.codes.length, 0) + ' permissions';
+      base.gridCols = 'minmax(240px,2.2fr) ' + roles.map(() => 'minmax(84px,1fr)').join(' ');
+
+      base.roleCols = roles.map(r => {
+        const set = st.grants[r.name] || new Set();
+        const allOn = visible.length > 0 && visible.every(c => set.has(c));
+        return {
+          name: r.name,
+          toggleLabel: allOn ? 'none' : 'all',
+          toggleTitle: (allOn ? 'Untick' : 'Tick') + ' every visible permission for ' + r.name,
+          onToggleAll: () => { if (m.can_edit) this.toggleColumn(r.name); },
+        };
+      });
+
+      const rows = [];
+      (m.groups || []).forEach(g => {
+        const codes = g.codes.filter(c => visibleSet[c.code]);
+        if (!codes.length) return;
+        rows.push({
+          isGroup: true, isCode: false, label: g.label,
+          style: 'display:grid;grid-template-columns:1fr;padding:9px 18px;background:#FBFAF7;border-bottom:1px solid #EEEDE8',
+        });
+        codes.forEach((c, i) => {
+          rows.push({
+            isGroup: false, isCode: true,
+            label: c.action_label, code: c.code,
+            style: 'display:grid;grid-template-columns:' + base.gridCols + ';padding:9px 18px;align-items:center;'
+                 + (i % 2 ? 'background:#FCFBF9;' : 'background:#fff;') + 'border-bottom:1px solid #F2F1EC',
+            cells: roles.map(r => {
+              const set = st.grants[r.name] || new Set();
+              const on = set.has(c.code);
+              const locked = this.lockedFor(r.name).has(c.code);
+              return {
+                mark: on ? '✓' : '',
+                style: locked ? LOCK : (on ? ON : OFF),
+                title: locked
+                  ? (r.name + ' always keeps this — without it nobody could repair permissions.')
+                  : (r.name + ' · ' + c.code),
+                onToggle: () => { if (m.can_edit) this.toggle(r.name, c.code); },
+              };
+            }),
+          });
+        });
+      });
+      base.matrixRows = rows;
+      return base;
+    }
+
+    // ── exceptions ──────────────────────────────────────────────────────
+    base.people = (st.people || []).map(p => {
+      const n = (p.exceptions.allow || 0) + (p.exceptions.deny || 0);
+      return { v: String(p.id), label: p.name + ' · ' + (p.role || 'no role') + (n ? ('  (' + n + ')') : '') };
+    });
+    base.personId = st.personId;
+
+    const person = st.person;
+    base.hasPerson = !!person;
+    base.noPerson = !person && !st.loading;
+    if (!person) return base;
+
+    const roleCodes = {};
+    (person.role_codes || []).forEach(c => { roleCodes[c] = 1; });
+
+    base.showSaveExceptions = !!person.can_edit;
+    base.personName = person.user.name;
+    base.personRole = person.user.role || 'no role';
+    const live = Object.keys(st.effects).length;
+    base.personSummary = live
+      ? (live + ' exception(s) — everything else follows the role')
+      : 'follows their role exactly';
+    base.excCols = 'minmax(260px,2.4fr) repeat(3, minmax(70px,.6fr)) minmax(84px,.8fr)';
+    base.onlyChangedStyle = st.onlyChanged ? PILL_ON : PILL_OFF;
+
+    const rows = [];
+    (person.groups || []).forEach(g => {
+      const codes = g.codes.filter(c => this.matches(g, c) && (!st.onlyChanged || st.effects[c.code]));
+      if (!codes.length) return;
+      rows.push({
+        isGroup: true, isCode: false, label: g.label,
+        style: 'display:grid;grid-template-columns:1fr;padding:9px 18px;background:#FBFAF7;border-bottom:1px solid #EEEDE8',
+      });
+      codes.forEach((c, i) => {
+        const effect = st.effects[c.code] || 'inherit';
+        const fromRole = !!roleCodes[c.code];
+        // Resolution mirrors the backend exactly: deny wins, allow grants, and
+        // inherit falls back to the role.
+        const endsUp = effect === 'deny' ? false : (effect === 'allow' ? true : fromRole);
+        rows.push({
+          isGroup: false, isCode: true,
+          label: c.action_label, code: c.code,
+          roleHint: fromRole ? 'role allows' : 'role denies',
+          style: 'display:grid;grid-template-columns:' + base.excCols + ';padding:9px 18px;align-items:center;'
+               + (i % 2 ? 'background:#FCFBF9;' : 'background:#fff;') + 'border-bottom:1px solid #F2F1EC',
+          choices: ['inherit', 'allow', 'deny'].map(opt => ({
+            mark: '',
+            style: effect === opt ? RON : ROFF,
+            title: opt === 'inherit' ? 'Follow the role' : (opt === 'allow' ? 'Grant regardless of the role' : 'Block even though the role allows'),
+            onPick: () => { if (person.can_edit) this.pick(c.code, opt); },
+          })),
+          endsUp: endsUp ? 'Yes' : 'No',
+          endsUpStyle: 'display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-family:\'Satoshi\',sans-serif;font-size:11.5px;font-weight:600;'
+            + (endsUp ? 'background:rgba(184,224,210,.35);color:#2F6B4F' : 'background:#F0EEE9;color:#8A8578'),
+        });
+      });
+    });
+    base.excRows = rows;
+    return base;
+  }
+}
+</script>
+</body>
+</html>

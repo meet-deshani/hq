@@ -188,18 +188,118 @@ def expand(patterns):
 
 # ── runtime checks ──────────────────────────────────────────────────────────
 
-def permissions_for(user):
-    """The concrete permission codes a user holds, from their role's grants."""
+# ── the lockout rail ────────────────────────────────────────────────────────
+# The permission that gates the Permissions screen itself. If everyone loses it,
+# nobody can ever grant it back and the organisation is locked out of its own
+# authorisation for good — there is no recovery path short of a DB console.
+GATE = "permissions:update"
+
+# What an Admin keeps no matter what the grid says. Admin is the role that
+# repairs a mistake; taking its ability to reach this screen away is the one
+# edit that cannot be undone from inside the app.
+ADMIN_FLOOR = {GATE, "permissions:read", "users:read", "users:update", "roles:read"}
+
+
+def policy_is_custom(user_or_db, organisation_id=None):
+    """Has anyone saved the Permissions screen yet?
+
+    Returns False (code patterns win) when there is no policy row, which is the
+    state every organisation starts in and most stay in.
+    """
+    from backend.models import PermissionPolicy  # local: avoid an import cycle
+
+    db = getattr(user_or_db, "query", None) and user_or_db
+    if db is None:
+        return False
+    row = db.query(PermissionPolicy).filter(
+        PermissionPolicy.organisation_id == organisation_id
+    ).first() if organisation_id is not None else db.query(PermissionPolicy).first()
+    return bool(row and row.custom)
+
+
+def role_codes(user, db=None):
+    """The codes a user's ROLE grants, before their personal exceptions.
+
+    Two sources, and which one wins is the whole point of PermissionPolicy:
+      * nobody has saved the Permissions screen -> the code patterns in ROLES,
+        so a grant change ships with a deploy rather than needing a migration;
+      * somebody has -> the role_permissions rows, because the screen said it
+        would become the authority and silently ignoring it would be a lie.
+    """
     role = getattr(user, "role", None)
     if role is None:
         return set()
-    # Roles the platform defines get their patterns from code, so a grant change
-    # ships with the code rather than needing a data migration. A hand-made role
-    # falls back to whatever rows are linked to it.
+
+    if db is not None and policy_is_custom(db, getattr(user, "organisation_id", None)):
+        codes = {p.code for p in (role.permissions or [])}
+        # Admin keeps the keys to the building even if the grid says otherwise.
+        if role.name == "Admin":
+            codes |= ADMIN_FLOOR
+        return codes
+
     spec = ROLES.get(role.name)
     if spec:
         return expand(spec["patterns"])
+    # A hand-made role has no code patterns; its rows are all it has.
     return {p.code for p in (role.permissions or [])}
+
+
+def overrides_for(user, db):
+    """{code: 'allow'|'deny'} — this person's exceptions to their role."""
+    from backend.models import UserPermissionOverride  # local: avoid a cycle
+
+    if db is None or getattr(user, "id", None) is None:
+        return {}
+    rows = db.query(UserPermissionOverride).filter(
+        UserPermissionOverride.user_id == user.id
+    ).all()
+    return {r.code: r.effect for r in rows}
+
+
+def permissions_for(user, db=None):
+    """The concrete permission codes a user holds.
+
+    Role grants first, then that person's own exceptions on top:
+
+        inherit (no row) -> whatever the role says
+        allow            -> held, even if the role does not grant it
+        deny             -> not held, even if the role does grant it
+
+    Deny beats allow because the reason to write a deny is to take something
+    away from someone whose role hands it out, and a rule that loses to the
+    thing it exists to override is not a rule.
+
+    `db` is optional because almost every caller is a route with no session to
+    hand over. Those callers get the set resolved at authentication time and
+    cached on the user by `auth.get_current_user` — which is what makes an
+    exception actually bite on the routes that enforce it, rather than only
+    showing up in the UI. Passing `db` explicitly recomputes, which is what the
+    admin screens do when previewing somebody else's access.
+    """
+    if db is None:
+        cached = getattr(user, "_effective_permissions", None)
+        if cached is not None:
+            return set(cached)
+
+    codes = role_codes(user, db)
+    if db is None:
+        return codes
+
+    effects = overrides_for(user, db)
+    if not effects:
+        return codes
+
+    codes = set(codes)
+    for code, effect in effects.items():
+        if effect == "allow":
+            codes.add(code)
+        elif effect == "deny":
+            codes.discard(code)
+
+    # The floor is a floor: an exception cannot lock an Admin out either.
+    if getattr(getattr(user, "role", None), "name", None) == "Admin":
+        codes |= ADMIN_FLOOR
+    return codes
 
 
 def has(user, entity_key, action):
@@ -207,23 +307,121 @@ def has(user, entity_key, action):
 
 
 def require(user, entity_key, action):
-    """Raise 403 unless the user holds <entity_key>:<action>."""
+    """Raise 403 unless the user holds <entity_key>:<action>.
+
+    The message distinguishes a role that never granted this from a personal
+    exception that took it away. Without that, an admin asked "why can't Nishant
+    delete a customer?" goes and reads the Partner role, finds that it DOES allow
+    delete, and has nowhere left to look — the answer was on the Exceptions
+    screen the whole time.
+    """
     if has(user, entity_key, action):
         return True
-    role_name = getattr(getattr(user, "role", None), "name", "no role")
+
+    code = "%s:%s" % (entity_key, action)
+    role = getattr(user, "role", None)
+    role_name = getattr(role, "name", "no role")
+
+    # Would the role alone have allowed it? If so, an exception is the reason.
+    spec = ROLES.get(role_name)
+    role_would_allow = code in expand(spec["patterns"]) if spec else code in {
+        p.code for p in (getattr(role, "permissions", None) or [])
+    }
+    if role_would_allow:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You have a permission exception that blocks '%s %s'. Your role (%s) "
+                   "would otherwise allow it — ask an admin to check Exceptions."
+                   % (ACTION_LABELS.get(action, action).lower(), _label(entity_key), role_name),
+        )
+
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Your role (%s) cannot %s %s." % (role_name, action, _label(entity_key)),
     )
 
 
-def can_map(user):
+def can_map(user, db=None):
     """{entity_key: {action: bool}} — used by the UI to hide what it cannot do."""
-    held = permissions_for(user)
+    held = permissions_for(user, db)
     return {
         key: {action: ("%s:%s" % (key, action)) in held for action in ACTIONS}
         for key in entity_keys()
     }
+
+
+# ── lockout prevention ──────────────────────────────────────────────────────
+
+def who_can_open_the_gate(db, organisation_id, proposed_role_codes=None,
+                          proposed_overrides=None):
+    """Active users who would still hold `permissions:update` after a change.
+
+    Called BEFORE a save is committed, with the proposed state, so a change that
+    would leave nobody able to open the Permissions screen can be refused while
+    it is still refusable. Afterwards there is no way back: the permission that
+    grants the permission is the one being removed.
+
+    `proposed_role_codes`   {role_name: set(codes)} replacing what those roles grant.
+    `proposed_overrides`    {user_id: {code: 'allow'|'deny'}} replacing those users'
+                            exceptions. A user absent from the dict keeps theirs.
+    """
+    from backend.models import User, UserPermissionOverride
+
+    proposed_role_codes = proposed_role_codes or {}
+    proposed_overrides = proposed_overrides or {}
+
+    users = db.query(User).filter(
+        User.organisation_id == organisation_id, User.status == "Active"
+    ).all()
+
+    survivors = []
+    for user in users:
+        role = getattr(user, "role", None)
+        role_name = getattr(role, "name", None)
+
+        if role_name in proposed_role_codes:
+            codes = set(proposed_role_codes[role_name])
+        else:
+            codes = role_codes(user, db)
+        if role_name == "Admin":
+            codes |= ADMIN_FLOOR
+
+        if user.id in proposed_overrides:
+            effects = proposed_overrides[user.id]
+        else:
+            effects = {
+                r.code: r.effect
+                for r in db.query(UserPermissionOverride).filter(
+                    UserPermissionOverride.user_id == user.id
+                ).all()
+            }
+        for code, effect in effects.items():
+            if effect == "allow":
+                codes.add(code)
+            elif effect == "deny":
+                codes.discard(code)
+        if role_name == "Admin":
+            codes |= ADMIN_FLOOR
+
+        if GATE in codes:
+            survivors.append(user)
+    return survivors
+
+
+def refuse_if_locking_everyone_out(db, organisation_id, proposed_role_codes=None,
+                                   proposed_overrides=None):
+    """Raise 400 rather than let a save orphan the Permissions screen."""
+    survivors = who_can_open_the_gate(
+        db, organisation_id, proposed_role_codes, proposed_overrides
+    )
+    if not survivors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That would leave nobody able to open this screen, and there is no "
+                   "way to grant it back from inside the app. Leave at least one "
+                   "active person holding '%s'." % GATE,
+        )
+    return survivors
 
 
 # ── seeding ─────────────────────────────────────────────────────────────────
@@ -256,6 +454,14 @@ def seed(db, organisation_id):
 
     catalogue = {p.code: p for p in db.query(Permission).all()}
 
+    # Once somebody has saved the Permissions screen, these tables are the
+    # authority and this function must not touch the grants. Re-applying the
+    # code patterns here would revert every edit on the next deploy — silently,
+    # because a deploy is not something anyone connects to their permissions
+    # changing. Roles are still CREATED below if missing; only the grants are
+    # left alone.
+    custom = policy_is_custom(db, organisation_id)
+
     for name, spec in ROLES.items():
         role = db.query(Role).filter(
             Role.organisation_id == organisation_id, Role.name == name
@@ -264,8 +470,16 @@ def seed(db, organisation_id):
             role = Role(organisation_id=organisation_id, name=name, description=spec["description"])
             db.add(role)
             db.flush()
-        elif not role.description:
+            # A role created after the matrix was customised has no rows yet, so
+            # seed it from code once. Without this it would exist with no grants
+            # at all, which reads as "this role can do nothing".
+            role.permissions = [catalogue[c] for c in sorted(expand(spec["patterns"])) if c in catalogue]
+            continue
+        if not role.description:
             role.description = spec["description"]
+
+        if custom:
+            continue
 
         granted = [catalogue[c] for c in sorted(expand(spec["patterns"])) if c in catalogue]
         # Assigning the whole list keeps a role's grants in step with the code
@@ -273,4 +487,8 @@ def seed(db, organisation_id):
         role.permissions = granted
 
     db.commit()
-    logger.info("Permissions synced: %d codes across %d roles", len(wanted), len(ROLES))
+    logger.info(
+        "Permissions synced: %d codes across %d roles%s",
+        len(wanted), len(ROLES),
+        " (grants left to the saved matrix)" if custom else "",
+    )
