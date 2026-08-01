@@ -1763,6 +1763,31 @@ function workspaceForTab(productKey, workspaceName, roleId, tabName){
   return (hit && hit.ws) || workspaceName;
 }
 
+// Which SIDEBAR workspace actually shows a given tab, and under which module.
+// Returns null when nothing does — which is the point: an entity can exist in
+// the registry and be searchable while having no page in the nav at all
+// (Tickets, Conversations, Invoices and friends are exactly that today).
+//
+// This exists because global search used to navigate with `workspace: module`,
+// treating a module name as a workspace. `navItemsFor('hq','Customers')` returns
+// nothing, so jumping to a customer from search rendered an EMPTY sidebar — a
+// dead end with no way back except the browser button. That was broken long
+// before the workspaces were consolidated; consolidating simply made more hits
+// land on it.
+function locateTab(productKey, tabName){
+  const cfg = PRODUCT_WS_TABS[productKey];
+  if(!cfg) return null;
+  for(const workspaceName of Object.keys(cfg)){
+    if(workspaceName === '__all__') continue;
+    const hit = (cfg[workspaceName] || []).find(t => t.tab === tabName);
+    if(hit) return { workspace: workspaceName, module: hit.module || workspaceName, kind: hit.kind || 'table' };
+  }
+  // TabDesk pages are data, not code, so they are not in PRODUCT_WS_TABS.
+  const td = TABDESK_TABS.find(t => t.tab === tabName);
+  if(td) return { workspace:'TabDesk', module: td.module, kind:'tabdesk' };
+  return null;
+}
+
 function navItemsFor(productKey, workspaceName, roleId){
   const items=[]; const byMod={};
   // `ws` must survive every one of these rebuilds. It is what PortalPage
@@ -2236,9 +2261,23 @@ class Component extends DCLogic {
   openSearch(){ this.set({ searchOpen:true, navOpen:null, notifOpen:false }); }
   closeSearch(){ this.set({ searchOpen:false }); }
   gotoSearch(h){
-    const product = h.product || this.state.product, module = h.module, tab = h.tab, kind = h.kind || 'table';
-    this.set(s=>({ product:product, workspace:module, tab:{module:module,tab:tab,kind:kind}, open:{...s.open,[module]:true}, searchOpen:false, searchQuery:'', searchResults:[] }));
-    updateBrowserUrl(this.state.org, product, module, module, tab);
+    const product = h.product || this.state.product;
+    // Jump to where the tab actually LIVES. This used to assign the hit's module
+    // name to `workspace`, which is not a workspace — navItemsFor('hq','Customers')
+    // returns nothing, so the jump landed on an empty sidebar with a breadcrumb
+    // naming a workspace that is not in the rail, and no way back but the browser
+    // button. locateTab() returns null when an entity has no page at all, and
+    // searchHits already drops those, so this should not fire — but if it ever
+    // does, do nothing rather than navigate somewhere broken.
+    const at = locateTab(product, h.tab);
+    if(!at) return;
+    this.set(s=>({
+      product:product, workspace:at.workspace,
+      tab:{ module:at.module, tab:h.tab, kind:at.kind },
+      open:{...s.open,[at.module]:true},
+      searchOpen:false, searchQuery:'', searchResults:[],
+    }));
+    updateBrowserUrl(this.state.org, product, at.workspace, at.module, h.tab);
   }
   toggleNotif(){ this.set(s=>({ notifOpen:!s.notifOpen, navOpen:null, searchOpen:false })); if(!this.state.notifOpen) this._loadNotifs(); }
   openNotifPanel(){ this.set({ notifOpen:true, navOpen:null, searchOpen:false, profileOpen:false }); this._loadNotifs(); }
@@ -2428,12 +2467,20 @@ class Component extends DCLogic {
 
     // ── global search (command palette) — results come from /api/search ──
     const q = (st.searchQuery||'').trim();
-    const searchHits = (st.searchResults||[]).map(h=>({
-      product:h.product, module:h.module, tab:h.tab, kind:'table',
-      label:h.label, path: h.type + (h.sub ? (' · ' + h.sub) : ''),
-      tileBg: tint('#C8B6FF', .3),
-      onClick:()=>this.gotoSearch({ product:h.product, module:h.module, tab:h.tab, kind:'table' }),
-    }));
+    // /api/search is registry-driven and returns hits for every entity, including
+    // the ones with no page in the sidebar (tickets, conversations, invoices and
+    // the rest). Offering those as results would be offering a destination that
+    // does not exist, so they are dropped here rather than dead-ending on click.
+    // Their records are still reachable over the API; they just are not in the UI.
+    const searchHits = (st.searchResults||[])
+      .map(h=>({ hit:h, at: locateTab(h.product || st.product, h.tab) }))
+      .filter(x => !!x.at)
+      .map(({hit:h, at})=>({
+        product:h.product, module:at.module, tab:h.tab, kind:at.kind,
+        label:h.label, path: h.type + (h.sub ? (' · ' + h.sub) : ''),
+        tileBg: tint('#C8B6FF', .3),
+        onClick:()=>this.gotoSearch({ product:h.product, tab:h.tab }),
+      }));
     const searchOpen = st.searchOpen;
     const searchHasHits = searchOpen && searchHits.length>0;
     const searchNoHits = searchOpen && q.length>0 && searchHits.length===0;
