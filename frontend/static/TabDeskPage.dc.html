@@ -232,13 +232,16 @@
     <!-- ── entry modal ────────────────────────────────────────────────── -->
     <sc-if value="{{ entryOpen }}">
       <div sc-camel-on-click="{{ onEntryClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
-      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(760px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
           <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924">{{ entryTitle }}</div>
           <button sc-camel-on-click="{{ onEntryClose }}" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;border-radius:9px;font-size:16px;line-height:1">×</button>
         </div>
         <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:12.5px;color:#918D82;margin-bottom:18px">{{ entrySub }}</div>
-        <div style="display:flex;flex-direction:column;gap:14px">
+        <!-- Two columns, same reasoning as PortalPage's form: a wide dialog with
+             a single column of inputs just stretches each field. Collapses to one
+             column on mobile via hq-responsive.css. -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;align-items:start">
           <sc-for list="{{ entryFields }}" as="f" hint-placeholder-count="4">
             <label style="display:block">
               <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}{{ f.req }}</div>
@@ -285,7 +288,7 @@
     <!-- ── column editor ──────────────────────────────────────────────── -->
     <sc-if value="{{ colsOpen }}">
       <div sc-camel-on-click="{{ onColsClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
-      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(660px,95vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,95vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
           <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924">Columns</div>
           <button sc-camel-on-click="{{ onColsClose }}" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;border-radius:9px;font-size:16px;line-height:1">×</button>
@@ -353,7 +356,7 @@
     <!-- ── settings + sharing ─────────────────────────────────────────── -->
     <sc-if value="{{ setOpen }}">
       <div sc-camel-on-click="{{ onSetClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
-      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(760px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
           <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924">Table settings</div>
           <button sc-camel-on-click="{{ onSetClose }}" style="width:30px;height:30px;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;color:#6E6B62;border-radius:9px;font-size:16px;line-height:1">×</button>
@@ -431,7 +434,7 @@
     <!-- ── new table ──────────────────────────────────────────────────── -->
     <sc-if value="{{ newOpen }}">
       <div sc-camel-on-click="{{ onNewClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
-      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
+      <div class="hq-sheet" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(620px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 24px 20px;box-sizing:border-box">
         <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:21px;color:#191924;margin-bottom:4px">New table</div>
         <div style="font-family:'Supreme','Satoshi',sans-serif;font-size:12.5px;color:#918D82;margin-bottom:18px">It starts with one text column. Add the rest from Columns.</div>
         <div style="display:flex;flex-direction:column;gap:14px">
