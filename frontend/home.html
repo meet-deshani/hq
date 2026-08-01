@@ -1580,15 +1580,20 @@ const PRODUCT_WS_TABS = {
       { module: 'Projects', tab: 'Milestones', kind: 'table', ws: 'CRM' },
       { module: 'Projects', tab: 'Team', kind: 'table', ws: 'CRM' },
       { module: 'Work', tab: 'Tasks', kind: 'table', ws: 'Work' },
-      { module: 'Work', tab: 'Work streams', kind: 'table', ws: 'Work' },
-      { module: 'Helpdesk', tab: 'Tickets', kind: 'table', ws: 'Tickets' },
-      { module: 'Helpdesk', tab: 'Job types', kind: 'table', ws: 'Tickets' },
-      { module: 'Helpdesk', tab: 'SLA policies', kind: 'table', ws: 'Tickets' },
-      { module: 'Inbox', tab: 'Conversations', kind: 'inbox', ws: 'Comms' },
-      { module: 'Inbox', tab: 'Channels', kind: 'table', ws: 'Comms' },
-      { module: 'Contracts', tab: 'Contracts', kind: 'table', ws: 'Accounting' },
-      { module: 'Contracts', tab: 'Billing schedule', kind: 'table', ws: 'Accounting' },
-      { module: 'Billing', tab: 'Invoices', kind: 'table', ws: 'Accounting' }
+      // Job types sits under Work, next to Tasks — tickets and tasks are the
+      // same thing here, so the job type belongs to the task. `ws` stays
+      // 'Tickets' because that is where the REGISTRY files this entity and it is
+      // what the entity resolves against; only where it is SHOWN changed.
+      { module: 'Work', tab: 'Job types', kind: 'table', ws: 'Tickets' }
+      // Helpdesk (Tickets / SLA policies), Inbox (Conversations / Channels),
+      // Contracts (Contracts / Billing schedule), Invoices and Work streams were
+      // removed from the sidebar on Meet's instruction.
+      //
+      // NAVIGATION ONLY. Their registry entities, database tables and REST
+      // routes are all untouched and still serve data — /api/tickets,
+      // /api/conversations, /api/invoices and the rest answer exactly as before,
+      // and the Zoho Books invoice mirror and inbound WhatsApp ingestion keep
+      // running. Restoring a tab means putting its line back here; nothing else.
     ],
     Config: [
       { module: 'Platform', tab: 'Organisations', kind: 'table' },

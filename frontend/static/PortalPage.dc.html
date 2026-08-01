@@ -99,9 +99,15 @@
 
       <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ false }}">
         <div sc-camel-on-click="{{ onFormClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
-        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 22px 20px;box-sizing:border-box">
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(760px,94vw);max-height:88vh;overflow:auto;background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 22px 20px;box-sizing:border-box">
           <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:16px">{{ formTitle }}</div>
-          <div style="display:flex;flex-direction:column;gap:13px">
+          <!-- Two columns. A 760px dialog with one column of inputs just makes
+               every field absurdly wide; pairing them keeps each input at a
+               readable ~340px and halves the scrolling on entities with a lot of
+               fields. On mobile this collapses to one column for free —
+               hq-responsive.css forces `grid-template-columns:1fr` on any grid
+               whose parent is not .hq-datagrid. -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px 16px;align-items:start">
             <sc-for list="{{ formFields }}" as="f" hint-placeholder-count="3">
               <label style="display:block">
                 <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}</div>
@@ -148,7 +154,7 @@
 
       <sc-if value="{{ pwOpen }}">
         <div sc-camel-on-click="{{ onPwClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:95"></div>
-        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(430px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 22px 20px;box-sizing:border-box">
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:96;padding:22px 22px 20px;box-sizing:border-box">
           <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:4px">Change password</div>
           <div style="font-family:'Satoshi',sans-serif;font-size:13px;color:#6E6B62;margin-bottom:16px">{{ pwUserName }}</div>
           <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">New password</div>
@@ -168,7 +174,7 @@
 
       <sc-if value="{{ credOpen }}" hint-placeholder-val="{{ false }}">
         <div sc-camel-on-click="{{ onCredClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:97"></div>
-        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:98;padding:22px 22px 20px;box-sizing:border-box">
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,92vw);background:#FDFCFA;border:1px solid #E4E2DB;border-radius:18px;box-shadow:0 30px 80px rgba(25,25,36,.28);z-index:98;padding:22px 22px 20px;box-sizing:border-box">
           <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:20px;color:#191924;margin-bottom:6px">User created</div>
           <div style="font-family:'Satoshi',sans-serif;font-size:13px;line-height:1.5;color:#6E6B62;margin-bottom:16px">Share this one-time password with {{ credEmail }} securely — it won't be shown again.</div>
           <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">Temporary password</div>
