@@ -85,4 +85,23 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
+    # Resolve the caller's effective permissions ONCE, here, and cache them on
+    # the user for the rest of the request.
+    #
+    # This is load-bearing, not an optimisation. Every route checks access with
+    # `permissions.require(current_user, ...)`, which has no database session —
+    # so without this, a per-user exception or a saved permission matrix would
+    # show correctly in the UI and be ignored by the routes that enforce it. A
+    # deny you can see but that does not apply is worse than no deny at all.
+    # Doing it at authentication means every existing call site picks it up with
+    # no change and none can be forgotten.
+    from backend import permissions  # local import: auth is imported by permissions' callers
+    try:
+        user._effective_permissions = permissions.permissions_for(user, db)
+    except Exception:  # noqa: BLE001
+        # Never let a permission-resolution problem turn into a 500 on every
+        # request. Falling through leaves permissions_for() to compute from the
+        # role alone, which is the pre-existing behaviour.
+        pass
+
     return user

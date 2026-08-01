@@ -7,10 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from backend.database import engine, Base, SessionLocal, get_db
-from backend.models import User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification
+from backend.models import (
+    User, Role, Permission, Organisation, Product, Workspace, Feedback, Notification,
+    PermissionPolicy, UserPermissionOverride,
+)
 from backend.crm_models import Conversation
 # Imported for the side effect of registering the CRM tables on Base.metadata
 # before create_all runs below.
@@ -694,6 +697,272 @@ def grant_permission_to_role(
     role.permissions = perms
     db.commit()
     return {"detail": f"Permissions updated successfully for role {role.name}"}
+
+# ── the permission matrix and per-person exceptions ─────────────────────────
+# Two screens over one model. The matrix is what each ROLE may do; exceptions are
+# where one PERSON differs from their role. Read backend/permissions.py before
+# changing anything here — resolution order and the lockout rail live there.
+
+def _permission_rows():
+    """Every permission code, grouped for display, in a stable order."""
+    groups, seen = [], {}
+    for key in permissions.entity_keys():
+        label = permissions.LABELS.get(key, key)
+        bucket = seen.get(label)
+        if bucket is None:
+            bucket = {"key": key, "label": label, "codes": []}
+            seen[label] = bucket
+            groups.append(bucket)
+        for action in permissions.ACTIONS:
+            code = "%s:%s" % (key, action)
+            bucket["codes"].append({
+                "code": code,
+                "action": action,
+                "action_label": permissions.ACTION_LABELS.get(action, action.title()),
+            })
+    return groups
+
+
+@app.get("/api/permissions/matrix")
+def permission_matrix(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """What each role is allowed to do — the grid.
+
+    Until somebody saves, these ticks MIRROR the wildcard patterns compiled into
+    backend/permissions.py; `custom` says which of the two you are looking at.
+    The first save writes them down and this screen becomes the authority.
+    """
+    permissions.require(current_user, "permissions", "read")
+    org_id = current_user.organisation_id
+    roles = db.query(Role).filter(Role.organisation_id == org_id).order_by(Role.id).all()
+    custom = permissions.policy_is_custom(db, org_id)
+
+    grants = {}
+    for role in roles:
+        if custom:
+            codes = {p.code for p in (role.permissions or [])}
+        else:
+            spec = permissions.ROLES.get(role.name)
+            codes = permissions.expand(spec["patterns"]) if spec else {
+                p.code for p in (role.permissions or [])
+            }
+        grants[role.name] = sorted(codes)
+
+    return {
+        "custom": custom,
+        "gate": permissions.GATE,
+        # Ticks the UI must render as locked — removing them is what makes an
+        # organisation unable to repair its own permissions.
+        "locked": {"Admin": sorted(permissions.ADMIN_FLOOR)},
+        "roles": [
+            {"id": r.id, "name": r.name, "description": r.description} for r in roles
+        ],
+        "groups": _permission_rows(),
+        "grants": grants,
+        "can_edit": permissions.has(current_user, "permissions", "update"),
+    }
+
+
+@app.put("/api/permissions/matrix")
+def save_permission_matrix(
+    payload: Dict[str, List[str]],
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save the grid. `{role_name: [codes]}`.
+
+    The first successful save flips the organisation to a custom policy, after
+    which `permissions.seed()` stops re-applying the code patterns — otherwise
+    the next deploy would quietly undo this.
+    """
+    permissions.require(current_user, "permissions", "update")
+    org_id = current_user.organisation_id
+
+    roles = db.query(Role).filter(Role.organisation_id == org_id).all()
+    by_name = {r.name: r for r in roles}
+    valid = set(permissions.all_codes())
+
+    proposed = {}
+    for role_name, codes in payload.items():
+        if role_name not in by_name:
+            raise HTTPException(status_code=400, detail="Unknown role '%s'." % role_name)
+        unknown = [c for c in codes if c not in valid]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail="Unknown permission code(s): %s" % ", ".join(sorted(unknown)[:5]),
+            )
+        wanted = set(codes)
+        if role_name == "Admin":
+            # Silently restored rather than rejected: the UI renders these locked,
+            # so a payload without them is a stale client, not a real intent.
+            wanted |= permissions.ADMIN_FLOOR
+        proposed[role_name] = wanted
+
+    # Refuse BEFORE writing anything. Afterwards the permission needed to undo
+    # this is the one that was just removed.
+    permissions.refuse_if_locking_everyone_out(db, org_id, proposed_role_codes=proposed)
+
+    catalogue = {p.code: p for p in db.query(Permission).all()}
+    changed = {}
+    for role_name, wanted in proposed.items():
+        role = by_name[role_name]
+        before = {p.code for p in (role.permissions or [])}
+        role.permissions = [catalogue[c] for c in sorted(wanted) if c in catalogue]
+        added, removed = sorted(wanted - before), sorted(before - wanted)
+        if added or removed:
+            changed[role_name] = {"added": added, "removed": removed}
+
+    policy = db.query(PermissionPolicy).filter(
+        PermissionPolicy.organisation_id == org_id
+    ).first()
+    if policy is None:
+        policy = PermissionPolicy(organisation_id=org_id)
+        db.add(policy)
+    policy.custom = True
+    policy.updated_by_id = current_user.id
+    db.commit()
+
+    audit.record(
+        db, action="update", entity_type="permissions", entity_id=None,
+        entity_label="Permission matrix", actor=current_user, request=request,
+        changes=changed or None, organisation_id=org_id, commit=True,
+    )
+    return {"detail": "Permissions saved", "custom": True, "changed": changed}
+
+
+@app.get("/api/permissions/exceptions")
+def list_permission_exceptions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Everyone who has an exception, so the screen can show who to look at."""
+    permissions.require(current_user, "permissions", "read")
+    rows = db.query(UserPermissionOverride).all()
+    counts = {}
+    for row in rows:
+        counts.setdefault(row.user_id, {"allow": 0, "deny": 0})[row.effect] += 1
+
+    people = db.query(User).filter(
+        User.organisation_id == current_user.organisation_id
+    ).order_by(User.name).all()
+    return {
+        "people": [
+            {
+                "id": u.id, "name": u.name, "email": u.email,
+                "role": getattr(u.role, "name", None),
+                "exceptions": counts.get(u.id, {"allow": 0, "deny": 0}),
+            }
+            for u in people
+        ],
+    }
+
+
+@app.get("/api/permissions/exceptions/{user_id}")
+def get_permission_exceptions(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """One person's exceptions, with what each permission RESOLVES to.
+
+    `role` is what their role alone would give, `effect` is their exception, and
+    `ends_up` is the answer the routes will actually enforce — computed by the
+    same function that enforces it, so the screen cannot disagree with reality.
+    """
+    permissions.require(current_user, "permissions", "read")
+    person = db.query(User).filter(User.id == user_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="No such user.")
+
+    from_role = permissions.role_codes(person, db)
+    effects = permissions.overrides_for(person, db)
+    effective = permissions.permissions_for(person, db)
+
+    return {
+        "user": {
+            "id": person.id, "name": person.name, "email": person.email,
+            "role": getattr(person.role, "name", None),
+        },
+        "gate": permissions.GATE,
+        "groups": _permission_rows(),
+        "role_codes": sorted(from_role),
+        "effects": effects,
+        "effective": sorted(effective),
+        "can_edit": permissions.has(current_user, "permissions", "update"),
+    }
+
+
+@app.put("/api/permissions/exceptions/{user_id}")
+def save_permission_exceptions(
+    user_id: int,
+    payload: Dict[str, str],
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Replace one person's exceptions. `{code: 'allow'|'deny'|'inherit'}`.
+
+    'inherit' deletes the row — there is no third stored state, because "follows
+    the role" is the absence of an exception rather than a kind of one.
+    """
+    permissions.require(current_user, "permissions", "update")
+    person = db.query(User).filter(User.id == user_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="No such user.")
+
+    valid = set(permissions.all_codes())
+    wanted = {}
+    for code, effect in payload.items():
+        if code not in valid:
+            raise HTTPException(status_code=400, detail="Unknown permission code '%s'." % code)
+        if effect not in ("allow", "deny", "inherit"):
+            raise HTTPException(
+                status_code=400,
+                detail="'%s' must be allow, deny or inherit — got '%s'." % (code, effect),
+            )
+        if effect != "inherit":
+            wanted[code] = effect
+
+    permissions.refuse_if_locking_everyone_out(
+        db, current_user.organisation_id, proposed_overrides={person.id: wanted}
+    )
+
+    existing = {
+        r.code: r for r in db.query(UserPermissionOverride).filter(
+            UserPermissionOverride.user_id == person.id
+        ).all()
+    }
+    for code, row in existing.items():
+        if code not in wanted:
+            db.delete(row)
+    for code, effect in wanted.items():
+        row = existing.get(code)
+        if row is None:
+            db.add(UserPermissionOverride(
+                user_id=person.id, code=code, effect=effect, created_by_id=current_user.id
+            ))
+        elif row.effect != effect:
+            row.effect = effect
+    db.commit()
+
+    audit.record(
+        db, action="update", entity_type="users", entity_id=person.id,
+        entity_label="%s — permission exceptions" % person.name,
+        actor=current_user, request=request,
+        changes={"exceptions": {"from": {c: r.effect for c, r in existing.items()}, "to": wanted}},
+        organisation_id=current_user.organisation_id, commit=True,
+    )
+    return {
+        "detail": "Exceptions saved",
+        "user_id": person.id,
+        "effects": wanted,
+        "effective": sorted(permissions.permissions_for(person, db)),
+    }
+
 
 # Dashboard
 # Dashboards are readable by any authenticated user by design: they aggregate
@@ -1598,6 +1867,64 @@ API_CATALOG = [
                     "  \"receivables_updated\": 4, \"links_applied\": [ ... ],\n"
                     "  \"receivables_skipped_edited\": [ ... ], \"proposals\": [ ... ]\n}",
     },
+    # ── Authorisation · the matrix and per-person exceptions ────────────────
+    {
+        "method": "GET", "path": "/api/permissions/matrix", "auth": "Bearer / Cookie",
+        "summary": "What each ROLE is allowed to do, as a grid: every role, every permission "
+                   "code grouped by entity, and which are ticked. `custom` says whether you "
+                   "are looking at the wildcard patterns compiled into the app (false) or at "
+                   "grants somebody saved (true). `locked` lists the ticks that cannot be "
+                   "removed, because an Admin unable to reach this screen cannot be repaired.",
+        "usage": "curl __BASE__/api/permissions/matrix \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"custom\": false, \"gate\": \"permissions:update\",\n"
+                    "  \"roles\": [ { \"name\": \"Admin\" } ],\n"
+                    "  \"groups\": [ { \"label\": \"Customers\", \"codes\": [ ... ] } ],\n"
+                    "  \"grants\": { \"Admin\": [ \"customers:read\", ... ] }\n}",
+    },
+    {
+        "method": "PUT", "path": "/api/permissions/matrix", "auth": "Bearer / Cookie",
+        "summary": "Save the grid as {role_name: [codes]}. The FIRST save flips the "
+                   "organisation to a custom policy, after which boot-time seeding stops "
+                   "re-applying the built-in patterns — otherwise the next deploy would "
+                   "quietly undo this. Refused with 400 if it would leave nobody able to "
+                   "open this screen, because that cannot be undone from inside the app.",
+        "usage": "curl -X PUT __BASE__/api/permissions/matrix \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"Viewer\":[\"customers:read\",\"tasks:read\"]}'",
+        "response": "{ \"detail\": \"Permissions saved\", \"custom\": true,\n"
+                    "  \"changed\": { \"Viewer\": { \"added\": [], \"removed\": [ ... ] } } }",
+    },
+    {
+        "method": "GET", "path": "/api/permissions/exceptions", "auth": "Bearer / Cookie",
+        "summary": "Everyone in the organisation with a count of their exceptions, so the "
+                   "Exceptions screen can show at a glance who differs from their role.",
+        "usage": "curl __BASE__/api/permissions/exceptions \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{ \"people\": [ { \"id\": 2, \"name\": \"Nishant\", \"role\": \"Partner\",\n"
+                    "    \"exceptions\": { \"allow\": 1, \"deny\": 2 } } ] }",
+    },
+    {
+        "method": "GET", "path": "/api/permissions/exceptions/{user_id}", "auth": "Bearer / Cookie",
+        "summary": "One person's exceptions with what each permission RESOLVES to: what their "
+                   "role grants, their own allow/deny on top, and the answer the routes will "
+                   "actually enforce — computed by the same function that enforces it, so this "
+                   "screen cannot disagree with reality.",
+        "usage": "curl __BASE__/api/permissions/exceptions/2 \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"user\": { \"id\": 2, \"role\": \"Partner\" },\n"
+                    "  \"role_codes\": [ ... ], \"effects\": { \"customers:delete\": \"deny\" },\n"
+                    "  \"effective\": [ ... ]\n}",
+    },
+    {
+        "method": "PUT", "path": "/api/permissions/exceptions/{user_id}", "auth": "Bearer / Cookie",
+        "summary": "Replace one person's exceptions: {code: 'allow'|'deny'|'inherit'}. "
+                   "'inherit' deletes the row — following your role is the ABSENCE of an "
+                   "exception, not a kind of one. Deny beats a role that allows; allow grants "
+                   "beyond the role. Refused if it would orphan this screen.",
+        "usage": "curl -X PUT __BASE__/api/permissions/exceptions/2 \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"customers:delete\":\"deny\",\"audit:read\":\"allow\"}'",
+        "response": "{ \"detail\": \"Exceptions saved\", \"effects\": { ... }, \"effective\": [ ... ] }",
+    },
+
     # ── TabDesk · user-defined tables ───────────────────────────────────────
     # Documented here rather than generated from the registry, because TabDesk
     # tables are not registry entities — they are rows a user created at runtime.
@@ -1998,7 +2325,8 @@ def render_shell(path):
     """
     with open(path, "r", encoding="utf-8") as handle:
         html = handle.read()
-    for name in ("PortalPage.dc.html", "TabDeskPage.dc.html", "hq-responsive.css", "hq-responsive.js"):
+    for name in ("PortalPage.dc.html", "TabDeskPage.dc.html", "PermissionsPage.dc.html",
+                 "hq-responsive.css", "hq-responsive.js"):
         html = html.replace('"/static/%s"' % name, '"%s"' % asset_url(name))
     return html
 

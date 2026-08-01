@@ -106,6 +106,68 @@ class Permission(Base):
     # Relationships
     roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
 
+class PermissionPolicy(Base):
+    """Marks the moment role grants stopped being decided by code.
+
+    `backend/permissions.py` defines every platform role's grants as wildcard
+    patterns in Python, and `seed()` writes them onto the roles at every boot.
+    That is a good default — a grant change ships with the code instead of
+    needing a migration — but it means a Permissions screen that edits grants
+    would be silently reverted by the next deploy.
+
+    So: until someone saves that screen, the code patterns are authoritative and
+    the screen simply mirrors them. The first save flips `custom` and from then
+    on the DATABASE is authoritative — `permissions_for()` reads the role's rows
+    and `seed()` stops overwriting them. One row per organisation.
+    """
+
+    __tablename__ = "permission_policy"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(
+        Integer, ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    # False = code patterns win (the default). True = these tables win.
+    custom = Column(Boolean, default=False, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class UserPermissionOverride(Base):
+    """One person's exception to what their role allows.
+
+    Absence of a row means "inherit" — the role decides, which is the normal
+    case and the reason this table stays small. A row is only written when
+    somebody is deliberately lifted above or held below their role: a storekeeper
+    who also raises invoices, an engineer kept off parts.
+
+    `effect` is 'allow' or 'deny', and deny wins over a role that allows. See
+    permissions_for().
+    """
+
+    __tablename__ = "user_permission_overrides"
+    __table_args__ = (
+        UniqueConstraint("user_id", "code", name="uq_user_permission_overrides_user_code"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # The permission code, e.g. "customers:delete". Stored as the code rather
+    # than a FK to permissions.id so an exception survives the catalogue being
+    # rebuilt, which seed() does on every boot.
+    code = Column(String(100), nullable=False, index=True)
+    effect = Column(String(10), nullable=False)   # allow | deny
+
+    reason = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
 class Feedback(Base):
     __tablename__ = "feedback"
 

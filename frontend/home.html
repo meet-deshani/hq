@@ -6,7 +6,7 @@
 
 <script src="/static/unpkg.com_react@18.3.1_umd_react.production.min.js"></script>
 <script src="/static/unpkg.com_react-dom@18.3.1_umd_react-dom.production.min.js"></script>
-<script>window.__resources = {"./PortalPage.dc.html": "/static/PortalPage.dc.html", "./TabDeskPage.dc.html": "/static/TabDeskPage.dc.html"};</script>
+<script>window.__resources = {"./PortalPage.dc.html": "/static/PortalPage.dc.html", "./TabDeskPage.dc.html": "/static/TabDeskPage.dc.html", "./PermissionsPage.dc.html": "/static/PermissionsPage.dc.html"};</script>
 <script src="/static/33cc10ab-eb14-491a-b1ef-a3b7a32dbf6f.js"></script>
 
 <!-- Responsive / mobile layer (self-contained; see frontend/static/hq-responsive.*) -->
@@ -1200,6 +1200,11 @@ small, .caption {
      <dc-import name="TabDeskPage" org="{{ cOrg }}" workspace="{{ cWorkspace }}" module-name="{{ cModule }}" tab-name="{{ cTab }}" accent="{{ cAccent }}" hint-size="100%,100%"></dc-import>
     </div>
    </sc-if>
+   <sc-if value="{{ isPermissionsView }}" hint-placeholder-val="{{ false }}">
+    <div class="dc-slot" style="flex:1;min-width:0;display:flex;flex-direction:column;width:100%;height:100%">
+     <dc-import name="PermissionsPage" org="{{ cOrg }}" tab-name="{{ cTab }}" kind="{{ cKind }}" accent="{{ cAccent }}" hint-size="100%,100%"></dc-import>
+    </div>
+   </sc-if>
   </div>
 
   <sc-if value="{{ notifOpen }}">
@@ -1610,10 +1615,13 @@ const PRODUCT_WS_TABS = {
       { module: 'CRM setup', tab: 'Lost reasons', kind: 'table' },
       { module: 'CRM setup', tab: 'Categories', kind: 'table' }
     ],
+    // Four tabs, in the order they are used: who exists, what roles say, the
+    // grid that decides what a role means, and the per-person exceptions to it.
     Users: [
-      { module: 'User', tab: 'All Users', kind: 'table' },
-      { module: 'Role', tab: 'Role List', kind: 'table' },
-      { module: 'Role', tab: 'Permissions', kind: 'table' }
+      { tab: 'Users', kind: 'table' },
+      { tab: 'Roles', kind: 'table' },
+      { tab: 'Permissions', kind: 'permissions' },
+      { tab: 'Exceptions', kind: 'exceptions' }
     ],
     Document: [
       { tab: 'API', kind: 'api' },
@@ -2586,8 +2594,9 @@ class Component extends DCLogic {
       // back to this page — a circular import that rendered the shell twice.
       // TabDeskPage is the one exception, and it is registered in
       // window.__resources at the top of this file for exactly that reason.
-      isPortalView: at.kind !== 'tabdesk',
+      isPortalView: at.kind !== 'tabdesk' && at.kind !== 'permissions' && at.kind !== 'exceptions',
       isTabDeskView: at.kind === 'tabdesk',
+      isPermissionsView: at.kind === 'permissions' || at.kind === 'exceptions',
       onCollapse: ()=>this.toggleCollapse(),
       onProfile: ()=>this.toggleProfile(),
       onLogout: ()=>this.logout(),
