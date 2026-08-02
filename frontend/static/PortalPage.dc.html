@@ -122,6 +122,13 @@
                     </sc-for>
                   </select>
                 </sc-if>
+                <!-- A field whose write does more than store a value has to say
+                     so here. Marking a lead won converts the customer and opens
+                     a project; a placeholder cannot carry that, because a select
+                     never shows one. -->
+                <sc-if value="{{ f.hasHint }}">
+                  <div style="font-family:'Satoshi',sans-serif;font-size:11.5px;line-height:1.45;color:#918D82;margin-top:5px">{{ f.hint }}</div>
+                </sc-if>
               </label>
             </sc-for>
           </div>
@@ -1342,12 +1349,16 @@ class Component extends DCLogic {
           else if(f.select) opts = f.select.map(o => ({ v:o, label:o }));
         }
         const isSelect = !!opts;
+        const hint = f.hint || '';
         return {
           label: f.label + (f.required || f.req ? ' *' : ''),
           ph: f.ph || f.help || '',
           value: val,
           isSelect, isText: !isSelect,
           options: opts || [],
+          // Both keys are always set: an sc-if branch whose binding is missing
+          // renders the placeholder text instead of nothing.
+          hint, hasHint: !!hint,
           onInput: (e) => this.onFormField(f.k, e && e.target ? e.target.value : ''),
         };
       });
