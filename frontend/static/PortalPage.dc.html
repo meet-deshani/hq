@@ -142,6 +142,7 @@
         </div>
       </sc-if>
 
+
       <sc-if value="{{ menuOpen }}">
         <div sc-camel-on-click="{{ onCloseMenus }}" style="position:fixed;inset:0;z-index:80"></div>
         <div style="position:fixed;left:{{ menuLeft }};top:{{ menuTop }};z-index:81;min-width:190px;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);padding:6px;box-sizing:border-box">
@@ -192,6 +193,31 @@
           </div>
         </div>
       </sc-if>
+    </sc-if>
+
+    <!-- Compose box for the WhatsApp / Email buttons on a customer.
+         TOP LEVEL on purpose — a sibling of the isTable block, not a child of
+         it. Every other modal in this component (formOpen, menuOpen, pwOpen)
+         lives inside `sc-if isTable`, which is fine because they are all opened
+         from the LIST. This one is opened from the DETAIL view, where isTable
+         is false, so nested there its bindings resolve correctly and its markup
+         never mounts — which looks exactly like a dead button. -->
+    <sc-if value="{{ reachOpen }}" hint-placeholder-val="{{ false }}">
+      <div sc-camel-on-click="{{ onReachClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:90"></div>
+      <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:91;width:min(560px,92vw);max-height:88vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 26px 70px rgba(25,25,36,.28);padding:24px 26px;box-sizing:border-box">
+        <div style="font-family:'Instrument Serif',serif;font-size:24px;color:#191924;margin-bottom:4px">{{ reachTitle }}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#918D82;margin-bottom:16px">to {{ reachTo }}</div>
+        <!-- An <input>, not a <textarea>: every other field in this component
+             is one, and the dc runtime is only proven against that. -->
+        <input value="{{ reachBody }}" sc-camel-on-change="{{ onReachBody }}" placeholder="Type your message…" style="width:100%;box-sizing:border-box;padding:13px 15px;border-radius:12px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+        <sc-if value="{{ hasReachErr }}">
+          <div style="margin-top:12px;font-family:'Satoshi',sans-serif;font-size:12.5px;line-height:1.45;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ reachErr }}</div>
+        </sc-if>
+        <div style="display:flex;gap:10px;margin-top:18px">
+          <button sc-camel-on-click="{{ onReachSend }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ reachSendLabel }}</button>
+          <button sc-camel-on-click="{{ onReachClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
+        </div>
+      </div>
     </sc-if>
 
     <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
@@ -280,6 +306,26 @@
             {{ backLabel }}
           </button>
           <div style="flex:1;min-width:8px"></div>
+          <!-- Reach the customer from their own record. FLEX, not grid:
+               hq-responsive.css forces grid-template-columns:1fr on any inline
+               grid whose parent is not .hq-datagrid, which would stack these
+               into a column on mobile. -->
+          <sc-if value="{{ canReach }}">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <a href="{{ callHref }}" title="{{ callTitle }}" sc-camel-on-click="{{ onCall }}" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;border:1.5px solid #E8E6E0;cursor:{{ callCursor }};background:#fff;color:{{ callColor }};font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;opacity:{{ callOpacity }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                Call
+              </a>
+              <button sc-camel-on-click="{{ onWhatsApp }}" title="{{ waTitle }}" style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid #E8E6E0;cursor:{{ waCursor }};background:#fff;color:{{ waColor }};font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;opacity:{{ waOpacity }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                WhatsApp
+              </button>
+              <button sc-camel-on-click="{{ onEmail }}" title="{{ emailTitle }}" style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid #E8E6E0;cursor:{{ emailCursor }};background:#fff;color:{{ emailColor }};font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;opacity:{{ emailOpacity }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 6L2 7"></path></svg>
+                Email
+              </button>
+            </div>
+          </sc-if>
           <button sc-camel-on-click="{{ onDetailEdit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:999px">Edit</button>
         </div>
 
@@ -672,6 +718,16 @@ class Component extends DCLogic {
     apis: [],
     cmds: [],
     formOpen: false,
+    // Declared up front like every other piece of state here — the template's
+    // bindings are resolved against this shape, so a key that only appears
+    // after a click is a key the first render never knew about.
+    reachOpen: false,
+    reachChannel: 'whatsapp',
+    reachDetail: null,
+    reachConvo: null,
+    reachBody: '',
+    reachErr: '',
+    reachBusy: false,
     formMode: 'create',
     editId: null,
     form: {},
@@ -950,6 +1006,120 @@ class Component extends DCLogic {
       .then(async r => { if(!r.ok){ let d=''; try{ d=(await r.json()).detail; }catch(_){} throw new Error(d || ('HTTP '+r.status)); } return r.json(); })
       .then(() => { this.setState({ remarkDraft:'', remarkBusy:false }); this._fetchDetail(ent); })
       .catch(e => { this.setState({ remarkBusy:false }); window.alert('Could not add remark: ' + (e.message || e)); });
+  }
+
+  // ── reaching a customer ───────────────────────────────────────────────────
+  // Call / WhatsApp / Email on a customer's own record.
+  //
+  // A button is only ever drawn ENABLED when there is something to reach — a
+  // Call button on a customer with no phone number looks like a way to contact
+  // them and is not one, and finding that out by clicking is worse than seeing
+  // it greyed with the reason on hover.
+
+  _reachPhone(detail){
+    // Party.phone holds the number as typed ("+91-9825115308"), which is what
+    // makes a tel: link possible at all. Only the digits and a leading + may
+    // survive into the href.
+    const raw = (detail && detail.phone) || '';
+    const digits = String(raw).replace(/[^\d+]/g, '');
+    return digits.length >= 10 ? digits : '';
+  }
+
+  _reachVals(ent, detail){
+    const isCustomer = !!(ent && ent.key === 'customers' && detail && detail.id);
+    const phone = isCustomer ? this._reachPhone(detail) : '';
+    const email = isCustomer ? String((detail && detail.email) || '').trim() : '';
+    const off = { cursor:'not-allowed', color:'#B4B0A6', opacity:'.55' };
+    const on  = { cursor:'pointer',     color:'#4A4842', opacity:'1' };
+    const p = phone ? on : off, e = email ? on : off;
+    return {
+      canReach: isCustomer,
+      callHref: phone ? ('tel:' + phone) : '#',
+      callTitle: phone ? ('Call ' + phone + ' — logged against this customer')
+                       : 'No phone number on this customer. Add one to call from here.',
+      callCursor: p.cursor, callColor: p.color, callOpacity: p.opacity,
+      waTitle: phone ? 'Message on WhatsApp' : 'No phone number on this customer.',
+      waCursor: p.cursor, waColor: p.color, waOpacity: p.opacity,
+      emailTitle: email ? ('Email ' + email) : 'No email address on this customer.',
+      emailCursor: e.cursor, emailColor: e.color, emailOpacity: e.opacity,
+      onCall: () => { if(phone) this.logCall(detail); },
+      onWhatsApp: () => { if(phone) this.openReach('whatsapp', detail); },
+      onEmail: () => { if(email) this.openReach('email', detail); },
+      ...this._reachDialogVals(detail),
+    };
+  }
+
+  logCall(detail){
+    // The dialer is the device's, not HQ's — so the record is the only thing
+    // that ever proves the call happened. Written immediately rather than
+    // behind a confirm, because a dialogue the caller has to finish AFTER
+    // hanging up is a dialogue that gets dismissed.
+    fetch('/api/customers/' + detail.id + '/calls', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ subject:'Call', activity_type:'call' })
+    })
+      .then(() => { const ent = this._entity(); if(ent) this._fetchDetail(ent); })
+      .catch(() => this.setState({ reachErr:'Call placed, but HQ could not log it.' }));
+  }
+
+  openReach(channel, detail){
+    this.setState({ reachOpen:true, reachChannel:channel, reachDetail:detail,
+                    reachSubject:'', reachBody:'', reachErr:'', reachBusy:false,
+                    reachConvo:null });
+    fetch('/api/customers/' + detail.id + '/conversations', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ channel_type: channel })
+    })
+      .then(async r => { const d = await r.json().catch(()=>({}));
+                         if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status)); return d; })
+      .then(d => this.setState({ reachConvo:d,
+        reachErr: d.sending_enabled ? '' :
+          ('Sending is not configured on this server — the message will be recorded '
+           + 'against the customer but not delivered.') }))
+      .catch(e => this.setState({ reachErr: e.message || String(e) }));
+  }
+
+  submitReach(){
+    const s = this.state;
+    const body = (s.reachBody || '').trim();
+    if(!body || !s.reachConvo || s.reachBusy) return;
+    this.setState({ reachBusy:true });
+    fetch('/api/conversations/' + s.reachConvo.conversation_id + '/messages', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ body })
+    })
+      .then(async r => { const d = await r.json().catch(()=>({}));
+                         if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status)); return d; })
+      .then(d => {
+        if(d.delivered){
+          this.setState({ reachOpen:false, reachBusy:false });
+          const ent = this._entity(); if(ent) this._fetchDetail(ent);
+        } else {
+          // Recorded but not delivered is NOT a success, and closing the dialog
+          // on it would tell the sender their message went out.
+          this.setState({ reachBusy:false,
+            reachErr: d.detail || 'Recorded, but not delivered.' });
+        }
+      })
+      .catch(e => this.setState({ reachBusy:false, reachErr: e.message || String(e) }));
+  }
+
+  _reachDialogVals(){
+    const s = this.state;
+    const ch = s.reachChannel || 'whatsapp';
+    return {
+      reachOpen: !!s.reachOpen,
+      reachTitle: (ch === 'email' ? 'Email ' : 'WhatsApp ')
+                  + ((s.reachDetail && s.reachDetail.display_name) || 'customer'),
+      reachTo: (s.reachConvo && s.reachConvo.address) || '…',
+      reachBody: s.reachBody || '',
+      reachErr: s.reachErr || '',
+      hasReachErr: !!s.reachErr,
+      reachSendLabel: s.reachBusy ? 'Sending…' : 'Send',
+      onReachBody: (ev) => this.setState({ reachBody: ev && ev.target ? ev.target.value : '' }),
+      onReachSend: () => this.submitReach(),
+      onReachClose: () => this.setState({ reachOpen:false, reachErr:'' }),
+    };
   }
 
   // ── form ──────────────────────────────────────────────────────────────────
@@ -1439,6 +1609,7 @@ class Component extends DCLogic {
       backLabel: 'Back to ' + (ent ? ent.plural : 'list'),
       onBack: () => this.closeDetail(),
       onDetailEdit: () => { if(detail) this.openEdit({ id: detail.id, record: detail }); },
+      ...this._reachVals(ent, detail),
       detailBasics, detailFacts, detailRelated, detailRemarks, detailAudit,
       noRemarks: inDetail && !detailRemarks.length,
       noAudit: inDetail && !detailAudit.length,

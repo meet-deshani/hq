@@ -104,6 +104,7 @@ jobs:
             sleep 1
           done
           python tests/api_smoke.py --base http://127.0.0.1:8077
+          python tests/reach_test.py --base http://127.0.0.1:8077
 
   deploy:
     name: Deploy to Hostinger VPS

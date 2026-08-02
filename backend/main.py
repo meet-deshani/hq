@@ -21,8 +21,8 @@ from backend import crm_models  # noqa: F401
 # Same reason: registers the TabDesk tables on Base.metadata before create_all.
 from backend import tabdesk_models  # noqa: F401
 from backend import (
-    audit, comms, crud, dashboards, permissions, registry, seed_crm, tabdesk,
-    whatsapp, zoho, zoho_sync,
+    audit, comms, crud, dashboards, email_send, permissions, registry, seed_crm,
+    tabdesk, whatsapp, zoho, zoho_sync,
 )
 from sqlalchemy import or_
 from backend.schemas import (
@@ -1412,6 +1412,34 @@ def comms_reply(
             "Recorded only — WhatsApp sending is not configured on this server, so "
             "nothing was delivered. " + whatsapp.SETUP_HINT
         )
+    elif channel_type == "email" and email_send.is_configured():
+        address = email_send.mail_address(db, convo)
+        if not address:
+            delivery_status = "failed"
+            detail = (
+                "No email address for this thread. HQ holds '%s', which is not an "
+                "address, and the linked contact has none either. Add one to the "
+                "contact and send again." % convo.contact_identifier
+            )
+        else:
+            try:
+                external_id = email_send.send_email(
+                    address,
+                    convo.subject or "Message from ZeroOne",
+                    body,
+                )
+                delivery_status = "sent"
+            except email_send.EmailError as exc:
+                delivery_status, detail = "failed", str(exc)
+                logger.warning("Email send failed on conversation %s: %s", convo.id, exc)
+    elif channel_type == "email":
+        # Before this branch existed the email path fell through in silence:
+        # `detail` stayed None, so the API answered delivered=false with no
+        # reason and the thread showed a message that had never been sent.
+        detail = (
+            "Recorded only — email sending is not configured on this server, so "
+            "nothing was delivered. " + email_send.SETUP_HINT
+        )
 
     message, _, _ = comms.ingest(db, current_user.organisation_id, {
         "channel_id": convo.channel_id,
@@ -1458,6 +1486,235 @@ def comms_mark_read(
     comms.mark_read(db, convo)
     db.commit()
     return {"detail": "Marked read", "id": convo.id}
+
+
+# ── REACHING A CUSTOMER ──
+# The Call / WhatsApp / Email buttons on a customer. Two routes, because the
+# three buttons only do two distinct things: open a thread to type into, or
+# record that a call happened.
+#
+# The sharp edge is thread identity. `comms.ingest` stores a phone number as its
+# last ten digits (see comms._digits) and an email lowercased, and a conversation
+# is unique on (organisation, channel, contact_identifier). A thread opened here
+# with a differently-formatted identifier would therefore NOT be the thread the
+# customer's own reply lands in — one person, two threads, half a history each.
+# So this asks comms for the identifier rather than formatting one itself.
+
+
+def _utcnow():
+    """Naive UTC, matching every other timestamp written by this app.
+
+    Imported locally because main.py has no module-level datetime import, and
+    adding one at the top of a 2400-line module for a single call site is how
+    that import list stops meaning anything.
+    """
+    from datetime import datetime
+
+    return datetime.utcnow()
+
+
+def _reach_identifier(party, contact, channel_type):
+    """The address to thread on, normalised exactly as inbound would be."""
+    if channel_type == "email":
+        raw = (contact.email if contact else None) or party.email
+    else:
+        raw = (
+            (contact.whatsapp if contact else None)
+            or (contact.phone if contact else None)
+            or party.phone
+        )
+    if not raw:
+        return None, None
+    return comms._normalise(raw, channel_type), raw
+
+
+@app.post("/api/customers/{party_id}/conversations")
+def customer_open_thread(
+    party_id: int,
+    request: Request,
+    payload: dict = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Open (or find) the thread to this customer on a channel.
+
+    Idempotent by construction: the same customer and channel always resolve to
+    the same conversation, whether it was started here or by an inbound message.
+
+    Returns 400 rather than opening an unaddressable thread — a thread with
+    nothing to send to looks like a channel of communication and is not one.
+    """
+    permissions.require(current_user, "conversations", "create")
+    payload = payload or {}
+    channel_type = (payload.get("channel_type") or "whatsapp").strip().lower()
+    if channel_type not in ("whatsapp", "email", "sms"):
+        raise HTTPException(status_code=400,
+                            detail="channel_type must be whatsapp, email or sms")
+
+    party = db.query(crm_models.Party).filter(
+        crm_models.Party.organisation_id == current_user.organisation_id,
+        crm_models.Party.id == party_id,
+    ).first()
+    if party is None:
+        raise HTTPException(status_code=404, detail="Customer %s not found" % party_id)
+
+    contact = None
+    if payload.get("contact_id"):
+        contact = db.query(crm_models.PartyContact).filter(
+            crm_models.PartyContact.id == payload["contact_id"],
+            crm_models.PartyContact.party_id == party.id,
+        ).first()
+    if contact is None:
+        contact = db.query(crm_models.PartyContact).filter(
+            crm_models.PartyContact.party_id == party.id,
+            crm_models.PartyContact.is_primary == True,  # noqa: E712
+        ).first()
+
+    identifier, raw = _reach_identifier(party, contact, channel_type)
+    if not identifier:
+        raise HTTPException(
+            status_code=400,
+            detail="%s has no %s address on file. Add one to the customer or to a "
+                   "contact, then try again."
+                   % (party.display_name,
+                      "email" if channel_type == "email" else "phone/WhatsApp"),
+        )
+
+    channel = comms.find_channel(db, current_user.organisation_id, channel_type=channel_type)
+    if channel is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No active %s channel is configured. Add one under Channels "
+                   "before messaging from here." % channel_type,
+        )
+
+    convo = db.query(Conversation).filter(
+        Conversation.organisation_id == current_user.organisation_id,
+        Conversation.channel_id == channel.id,
+        Conversation.contact_identifier == identifier,
+    ).first()
+    created = False
+    if convo is None:
+        convo = Conversation(
+            organisation_id=current_user.organisation_id,
+            channel_id=channel.id,
+            contact_identifier=identifier,
+            contact_name=(contact.name if contact else None) or party.display_name,
+            party_id=party.id,
+            party_contact_id=contact.id if contact else None,
+            subject=payload.get("subject"),
+            status="open",
+        )
+        db.add(convo)
+        db.flush()
+        created = True
+    elif convo.party_id is None:
+        # An inbound thread that started before we knew who it was adopts the
+        # customer now that someone has reached out from their record.
+        convo.party_id = party.id
+        convo.party_contact_id = contact.id if contact else None
+
+    db.commit()
+    if created:
+        audit.record(
+            db, action="create", entity_type="conversations", entity_id=convo.id,
+            entity_label=convo.contact_name, actor=current_user, request=request,
+            changes={"opened_from_customer": {"from": None, "to": party.id}},
+            organisation_id=convo.organisation_id, commit=True,
+        )
+    return {
+        "conversation_id": convo.id,
+        "created": created,
+        "channel_id": channel.id,
+        "channel_type": channel_type,
+        "contact_identifier": convo.contact_identifier,
+        # The dialable/sendable form, which the stored identifier is not: a
+        # ten-digit thread key cannot be put in a tel: or wa.me link.
+        "address": raw,
+        "sending_enabled": (
+            whatsapp.is_configured() if channel_type == "whatsapp"
+            else email_send.is_configured() if channel_type == "email"
+            else False
+        ),
+    }
+
+
+@app.post("/api/customers/{party_id}/calls")
+def customer_log_call(
+    party_id: int,
+    request: Request,
+    payload: dict = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Record that a call happened.
+
+    HQ does not place the call — the button opens the device's dialer, which is
+    why this exists: without a written record, a call is the one conversation
+    that leaves no trace in the customer's history, and the account looks silent
+    on exactly the days somebody was working it hardest.
+
+    Writes an `activities` row, the table already carved out for calls and
+    meetings and until now never written to.
+    """
+    permissions.require(current_user, "customers", "remark")
+    payload = payload or {}
+
+    party = db.query(crm_models.Party).filter(
+        crm_models.Party.organisation_id == current_user.organisation_id,
+        crm_models.Party.id == party_id,
+    ).first()
+    if party is None:
+        raise HTTPException(status_code=404, detail="Customer %s not found" % party_id)
+
+    activity_type = (payload.get("activity_type") or "call").strip().lower()
+    duration = payload.get("duration_minutes")
+    try:
+        duration = int(duration) if duration not in (None, "") else None
+    except (TypeError, ValueError):
+        duration = None
+
+    activity = crm_models.Activity(
+        organisation_id=current_user.organisation_id,
+        entity_type="parties",
+        entity_id=party.id,
+        party_id=party.id,
+        activity_type=activity_type,
+        subject=(payload.get("subject") or "").strip() or "Call",
+        body=(payload.get("body") or "").strip() or None,
+        outcome=(payload.get("outcome") or "").strip() or None,
+        duration_minutes=duration,
+        occurred_at=_utcnow(),
+        owner_id=current_user.id,
+    )
+    db.add(activity)
+    db.commit()
+
+    audit.record(
+        db, action="call", entity_type="parties", entity_id=party.id,
+        entity_label=party.display_name, actor=current_user, request=request,
+        changes={"logged": {"from": None, "to": activity.subject}},
+        organisation_id=party.organisation_id, commit=True,
+    )
+    return {
+        "id": activity.id,
+        "detail": "Call logged",
+        "activity_type": activity.activity_type,
+        "subject": activity.subject,
+        "occurred_at": activity.occurred_at.isoformat() + "Z",
+    }
+
+
+@app.get("/api/comms/status")
+def comms_status(current_user: User = Depends(get_current_user)):
+    """Whether HQ can actually deliver on each channel.
+
+    `whatsapp.status()` was written, tested and then never given a route, so the
+    UI had no way to tell "sending is off" from "sending is broken" — both
+    rendered as a message that quietly failed to arrive.
+    """
+    permissions.require(current_user, "conversations", "read")
+    return {"whatsapp": whatsapp.status(), "email": email_send.status()}
 
 
 # ── ZOHO BOOKS ──
@@ -1842,6 +2099,43 @@ API_CATALOG = [
                  "  -H 'Content-Type: application/json' \\\n  -d '{\"body\":\"Thanks, reviewing now.\"}'",
         "response": "{\n  \"id\": 2, \"conversation_id\": 1, \"sent_at\": \"...Z\",\n"
                     "  \"delivery_status\": \"sent\", \"delivered\": true, \"detail\": null\n}",
+    },
+    {
+        "method": "POST", "path": "/api/customers/{party_id}/conversations", "auth": "Bearer / Cookie",
+        "summary": "Open (or find) the thread to this customer on a channel — what the WhatsApp "
+                   "and Email buttons on a customer call. Idempotent: the same customer and "
+                   "channel always resolve to the same conversation, and the identifier is "
+                   "normalised exactly as inbound messages are, so a thread started here is the "
+                   "same thread the customer's own reply lands in. 400 when the customer has no "
+                   "address on that channel, rather than opening a thread nothing can be sent to. "
+                   "channel_type is whatsapp (default), email or sms.",
+        "usage": "curl -X POST __BASE__/api/customers/1/conversations \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n  -d '{\"channel_type\":\"whatsapp\"}'",
+        "response": "{\n  \"conversation_id\": 4, \"created\": true, \"channel_type\": \"whatsapp\",\n"
+                    "  \"contact_identifier\": \"9825115308\", \"address\": \"+91-9825115308\",\n"
+                    "  \"sending_enabled\": true\n}",
+    },
+    {
+        "method": "POST", "path": "/api/customers/{party_id}/calls", "auth": "Bearer / Cookie",
+        "summary": "Record that a call happened. HQ does not place the call — the Call button "
+                   "opens the device's own dialer — so this is the only thing that puts the call "
+                   "in the customer's history. Writes an activities row and audits action=call.",
+        "usage": "curl -X POST __BASE__/api/customers/1/calls \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -H 'Content-Type: application/json' \\\n"
+                 "  -d '{\"subject\":\"Intro call\",\"duration_minutes\":25,\"outcome\":\"positive\"}'",
+        "response": "{\n  \"id\": 7, \"detail\": \"Call logged\", \"activity_type\": \"call\",\n"
+                    "  \"subject\": \"Intro call\", \"occurred_at\": \"...Z\"\n}",
+    },
+    {
+        "method": "GET", "path": "/api/comms/status", "auth": "Bearer / Cookie",
+        "summary": "Whether HQ can actually deliver on each channel right now. Distinguishes "
+                   "'sending is off' from 'sending is broken' — both otherwise present as a "
+                   "message that quietly fails to arrive. state is connected, error or "
+                   "not configured, and detail says what to do about it.",
+        "usage": "curl __BASE__/api/comms/status -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"whatsapp\": { \"configured\": true, \"state\": \"connected\" },\n"
+                    "  \"email\": { \"configured\": false, \"state\": \"not configured\",\n"
+                    "    \"detail\": \"Set RESEND_API_KEY ...\" }\n}",
     },
     {
         "method": "POST", "path": "/api/conversations/{conversation_id}/read", "auth": "Bearer / Cookie",
