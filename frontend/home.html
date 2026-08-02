@@ -1483,7 +1483,6 @@ small, .caption {
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;defaultOrg&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Z9S-AI&quot;],&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;startCollapsed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;showNotifications&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Rail&quot;}}">
-const MODCOLOR = { 'Operations':'#B8E0D2', 'Analytics':'#C8B6FF', 'Chemical Stock':'#FFCDB2', 'Performance Mgmt':'#A2D2FF', 'User Management':'#FFB5C2', 'Quotation':'#FFCDB2' };
 
 
 const PRODUCTS = {
@@ -1514,17 +1513,6 @@ const AI_MODES = ['Ask','Act on page','Research','Auto'];
 function aiSlug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 function aiTimeAgo(ts){ const d=Math.max(0,Date.now()-ts); const m=Math.round(d/60000); if(m<1) return 'just now'; if(m<60) return m+'m ago'; const h=Math.round(m/60); if(h<24) return h+'h ago'; const dd=Math.round(h/24); return dd+'d ago'; }
 
-// ── Workspaces belong to an Organisation × Product combination ──────────
-const WS_BASE = [
-  { name:'Work',      icon:'work' },
-  { name:'Chat',      icon:'chat' },
-  { name:'Analytics', icon:'analytics' },
-  { name:'Document',  icon:'document' },
-  { name:'Config',    icon:'config' },
-  { name:'Admin',     icon:'admin' },
-  { name:'Billing',   icon:'billing' },
-  { name:'Archive',   icon:'archive' },
-];
 
 // Five workspaces, not ten. CRM, Work, Tickets, Comms and Accounting used to be
 // workspaces of their own, which pushed the rail past its width — three icons
@@ -1597,6 +1585,11 @@ const PRODUCT_WS_TABS = {
       // 'Tickets' because that is where the REGISTRY files this entity and it is
       // what the entity resolves against; only where it is SHOWN changed.
       { module: 'Work', tab: 'Job types', kind: 'table', ws: 'Tickets' },
+      // Work streams was creatable from the Tasks form and editable nowhere: a
+      // name added inline became a real row that could never afterwards be
+      // renamed, re-owned or deleted. `ws` stays 'Work' because that is where
+      // the REGISTRY files it and what the tab resolves against.
+      { module: 'Work', tab: 'Work streams', kind: 'table', ws: 'Work' },
       { module: 'Catalog', tab: 'Services', kind: 'table', ws: 'CRM' },
       { module: 'Catalog', tab: 'Products', kind: 'table', ws: 'CRM' }
       // Helpdesk (Tickets / SLA policies), Inbox (Conversations / Channels),
@@ -1854,21 +1847,6 @@ function tint(hex, a){
   return `rgba(${r},${g},${b},${a})`;
 }
 
-function buildNotifs(org){
-  const pk = org.products[0]; const prod = PRODUCTS[pk];
-  const items = navItemsFor(pk, workspacesFor(org.id, pk)[0].name);
-  const pick = (i)=>{ const it = items[Math.min(Math.max(i,0), items.length-1)] || items[0]; return it.type==='tab' ? {product:pk,module:it.module,tab:it.tab,kind:it.kind} : {product:pk,module:it.name,tab:it.tabs[0].tab,kind:it.tabs[0].kind}; };
-  const lbl = (t)=> prod.name+' · '+t.module+' · '+t.tab;
-  const t0=pick(0), t1=pick(1), t2=pick(2), tL=pick(items.length-1);
-  return [
-    {id:'p1', dot:'#FFCDB2', cat:'platform', title: org.note, path:'Platform · '+prod.name, time:'2m', target:t0},
-    {id:'p2', dot:'#C8B6FF', cat:'platform', title:'Your role has full access to all modules.', path:'Platform · '+prod.name, time:'20m', target:tL},
-    {id:'n1', dot:'#B8E0D2', cat:'update', title:'New activity in '+t1.tab, path:lbl(t1), time:'12m', target:t1},
-    {id:'n2', dot:'#FFCDB2', cat:'alert', title:'2 items need your attention', path:lbl(t1), time:'1h', target:t1},
-    {id:'n3', dot:'#C8B6FF', cat:'update', title:t2.tab+' is ready to view', path:lbl(t2), time:'3h', target:t2},
-    {id:'n4', dot:'#A2D2FF', cat:'mention', title:'Meet Deshani updated your access', path:lbl(tL), time:'1d', target:tL},
-  ];
-}
 
 // Map a server notification (from /api/notifications) into the shape the bell UI uses.
 const NOTIF_DOT = { platform:'#FFCDB2', update:'#B8E0D2', alert:'#FF9F9F', mention:'#A2D2FF' };
@@ -2248,6 +2226,18 @@ class Component extends DCLogic {
     updateBrowserUrl(id, pk, ws, ft.module, ft.tab);
   }
   selectProduct(key){
+    // The switcher lists products from the DATABASE, but the tab tree, the page
+    // title and the AI panel all index the hardcoded PRODUCTS map. Create a
+    // second product under Config › Platform and pick it here, and _pageKey's
+    // `PRODUCTS[product].name` threw inside render — a white screen with no way
+    // back except editing the URL. Refusing an unknown code leaves the user
+    // exactly where they were, which is the honest outcome until a
+    // database-defined product has a tab tree to show.
+    if(!PRODUCTS[key]){
+      console.warn('Product "' + key + '" has no tabs defined in this build; staying put.');
+      this.set({ profileOpen:false });
+      return;
+    }
     const wsl = workspacesFor(this.state.org, key);
     const ws = wsl.some(w=>w.name===this.state.workspace) ? this.state.workspace : wsl[0].name;
     const role = firstRoleId(key); const ft = firstTabOf(key, ws, role);

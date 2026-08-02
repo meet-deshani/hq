@@ -109,11 +109,13 @@
                whose parent is not .hq-datagrid. -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px 16px;align-items:start">
             <sc-for list="{{ formFields }}" as="f" hint-placeholder-count="3">
-              <label style="display:block">
+              <div style="display:block;position:relative">
                 <div style="font-family:'Satoshi',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#918D82;margin-bottom:6px">{{ f.label }}</div>
                 <sc-if value="{{ f.isText }}">
                   <input value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" placeholder="{{ f.ph }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
                 </sc-if>
+                <!-- A short list is quicker to click than to search, so it stays a
+                     native select. Long lists become a searchable dropdown. -->
                 <sc-if value="{{ f.isSelect }}">
                   <select value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
                     <option value="">—</option>
@@ -122,6 +124,45 @@
                     </sc-for>
                   </select>
                 </sc-if>
+                <sc-if value="{{ f.isCombo }}">
+                  <!-- Reads as a dropdown, not a search box: closed it shows the
+                       picked value and a chevron, exactly like the select it
+                       replaces. The search lives INSIDE the open panel. -->
+                  <button type="button" sc-camel-on-click="{{ f.onComboToggle }}" style="width:100%;box-sizing:border-box;display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid {{ f.comboBorder }};font-family:'Satoshi',sans-serif;font-size:14px;color:{{ f.comboColor }};outline:none">
+                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.comboLabel }}</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
+                  <sc-if value="{{ f.comboOpen }}">
+                    <div style="position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:120;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);overflow:hidden">
+                      <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #EEEDE8">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                        <input value="{{ f.comboQuery }}" sc-camel-on-change="{{ f.onComboSearch }}" sc-camel-on-key-down="{{ f.onComboKey }}" placeholder="Search…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924">
+                      </div>
+                      <div style="max-height:230px;overflow:auto;padding:5px 0">
+                        <sc-for list="{{ f.comboRows }}" as="o" hint-placeholder-count="3">
+                          <div sc-camel-on-mouse-down="{{ o.onPick }}" style="cursor:pointer;padding:8px 13px;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;background:{{ o.bg }}">{{ o.label }}</div>
+                        </sc-for>
+                        <sc-if value="{{ f.comboEmpty }}">
+                          <div style="padding:9px 13px;font-family:'Satoshi',sans-serif;font-size:13px;color:#918D82">{{ f.comboEmptyText }}</div>
+                        </sc-if>
+                        <sc-if value="{{ f.canAdd }}">
+                          <div sc-camel-on-mouse-down="{{ f.onComboAdd }}" style="cursor:pointer;display:flex;align-items:center;gap:7px;padding:9px 13px;border-top:1px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;background:{{ f.addBg }}">
+                            <span style="font-size:15px;line-height:1">+</span>{{ f.addLabel }}
+                          </div>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ f.hasComboErr }}">
+                        <div style="padding:8px 13px;border-top:1px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:12px;color:#a3324c;background:rgba(255,181,194,.16)">{{ f.comboErr }}</div>
+                      </sc-if>
+                      <!-- Says the add-new door exists BEFORE anything is typed.
+                           Otherwise the only hint is a row that appears once you
+                           have already typed a name nobody told you would work. -->
+                      <sc-if value="{{ f.showAddHint }}">
+                        <div style="padding:8px 13px;border-top:1px solid #EEEDE8;font-family:'Satoshi',sans-serif;font-size:11.5px;color:#918D82">{{ f.addHint }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </sc-if>
                 <!-- A field whose write does more than store a value has to say
                      so here. Marking a lead won converts the customer and opens
                      a project; a placeholder cannot carry that, because a select
@@ -129,7 +170,7 @@
                 <sc-if value="{{ f.hasHint }}">
                   <div style="font-family:'Satoshi',sans-serif;font-size:11.5px;line-height:1.45;color:#918D82;margin-top:5px">{{ f.hint }}</div>
                 </sc-if>
-              </label>
+              </div>
             </sc-for>
           </div>
           <sc-if value="{{ hasFormErr }}">
@@ -718,6 +759,17 @@ class Component extends DCLogic {
     apis: [],
     cmds: [],
     formOpen: false,
+    // Searchable-dropdown state. One field is open at a time, keyed by its field
+    // key, because two open panels would overlap and only one can hold focus.
+    comboKey: null,
+    comboQuery: '',
+    comboActive: 0,
+    comboBusy: false,
+    comboErr: '',
+    // Options created from a dropdown this session. The list a form was opened
+    // with does not contain them, so without this a name you just added would
+    // vanish from the field the moment it was picked.
+    comboAdded: {},
     // Declared up front like every other piece of state here — the template's
     // bindings are resolved against this shape, so a key that only appears
     // after a click is a key the first render never knew about.
@@ -1008,6 +1060,102 @@ class Component extends DCLogic {
       .catch(e => { this.setState({ remarkBusy:false }); window.alert('Could not add remark: ' + (e.message || e)); });
   }
 
+  // ── searchable dropdowns ──────────────────────────────────────────────────
+  //
+  // A native <select> is fine for a handful of options. A lookup list — every
+  // customer, every service, every user — is long and the entries look alike, so
+  // scanning it on every form is slow. Past SEARCHABLE_MIN the field becomes a
+  // dropdown with a search box inside it, and a name that is not on the list yet
+  // can be added without leaving the form.
+  //
+  // Whether "add new" is offered is DERIVED, never a hand-kept list of entities:
+  // the referenced entity must permit create for this user, and creating it must
+  // need nothing beyond its name. Anything else would offer a door that opens
+  // onto a 400. Because it reads the registry, a new entity gets the behaviour
+  // automatically and an entity that grows a required field loses it.
+
+  _refTarget(refKey){
+    if(refKey === 'users') return { key:'users', path:'/api/users', title:'name', label:'user', can:{} };
+    const e = (this.state.registry || []).find(x => x.key === refKey);
+    if(!e) return null;
+    return { key:e.key, path:e.path, title:e.title_field || 'name',
+             label:(e.label || e.key).toLowerCase(), fields:e.fields || [],
+             can:e.can || {}, read_only:!!e.read_only };
+  }
+
+  /** Can a row of this entity be created from a name alone? */
+  _canAddTo(refKey){
+    const t = this._refTarget(refKey);
+    if(!t || t.read_only || !t.fields) return false;
+    if(!t.can.create) return false;
+    // Anything else the server insists on cannot be supplied from a dropdown,
+    // so offering to add here would only produce an error the user cannot act on.
+    return !t.fields.some(f => f.required && f.k !== t.title);
+  }
+
+  _optionsFor(refKey){
+    const base = this.state.refOptions[refKey] || [];
+    const added = (this.state.comboAdded || {})[refKey] || [];
+    if(!added.length) return base;
+    return base.concat(added.filter(a => !base.some(b => b.v === a.v)));
+  }
+
+  openCombo(fieldKey){
+    this.setState({ comboKey: fieldKey, comboQuery:'', comboActive:0, comboErr:'' });
+  }
+  closeCombo(){ this.setState({ comboKey:null, comboQuery:'', comboErr:'' }); }
+
+  onComboKey(ev, rows, canAdd){
+    const k = ev && ev.key;
+    const n = rows.length + (canAdd ? 1 : 0);
+    if(k === 'ArrowDown'){ ev.preventDefault(); this.setState(s => ({ comboActive: Math.min(s.comboActive + 1, n - 1) })); }
+    else if(k === 'ArrowUp'){ ev.preventDefault(); this.setState(s => ({ comboActive: Math.max(s.comboActive - 1, 0) })); }
+    else if(k === 'Escape'){ ev.preventDefault(); this.closeCombo(); }
+    else if(k === 'Enter'){
+      ev.preventDefault();
+      const i = this.state.comboActive;
+      if(canAdd && i === rows.length) this.addFromCombo();
+      else if(rows[i]) rows[i].pick();
+    }
+  }
+
+  /** Create the typed name in the referenced entity, then select it.
+   *
+   *  The row is written through the SAME endpoint the Config screen writes to,
+   *  so a value added from a dropdown is a real row — it shows up in Config, in
+   *  every other dropdown on that entity, and in the list page. There is no
+   *  second store of "options added inline" to drift out of sync.
+   */
+  addFromCombo(){
+    const s = this.state;
+    const f = (this._lastFormFields || []).find(x => x.k === s.comboKey);
+    const name = (s.comboQuery || '').trim();
+    if(!f || !f.ref || !name || s.comboBusy) return;
+    const target = this._refTarget(f.ref);
+    if(!target) return;
+
+    this.setState({ comboBusy:true, comboErr:'' });
+    const body = {}; body[target.title] = name;
+    fetch(target.path, { method:'POST', headers:{ 'Content-Type':'application/json' },
+                         body: JSON.stringify(body) })
+      .then(async r => { const d = await r.json().catch(() => ({}));
+                         if(!r.ok) throw new Error(d.detail || ('HTTP ' + r.status)); return d; })
+      .then(row => {
+        const opt = { v:String(row.id), label: row[target.title] || name };
+        this.setState(st => {
+          const added = Object.assign({}, st.comboAdded);
+          added[f.ref] = (added[f.ref] || []).concat([opt]);
+          const form = Object.assign({}, st.form); form[f.k] = opt.v;
+          return { comboAdded:added, form, comboBusy:false, comboKey:null, comboQuery:'', comboErr:'' };
+        });
+        // Re-read the list so every other field on this entity sees it too, and
+        // so the label comes from the server rather than from what was typed.
+        this.setState(st => ({ refOptions: Object.assign({}, st.refOptions, { [f.ref]: undefined }) }),
+                      () => this._ensureRefOptions(this._entity()));
+      })
+      .catch(e => this.setState({ comboBusy:false, comboErr: e.message || String(e) }));
+  }
+
   // ── reaching a customer ───────────────────────────────────────────────────
   // Call / WhatsApp / Email on a customer's own record.
   //
@@ -1146,11 +1294,27 @@ class Component extends DCLogic {
         : (() => { const e = (this.state.registry||[]).find(x => x.key === refKey);
                    return e ? { path:e.path, title:e.title_field || 'name' } : null; })();
       if(!target) return;
-      fetch(target.path + '?limit=500')
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if(!d) return;
-          const list = Array.isArray(d) ? d : (d.rows || []);
+      // Paged, because a single ?limit=500 silently truncated. Past 500 rows the
+      // options simply stopped appearing in the picker — and worse, "+ Add"
+      // then offered to create a name that already existed further down the
+      // list, which the server rejects with a 409 the user cannot make sense of.
+      // The server caps a page at 1000 (backend/crud.py), so this walks `total`.
+      const PAGE = 500;
+      const collect = (offset, acc) =>
+        fetch(target.path + '?limit=' + PAGE + '&offset=' + offset)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if(!d) return acc;
+            const list = Array.isArray(d) ? d : (d.rows || []);
+            const rows = acc.concat(list);
+            const total = Array.isArray(d) ? rows.length : (d.total != null ? d.total : rows.length);
+            // `list.length` guards against a server that ignores offset — without
+            // it a mis-paged endpoint would loop forever.
+            if(rows.length < total && list.length) return collect(offset + PAGE, rows);
+            return rows;
+          });
+      collect(0, [])
+        .then(list => {
           const opts = list.map(o => ({ v:String(o.id), label: o[target.title] || o.name || ('#'+o.id) }));
           this.setState(s => ({ refOptions: Object.assign({}, s.refOptions, { [refKey]: opts }) }));
         })
@@ -1518,20 +1682,77 @@ class Component extends DCLogic {
           if(f.roleSelect) opts = (this.state.roleOptions || []).map(o => ({ v:o, label:o }));
           else if(f.select) opts = f.select.map(o => ({ v:o, label:o }));
         }
-        const isSelect = !!opts;
+        // A ref field draws from a list that grows; give it search (and, when the
+        // entity allows it, the ability to add a name that is not there yet) once
+        // the list is long enough that scanning it costs more than typing.
+        // Below SEARCHABLE_MIN a search box is friction, so the native select
+        // stays. A ref field that CAN be added to is searchable at any length —
+        // otherwise a brand-new list would have no way to get its first entry.
+        const SEARCHABLE_MIN = 5;
+        const isRef = !!(ent && f.type === 'ref' && f.ref);
+        const canAddTo = isRef && this._canAddTo(f.ref);
+        if(isRef) opts = this._optionsFor(f.ref);
+        const isCombo = isRef && ((opts || []).length >= SEARCHABLE_MIN || canAddTo);
+        const isSelect = !isCombo && !!opts;
         const hint = f.hint || '';
+
+        const open = this.state.comboKey === f.k;
+        const q = open ? (this.state.comboQuery || '').trim().toLowerCase() : '';
+        const all = opts || [];
+        const shown = q ? all.filter(o => String(o.label).toLowerCase().includes(q)) : all;
+        // An exact match is a pick, not a create.
+        const canAdd = canAddTo && !!q && !all.some(o => String(o.label).trim().toLowerCase() === q);
+        const active = this.state.comboActive || 0;
+        const picked = all.find(o => o.v === val);
+        const target = isRef ? this._refTarget(f.ref) : null;
+        const noun = (target && target.label) || 'entry';
+
+        const rows = shown.map((o, i) => {
+          const pick = () => this.setState(st => {
+            const form = Object.assign({}, st.form); form[f.k] = o.v;
+            return { form, comboKey:null, comboQuery:'', comboErr:'' };
+          });
+          return { v:o.v, label:o.label, bg: i === active ? '#F6F2EA' : 'transparent',
+                   pick, onPick: (e) => { if(e && e.preventDefault) e.preventDefault(); pick(); } };
+        });
+
         return {
+          k: f.k, ref: f.ref || '',
           label: f.label + (f.required || f.req ? ' *' : ''),
           ph: f.ph || f.help || '',
           value: val,
-          isSelect, isText: !isSelect,
+          isSelect, isCombo, isText: !isSelect && !isCombo,
           options: opts || [],
-          // Both keys are always set: an sc-if branch whose binding is missing
-          // renders the placeholder text instead of nothing.
+          // Every key is set on every field. An sc-if branch whose binding is
+          // missing renders the placeholder text instead of nothing.
           hint, hasHint: !!hint,
+          comboOpen: open,
+          comboLabel: picked ? picked.label : ('Select ' + noun + '…'),
+          comboColor: picked ? '#191924' : '#B4B0A6',
+          comboBorder: open ? '#C8B6FF' : '#E8E6E0',
+          comboQuery: open ? (this.state.comboQuery || '') : '',
+          comboRows: rows,
+          comboEmpty: open && !shown.length && !canAdd,
+          comboEmptyText: q ? ('No match for “' + (this.state.comboQuery || '').trim() + '”.')
+                            : 'Nothing to choose from yet.',
+          canAdd,
+          addLabel: this.state.comboBusy ? 'Adding…'
+                    : ('Add “' + (this.state.comboQuery || '').trim() + '” as a new ' + noun),
+          addBg: active === shown.length ? '#F6F2EA' : 'transparent',
+          showAddHint: open && canAddTo && !canAdd,
+          addHint: 'Type a name that isn’t listed to add a new ' + noun + '.',
+          comboErr: open ? (this.state.comboErr || '') : '',
+          hasComboErr: open && !!this.state.comboErr,
+          onComboToggle: () => (open ? this.closeCombo() : this.openCombo(f.k)),
+          onComboSearch: (e) => this.setState({ comboQuery: e && e.target ? e.target.value : '', comboActive:0 }),
+          onComboKey: (e) => this.onComboKey(e, rows, canAdd),
+          onComboAdd: (e) => { if(e && e.preventDefault) e.preventDefault(); this.addFromCombo(); },
           onInput: (e) => this.onFormField(f.k, e && e.target ? e.target.value : ''),
         };
       });
+    // addFromCombo needs the field it is adding for, and only this mapping knows
+    // which ref each field key points at.
+    this._lastFormFields = formFields;
 
     const SUBS = {
       form: 'Fill the fields and save — the entry syncs to your workspace instantly.',
