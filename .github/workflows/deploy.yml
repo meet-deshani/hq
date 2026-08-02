@@ -87,7 +87,9 @@ jobs:
         env:
           TABDESK_PG_DSN: postgresql://hq_ci:hq_ci_password@127.0.0.1:5432/hq_ci_tabdesk
           SECRET_KEY: ci-only-not-a-production-secret
-        run: python tests/tabdesk_postgres_test.py
+        run: |
+          python tests/tabdesk_postgres_test.py
+          python tests/schema_sync_postgres_test.py
 
       # The contract test needs a live server, so CI starts one. No WhatsApp and
       # no Zoho credentials are set here, which is deliberate: an unconfigured

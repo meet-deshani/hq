@@ -784,8 +784,17 @@ def add_attachment(
     supplied the link's own kind is used, so an attachment is never nameless.
     """
     ent = _get_entity(key)
+    # `update`, not `remark`: attaching a file changes what the record says about
+    # itself, so it belongs with editing it rather than with commenting on it.
+    # Two consequences, taken deliberately — someone with remark-only access
+    # cannot attach, and someone with update but not delete CAN unlink.
+    #
+    # `_refuse_if_read_only` is deliberately NOT called. A Zoho-mirrored invoice
+    # rejects field writes because Zoho owns those fields; it does not own HQ's
+    # note of where the signed PDF lives, and refusing to file that against the
+    # invoice it belongs to would help nobody.
     permissions.require(current_user, key, "update")
-    _get_row(db, ent, row_id)
+    obj = _get_row(db, ent, row_id)
 
     url = ((payload or {}).get("url") or "").strip()
     if not url:
@@ -801,7 +810,10 @@ def add_attachment(
     filename = ((payload or {}).get("filename") or "").strip() or _link_kind(url)
 
     row = Attachment(
-        organisation_id=current_user.organisation_id,
+        # Taken from the record, falling back to the caller — the same order
+        # add_remark uses. Identical while HQ is single-org, and the attachment
+        # follows its parent rather than its author the day it is not.
+        organisation_id=getattr(obj, "organisation_id", None) or current_user.organisation_id,
         entity_type=ent["entity_type"],
         entity_id=row_id,
         filename=filename[:300],
@@ -815,10 +827,10 @@ def add_attachment(
 
     audit.record(
         db, action="attach", entity_type=ent["entity_type"], entity_id=row_id,
-        entity_label=registry.label_for(_get_row(db, ent, row_id), ent),
+        entity_label=registry.label_for(obj, ent),
         actor=current_user, request=request,
         changes={"attachment": {"from": None, "to": filename}},
-        organisation_id=current_user.organisation_id, commit=True,
+        organisation_id=row.organisation_id, commit=True,
     )
     return {
         "id": row.id, "filename": row.filename, "url": row.storage_url,

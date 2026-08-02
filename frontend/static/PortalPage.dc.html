@@ -721,11 +721,15 @@ function linkInfo(url){
   if(!s) return null;
   if(!/^https?:\/\//i.test(s)) return { kind:'link', label:'Link', href:null, invalid:true, id:null };
 
+  // `(?:e\/)?` on every one, not just Forms: a PUBLISHED link is
+  // /spreadsheets/d/e/2PACX-.../pubhtml, and without it the captured id is the
+  // literal "e". Harmless while the id is only parsed, and a real bug the moment
+  // it is stored — which is what the Drive metadata work would do.
   const G = [
-    [/docs\.google\.com\/document\/d\/([\w-]+)/i,     'doc',    'Google Doc'],
-    [/docs\.google\.com\/spreadsheets\/d\/([\w-]+)/i, 'sheet',  'Google Sheet'],
-    [/docs\.google\.com\/presentation\/d\/([\w-]+)/i, 'slides', 'Google Slides'],
-    [/docs\.google\.com\/forms\/d\/(?:e\/)?([\w-]+)/i,'form',   'Google Form'],
+    [/docs\.google\.com\/document\/d\/(?:e\/)?([\w-]+)/i,     'doc',    'Google Doc'],
+    [/docs\.google\.com\/spreadsheets\/d\/(?:e\/)?([\w-]+)/i, 'sheet',  'Google Sheet'],
+    [/docs\.google\.com\/presentation\/d\/(?:e\/)?([\w-]+)/i, 'slides', 'Google Slides'],
+    [/docs\.google\.com\/forms\/d\/(?:e\/)?([\w-]+)/i,        'form',   'Google Form'],
     [/drive\.google\.com\/drive\/folders\/([\w-]+)/i, 'folder', 'Drive folder'],
     [/drive\.google\.com\/file\/d\/([\w-]+)/i,        'file',   'Drive file'],
     // The older shapes Drive still hands out from "Get link" and share mails.
