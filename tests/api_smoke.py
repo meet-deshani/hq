@@ -150,9 +150,12 @@ def run(base, email, password):
         # NOT `base` — that is the server URL this whole run depends on.
         route = "/api/" + key
         wanted = [("GET", route), ("GET", route + "/{id}"),
-                  ("GET", route + "/{id}/remarks"), ("POST", route + "/{id}/remarks")]
+                  ("GET", route + "/{id}/remarks"), ("POST", route + "/{id}/remarks"),
+                  ("GET", route + "/{id}/attachments")]
         if not ent.get("read_only"):
-            wanted += [("POST", route), ("PATCH", route + "/{id}"), ("DELETE", route + "/{id}")]
+            wanted += [("POST", route), ("PATCH", route + "/{id}"), ("DELETE", route + "/{id}"),
+                       ("POST", route + "/{id}/attachments"),
+                       ("DELETE", route + "/{id}/attachments/{attachment_id}")]
         for pair in wanted:
             if pair not in documented:
                 undocumented.append("%s %s" % pair)
@@ -162,7 +165,12 @@ def run(base, email, password):
     # And every hand-written route the server actually serves.
     _, spec = api.call("GET", "/openapi.json", expect=200)
     real = {p for p in spec["paths"] if p.startswith("/api/")}
-    generic = {"/api/{key}", "/api/{key}/{row_id}", "/api/{key}/{row_id}/remarks"}
+    # The registry-driven routes. They are served once as a template and
+    # documented once PER ENTITY, which the per-entity check above enforces —
+    # so their templated form is not itself expected in the catalogue.
+    generic = {"/api/{key}", "/api/{key}/{row_id}", "/api/{key}/{row_id}/remarks",
+               "/api/{key}/{row_id}/attachments",
+               "/api/{key}/{row_id}/attachments/{attachment_id}"}
     missing_literal = sorted(p for p in real - generic if p not in doc_paths)
     check("every literal API route is in the catalogue", not missing_literal,
           "missing: %s" % ", ".join(missing_literal[:8]))

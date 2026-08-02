@@ -1485,17 +1485,13 @@ small, .caption {
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;defaultOrg&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Z9S-AI&quot;],&quot;default&quot;:&quot;Z9S-AI&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;startCollapsed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Startup&quot;},&quot;showNotifications&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Rail&quot;}}">
 
 
+// `name` is read by the page title, the AI panel and the product switcher. The
+// `modules` list that used to live here was the ORIGINAL tab tree, superseded by
+// PRODUCT_WS_TABS below; its only reader was a fallback branch that
+// PRODUCT_WS_TABS.hq made unreachable. It was also the only place naming the
+// tabs 'All Users' and 'Role List', which is why LEGACY_ALIAS existed.
 const PRODUCTS = {
-  hq: { name:'HQ', tag:'Z9S-AI Operating System', modules:[
-    {name:'HQ', tabs:[{t:'Dashboard',k:'dashboard'}]},
-    {name:'Config', tabs:[{t:'Users',k:'table'},{t:'Roles',k:'table'},{t:'Feedback',k:'table'}]},
-    {name:'Users', tabs:[
-      {module:'User', t:'All Users', k:'table'},
-      {module:'Role', t:'Role List', k:'table'},
-      {module:'Role', t:'Permissions', k:'table'}
-    ]},
-    {name:'Document', tabs:[{t:'API',k:'api'},{t:'CLI',k:'cli'}]}
-  ]}
+  hq: { name:'HQ', tag:'Z9S-AI Operating System' }
 };
 
 const ORGS = [
@@ -1749,9 +1745,10 @@ function tabsFor(productKey, workspaceName, roleId){
     if(cfg[workspaceName]) cfg[workspaceName].forEach(t=>out.push({ ...t }));
     return out;
   }
-  // Fallback for products without a per-workspace spec yet:
+  // Fallback for products without a per-workspace spec yet. A Dashboard is all
+  // it can honestly offer: the tabs a product shows are defined by
+  // PRODUCT_WS_TABS, so a product missing from there has none to list.
   out.push({ tab:'Dashboard', kind:'dashboard' });
-  if(workspaceName==='Work') PRODUCTS[productKey].modules.forEach(m=>m.tabs.forEach(tb=>out.push({ module:m.name, tab:tb.t, kind:tb.k })));
   return out;
 }
 // Ordered nav list: standalone tabs at top level, multi-tab modules grouped.

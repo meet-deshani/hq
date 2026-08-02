@@ -564,6 +564,12 @@ class Task(Base):
     work_stream_id = Column(Integer, ForeignKey("work_streams.id", ondelete="SET NULL"), nullable=True, index=True)
     party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
     lead_id = Column(Integer, ForeignKey("leads.id", ondelete="SET NULL"), nullable=True, index=True)
+    # What KIND of work this is, from the org-defined Job types list. That list
+    # was editable under Work and selectable nowhere: its only consumer was
+    # tickets.category_id, and Tickets has no tab, so every job type anyone
+    # created sat unusable. Tasks are where this org actually tracks work, so
+    # this is where the list belongs.
+    job_type_id = Column(Integer, ForeignKey("ticket_categories.id", ondelete="SET NULL"), nullable=True, index=True)
     parent_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title = Column(String(400), nullable=False, index=True)

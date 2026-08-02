@@ -607,6 +607,8 @@ entity(
         {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Context"},
         {"k": "project_id", "label": "Project", "type": "ref", "ref": "projects", "group": "Context"},
         {"k": "work_stream_id", "label": "Work stream", "type": "ref", "ref": "work-streams", "group": "Context"},
+        {"k": "job_type_id", "label": "Job type", "type": "ref", "ref": "job-types", "group": "Context",
+         "hint": "The kind of work this is. Manage the list under Work › Job types."},
         {"k": "lead_id", "label": "Lead", "type": "ref", "ref": "leads", "group": "Context"},
         {"k": "milestone_id", "label": "Milestone", "type": "ref", "ref": "milestones", "group": "Context"},
 
@@ -824,7 +826,10 @@ entity(
         {"k": "sort_order", "label": "Order", "type": "number", "default": 0},
         {"k": "is_active", "label": "Active", "type": "boolean", "default": True},
     ],
-    relations=[{"key": "tickets", "label": "Tickets", "entity": "tickets", "fk": "category_id"}],
+    relations=[
+        {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "job_type_id"},
+        {"key": "tickets", "label": "Tickets", "entity": "tickets", "fk": "category_id"},
+    ],
 )
 
 entity(

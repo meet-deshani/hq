@@ -543,6 +543,7 @@ def get_row(
 
     data["_related"] = related
     data["_remarks"] = _remark_list(db, ent, row_id)
+    data["_attachments"] = _attachment_list(db, ent, row_id)
     data["_audit"] = _audit_list(
         db, ent["entity_type"], row_id, limit=25, since=getattr(obj, "created_at", None)
     )
@@ -689,6 +690,183 @@ def delete_row(
 def _source_of(request):
     kind = audit.actor_kind(request)
     return {"user": "ui", "cli": "cli", "agent": "agent", "system": "api"}.get(kind, "api")
+
+
+# ── attachments — links to the files a record lives on ──────────────────────
+#
+# A sub-resource of whatever it hangs off, deliberately NOT a registry entity of
+# its own. A new entity key mints new permission codes, and on an organisation
+# that has saved its Permissions matrix those ship DENIED — so attachments would
+# arrive invisible to every role until an admin went and ticked them. Hanging off
+# the parent means an attachment is readable by whoever can read the record and
+# writable by whoever can change it, which is also just the correct answer.
+#
+# `storage_url` holds a LINK, which is what the column was always shaped for
+# (String(600), no binary column anywhere). HQ's container has no volume — the
+# filesystem is rebuilt on every deploy — so bytes could not live here even if
+# the schema wanted them to. A Drive link outlives the container.
+
+_GOOGLE_KINDS = [
+    (r"docs\.google\.com/document/d/", "Google Doc"),
+    (r"docs\.google\.com/spreadsheets/d/", "Google Sheet"),
+    (r"docs\.google\.com/presentation/d/", "Google Slides"),
+    (r"docs\.google\.com/forms/d/", "Google Form"),
+    (r"drive\.google\.com/drive/folders/", "Drive folder"),
+    (r"drive\.google\.com/(file/d/|open\?|uc\?)", "Drive file"),
+]
+
+
+def _link_kind(url):
+    """What a link is, from its shape alone — no credentials, no guessing.
+
+    A Google URL says which product it belongs to. The real filename, size and
+    sharing state need an API call, and are left null rather than invented: a
+    card claiming a name nobody read would be worse than one that says
+    "Google Sheet".
+    """
+    import re as _re
+
+    for pattern, label in _GOOGLE_KINDS:
+        if _re.search(pattern, url or "", _re.I):
+            return label
+    try:
+        from urllib.parse import urlparse
+
+        host = (urlparse(url).hostname or "").replace("www.", "")
+        return host or "Link"
+    except Exception:  # pragma: no cover - defensive
+        return "Link"
+
+
+def _attachment_list(db, ent, row_id):
+    rows = (
+        db.query(Attachment)
+        .filter(Attachment.entity_type == ent["entity_type"], Attachment.entity_id == row_id)
+        .order_by(Attachment.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": a.id, "filename": a.filename, "url": a.storage_url,
+            "kind": _link_kind(a.storage_url), "mime": a.mime, "size": a.size,
+            "created_at": _iso(a.created_at), "created_by_id": a.created_by_id,
+        }
+        for a in rows
+    ]
+
+
+@router.get("/api/{key}/{row_id}/attachments")
+def list_attachments(
+    key: str,
+    row_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ent = _get_entity(key)
+    permissions.require(current_user, key, "read")
+    _get_row(db, ent, row_id)
+    return {"entity": key, "id": row_id, "attachments": _attachment_list(db, ent, row_id)}
+
+
+@router.post("/api/{key}/{row_id}/attachments")
+def add_attachment(
+    key: str,
+    row_id: int,
+    payload: dict,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Attach a link to this record.
+
+    Paste a Drive, Docs, Sheets or Slides URL — or any URL — and it is filed
+    against the record, typed by its shape and given a name. With no name
+    supplied the link's own kind is used, so an attachment is never nameless.
+    """
+    ent = _get_entity(key)
+    permissions.require(current_user, key, "update")
+    _get_row(db, ent, row_id)
+
+    url = ((payload or {}).get("url") or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="'url' is required")
+    if not url.lower().startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=400,
+            detail="A link must start with http:// or https:// — %r does not." % url[:80],
+        )
+    if len(url) > 600:
+        raise HTTPException(status_code=400, detail="That link is too long to store (600 characters max).")
+
+    filename = ((payload or {}).get("filename") or "").strip() or _link_kind(url)
+
+    row = Attachment(
+        organisation_id=current_user.organisation_id,
+        entity_type=ent["entity_type"],
+        entity_id=row_id,
+        filename=filename[:300],
+        storage_url=url,
+        mime=((payload or {}).get("mime") or None),
+        size=(payload or {}).get("size"),
+        created_by_id=current_user.id,
+    )
+    db.add(row)
+    db.commit()
+
+    audit.record(
+        db, action="attach", entity_type=ent["entity_type"], entity_id=row_id,
+        entity_label=registry.label_for(_get_row(db, ent, row_id), ent),
+        actor=current_user, request=request,
+        changes={"attachment": {"from": None, "to": filename}},
+        organisation_id=current_user.organisation_id, commit=True,
+    )
+    return {
+        "id": row.id, "filename": row.filename, "url": row.storage_url,
+        "kind": _link_kind(row.storage_url), "mime": row.mime, "size": row.size,
+        "created_at": _iso(row.created_at), "created_by_id": row.created_by_id,
+    }
+
+
+@router.delete("/api/{key}/{row_id}/attachments/{attachment_id}")
+def remove_attachment(
+    key: str,
+    row_id: int,
+    attachment_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Unlink a file from this record.
+
+    Removes HQ's reference only — whatever the link points at is untouched. HQ
+    never had the file, so it is not HQ's to delete.
+    """
+    ent = _get_entity(key)
+    permissions.require(current_user, key, "update")
+    _get_row(db, ent, row_id)
+
+    row = (
+        db.query(Attachment)
+        .filter(
+            Attachment.id == attachment_id,
+            Attachment.entity_type == ent["entity_type"],
+            Attachment.entity_id == row_id,
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Attachment %s not found on this record" % attachment_id)
+
+    name = row.filename
+    db.delete(row)
+    db.commit()
+    audit.record(
+        db, action="detach", entity_type=ent["entity_type"], entity_id=row_id,
+        entity_label=None, actor=current_user, request=request,
+        changes={"attachment": {"from": name, "to": None}},
+        organisation_id=current_user.organisation_id, commit=True,
+    )
+    return {"detail": "Attachment removed", "id": attachment_id}
 
 
 # ── remarks — append-only history ───────────────────────────────────────────
@@ -1172,6 +1350,34 @@ def catalog_entries(base="__BASE__"):
                      "  -H 'Content-Type: application/json' \\\n"
                      "  -d '{\"body\":\"Spoke to them today.\"}'" % (base, path),
             "response": "{ \"id\": 7, \"author\": \"Meet Deshani\", \"duplicate\": false }",
+        })
+        out.append({
+            "method": "GET", "path": path + "/{id}/attachments", "auth": "Bearer / Cookie",
+            "summary": "Files linked to one %s. `kind` is derived from the URL shape — Google Doc, "
+                       "Google Sheet, Google Slides, Drive file, Drive folder — with no "
+                       "credentials involved." % label.lower(),
+            "usage": "curl %s%s/1/attachments \\\n  -H \"Authorization: Bearer $TOKEN\"" % (base, path),
+            "response": "{ \"attachments\": [ { \"filename\": \"Scope\", \"url\": \"https://docs.google...\","
+                        " \"kind\": \"Google Doc\" } ] }",
+        })
+        out.append({
+            "method": "POST", "path": path + "/{id}/attachments", "auth": "Bearer / Cookie",
+            "summary": "Attach a link to this %s. Stores the URL, never the bytes — HQ's container "
+                       "has no disk that survives a deploy. Needs `%s:update`. With no filename, "
+                       "the link's own kind is used so an attachment is never nameless."
+                       % (label.lower(), key),
+            "usage": "curl -X POST %s%s/1/attachments \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                     "  -H 'Content-Type: application/json' \\\n"
+                     "  -d '{\"url\":\"https://docs.google.com/document/d/abc/edit\",\"filename\":\"Scope\"}'"
+                     % (base, path),
+            "response": "{ \"id\": 3, \"filename\": \"Scope\", \"kind\": \"Google Doc\" }",
+        })
+        out.append({
+            "method": "DELETE", "path": path + "/{id}/attachments/{attachment_id}", "auth": "Bearer / Cookie",
+            "summary": "Unlink a file from this %s. Removes HQ's reference only — whatever the link "
+                       "points at is untouched, because HQ never held it." % label.lower(),
+            "usage": "curl -X DELETE %s%s/1/attachments/3 \\\n  -H \"Authorization: Bearer $TOKEN\"" % (base, path),
+            "response": "{ \"detail\": \"Attachment removed\", \"id\": 3 }",
         })
 
         for action in ent.get("actions", []):

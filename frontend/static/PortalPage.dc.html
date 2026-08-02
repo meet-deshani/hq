@@ -84,7 +84,14 @@
         <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
           <div sc-camel-on-click="{{ row.onOpen }}" style="{{ row.style }}">
             <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
-              <div style="{{ cell.cellStyle }}"><span style="{{ cell.inkStyle }}">{{ cell.v }}</span></div>
+              <div style="{{ cell.cellStyle }}">
+                <sc-if value="{{ cell.isLink }}">
+                  <a href="{{ cell.href }}" target="_blank" rel="noopener noreferrer" sc-camel-on-click="{{ cell.stop }}" style="{{ cell.inkStyle }}color:#5B4BC4;text-decoration:underline;text-underline-offset:2px">{{ cell.v }}</a>
+                </sc-if>
+                <sc-if value="{{ cell.isPlain }}">
+                  <span style="{{ cell.inkStyle }}">{{ cell.v }}</span>
+                </sc-if>
+              </div>
             </sc-for>
             <sc-if value="{{ canCrud }}">
               <div style="display:flex;justify-content:flex-end">
@@ -378,7 +385,12 @@
               <sc-for list="{{ detailBasics }}" as="b" hint-placeholder-count="5">
                 <div style="display:flex;align-items:flex-start;gap:16px;padding:9px 0;border-bottom:1px solid #F3F2EE">
                   <div style="flex:0 0 40%;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#918D82">{{ b.l }}</div>
-                  <div style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;word-break:break-word">{{ b.v }}</div>
+                  <div style="flex:1;min-width:0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;word-break:break-word">
+                    <sc-if value="{{ b.isLink }}">
+                      <a href="{{ b.href }}" target="_blank" rel="noopener noreferrer" style="color:#5B4BC4;text-decoration:underline;text-underline-offset:2px">{{ b.v }} ↗</a>
+                    </sc-if>
+                    <sc-if value="{{ b.isPlain }}">{{ b.v }}</sc-if>
+                  </div>
                 </div>
               </sc-for>
             </div>
@@ -401,6 +413,37 @@
                 </sc-if>
               </div>
             </sc-for>
+
+            <!-- files: links to whatever this record lives on.
+                 HQ stores the LINK, never the bytes — its container has no disk
+                 that survives a deploy — so the card says what the link IS
+                 (Google Doc, Drive folder) rather than pretending to know a
+                 filename it never read. -->
+            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:6px">Files</div>
+              <div style="font-family:'Satoshi',sans-serif;font-size:12px;color:#A7A399;margin-bottom:14px">Paste a Google Drive, Docs, Sheets or Slides link — or any URL — to file it here.</div>
+              <sc-for list="{{ detailFiles }}" as="fl" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #F3F2EE">
+                  <span style="flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:#4A4842;background:{{ fl.tint }};padding:4px 9px;border-radius:999px;white-space:nowrap">{{ fl.kind }}</span>
+                  <a href="{{ fl.url }}" target="_blank" rel="noopener noreferrer" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#5B4BC4;text-decoration:underline;text-underline-offset:2px">{{ fl.name }}</a>
+                  <span style="flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ fl.when }}</span>
+                  <button sc-camel-on-click="{{ fl.onRemove }}" title="Unlink from this record — the file itself is untouched" style="flex:0 0 auto;border:none;cursor:pointer;background:transparent;color:#A7A399;font-size:15px;line-height:1;padding:2px 4px">×</button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noFiles }}">
+                <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399;padding-bottom:10px">Nothing attached yet.</div>
+              </sc-if>
+              <sc-if value="{{ hasFileErr }}">
+                <div style="margin:10px 0 2px;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:8px 11px">{{ fileErr }}</div>
+              </sc-if>
+              <sc-if value="{{ canAttach }}">
+                <div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap">
+                  <input value="{{ fileDraft }}" sc-camel-on-change="{{ onFileInput }}" placeholder="Paste a link…" style="flex:1;min-width:180px;box-sizing:border-box;padding:10px 14px;border-radius:11px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
+                  <input value="{{ fileName }}" sc-camel-on-change="{{ onFileName }}" placeholder="Name (optional)" style="flex:0 1 190px;min-width:130px;box-sizing:border-box;padding:10px 14px;border-radius:11px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
+                  <button sc-camel-on-click="{{ onFileSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px">{{ fileLabel }}</button>
+                </div>
+              </sc-if>
+            </div>
 
             <!-- append-only remark history -->
             <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
@@ -617,7 +660,6 @@ const LEGACY = {
     cells: f => [f.category, (f.text||'').length > 64 ? f.text.slice(0,64)+'…' : (f.text||''),
                  f.user ? f.user.email : '—', f.path || '—', f.status, fmtDate(f.created_at)] },
 };
-const LEGACY_ALIAS = { 'All Users':'Users', 'Role List':'Roles' };
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -667,6 +709,37 @@ const MONO = "'JetBrains Mono',monospace";
 const SANS = "'Satoshi',sans-serif";
 
 /** Display value + inline styles for one table cell, driven by its column type. */
+// What a pasted link IS, worked out from its shape alone.
+//
+// No credentials are involved: a Google URL says which product it belongs to and
+// carries its file id, and that is enough to label it honestly and open it. The
+// real filename, size and sharing state need an API call and are deliberately
+// NOT guessed at — a card claiming a name it never read would be worse than one
+// that says "Google Sheet".
+function linkInfo(url){
+  const s = String(url || '').trim();
+  if(!s) return null;
+  if(!/^https?:\/\//i.test(s)) return { kind:'link', label:'Link', href:null, invalid:true, id:null };
+
+  const G = [
+    [/docs\.google\.com\/document\/d\/([\w-]+)/i,     'doc',    'Google Doc'],
+    [/docs\.google\.com\/spreadsheets\/d\/([\w-]+)/i, 'sheet',  'Google Sheet'],
+    [/docs\.google\.com\/presentation\/d\/([\w-]+)/i, 'slides', 'Google Slides'],
+    [/docs\.google\.com\/forms\/d\/(?:e\/)?([\w-]+)/i,'form',   'Google Form'],
+    [/drive\.google\.com\/drive\/folders\/([\w-]+)/i, 'folder', 'Drive folder'],
+    [/drive\.google\.com\/file\/d\/([\w-]+)/i,        'file',   'Drive file'],
+    // The older shapes Drive still hands out from "Get link" and share mails.
+    [/drive\.google\.com\/(?:open|uc)\?(?:[^#]*&)?id=([\w-]+)/i, 'file', 'Drive file'],
+  ];
+  for(const [re, kind, label] of G){
+    const m = s.match(re);
+    if(m) return { kind, label, href:s, id:m[1], invalid:false };
+  }
+  let host = '';
+  try { host = new URL(s).hostname.replace(/^www\./, ''); } catch(_) { host = ''; }
+  return { kind:'link', label: host || 'Link', href:s, id:null, invalid:false };
+}
+
 function renderCell(row, col){
   const raw = row[col.k];
   const align = col.align === 'right' ? 'flex-end' : 'flex-start';
@@ -695,13 +768,28 @@ function renderCell(row, col){
         + 'background:' + badgeColor(raw) + ';padding:3px 10px;border-radius:999px;white-space:nowrap;';
   } else if(col.type === 'color'){
     v = raw || '—'; ink = 'font-family:' + MONO + ';font-size:11.5px;color:#4A4842;';
+  } else if(col.type === 'url'){
+    // Every type:"url" field in the registry — Project.gdrive_url, the document
+    // and prod links, Party.website — rendered as dead text until now. `v` is
+    // interpolated, never parsed as HTML, so the anchor itself has to come from
+    // a branch in the template; this only supplies what that branch needs.
+    const info = linkInfo(raw);
+    v = info ? (info.label + (info.invalid ? ' (not a link)' : '')) : '—';
+    ink = 'font-family:' + SANS + ';font-size:13px;color:#3A3A44;';
   } else {
     v = (raw == null || raw === '') ? '—' : String(raw);
     if(col.primary) ink = 'font-family:' + SANS + ';font-size:13.5px;font-weight:600;color:#191924;';
   }
 
+  const link = col.type === 'url' ? linkInfo(raw) : null;
+  const isLink = !!(link && link.href);
   return {
     v: v,
+    // Always set, so neither sc-if branch renders its placeholder text.
+    isLink, isPlain: !isLink,
+    href: (link && link.href) || '',
+    // A row opens its record on click; a link inside one must not do both.
+    stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
     cellStyle: 'display:flex;align-items:center;justify-content:' + align + ';min-width:0;padding-right:12px;overflow:hidden;',
     inkStyle: ink + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;',
   };
@@ -753,6 +841,10 @@ class Component extends DCLogic {
     detailId: null,
     detail: null,
     remarkDraft: '',
+    fileDraft: '',
+    fileName: '',
+    fileBusy: false,
+    fileErr: '',
     remarkBusy: false,
     stats: [],
     trendPath: 'M0,140 L600,140',
@@ -831,7 +923,7 @@ class Component extends DCLogic {
     return resolveEntity(reg, this.props.workspace, this.props.moduleName, this.props.tabName);
   }
   _legacy(){
-    const name = LEGACY_ALIAS[this.props.tabName] || this.props.tabName;
+    const name = this.props.tabName;
     return LEGACY[name] ? name : null;
   }
 
@@ -1046,6 +1138,67 @@ class Component extends DCLogic {
   }
 
   // ── remarks ───────────────────────────────────────────────────────────────
+  // ── files ─────────────────────────────────────────────────────────────────
+  _fileVals(ent, detail){
+    const list = (detail && detail._attachments) || [];
+    // A kind is tinted so a Sheet and a Doc are told apart at a glance without
+    // reading; unknown kinds fall back rather than going invisible.
+    const TINT = { 'Google Doc':'rgba(162,210,255,.32)', 'Google Sheet':'rgba(184,224,210,.38)',
+                   'Google Slides':'rgba(255,205,178,.42)', 'Google Form':'rgba(200,182,255,.32)',
+                   'Drive folder':'rgba(255,243,176,.5)', 'Drive file':'rgba(255,243,176,.5)' };
+    const files = list.map(a => ({
+      kind: a.kind || 'Link',
+      tint: TINT[a.kind] || 'rgba(232,230,224,.7)',
+      name: a.filename || a.url,
+      url: a.url,
+      when: fmtWhen(a.created_at),
+      onRemove: () => this.removeFile(a.id),
+    }));
+    return {
+      detailFiles: files,
+      noFiles: !!(detail && !files.length),
+      // Attaching is a change to the record, so it needs the same permission
+      // editing it does — no new permission code to be ticked on first.
+      canAttach: !!(ent && ent.can && ent.can.update),
+      fileDraft: this.state.fileDraft || '',
+      fileName: this.state.fileName || '',
+      fileLabel: this.state.fileBusy ? 'Attaching…' : 'Attach',
+      fileErr: this.state.fileErr || '',
+      hasFileErr: !!this.state.fileErr,
+      onFileInput: (e) => this.onFileInput(e && e.target ? e.target.value : ''),
+      onFileName: (e) => this.onFileName(e && e.target ? e.target.value : ''),
+      onFileSubmit: () => this.submitFile(),
+    };
+  }
+
+  onFileInput(v){ this.setState({ fileDraft:v, fileErr:'' }); }
+  onFileName(v){ this.setState({ fileName:v }); }
+
+  submitFile(){
+    const ent = this._entity(); const id = this.state.detailId;
+    const url = (this.state.fileDraft || '').trim();
+    if(!ent || !id || !url || this.state.fileBusy) return;
+    this.setState({ fileBusy:true, fileErr:'' });
+    fetch(ent.path + '/' + id + '/attachments', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ url, filename: (this.state.fileName || '').trim() || undefined })
+    })
+      .then(async r => { const d = await r.json().catch(() => ({}));
+                         if(!r.ok) throw new Error(d.detail || ('HTTP ' + r.status)); return d; })
+      .then(() => { this.setState({ fileDraft:'', fileName:'', fileBusy:false }); this._fetchDetail(ent); })
+      .catch(e => this.setState({ fileBusy:false, fileErr: e.message || String(e) }));
+  }
+
+  removeFile(attachmentId){
+    const ent = this._entity(); const id = this.state.detailId;
+    if(!ent || !id) return;
+    fetch(ent.path + '/' + id + '/attachments/' + attachmentId, { method:'DELETE' })
+      .then(async r => { if(!r.ok){ const d = await r.json().catch(() => ({}));
+                                    throw new Error(d.detail || ('HTTP ' + r.status)); } })
+      .then(() => this._fetchDetail(ent))
+      .catch(e => this.setState({ fileErr: e.message || String(e) }));
+  }
+
   onRemarkInput(v){ this.setState({ remarkDraft:v }); }
   submitRemark(){
     const ent = this._entity(); const id = this.state.detailId;
@@ -1553,7 +1706,12 @@ class Component extends DCLogic {
 
       detailBasics = (ent.fields || [])
         .filter(f => { const v = detail[f.k]; return v !== null && v !== undefined && v !== ''; })
-        .map(f => ({ l: f.label, v: renderCell(detail, { k:f.k, type:f.type, ref:f.ref }).v }));
+        .map(f => {
+          const c = renderCell(detail, { k:f.k, type:f.type, ref:f.ref });
+          // The detail panel is where a Drive link actually gets opened, so it
+          // carries the same anchor branch the list cells do.
+          return { l: f.label, v: c.v, isLink: c.isLink, isPlain: c.isPlain, href: c.href };
+        });
 
       detailFacts = (ent.key_facts || []).map(k => ({ l: labelFor(k), v: valueFor(k) }));
 
@@ -1832,6 +1990,7 @@ class Component extends DCLogic {
       onDetailEdit: () => { if(detail) this.openEdit({ id: detail.id, record: detail }); },
       ...this._reachVals(ent, detail),
       detailBasics, detailFacts, detailRelated, detailRemarks, detailAudit,
+      ...this._fileVals(ent, detail),
       noRemarks: inDetail && !detailRemarks.length,
       noAudit: inDetail && !detailAudit.length,
       remarkDraft: this.state.remarkDraft,
