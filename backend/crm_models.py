@@ -249,9 +249,22 @@ class PipelineStage(Base):
 
 
 class Lead(Base):
-    """A prospect before they are a customer.
+    """A piece of business being won — not necessarily a company we don't know yet.
 
-    Converting a lead writes a `parties` row and stamps `converted_party_id`.
+    The original model assumed a lead is a stranger, so conversion always wrote a
+    *new* `parties` row. That is only half of how the funnel actually runs. An
+    existing customer asking for a second project is a lead too: same company,
+    new work. Forcing that to mint a second customer is how one company ends up
+    in the book twice.
+
+    So a lead points at a party (`party_id`) whenever we already know who it is,
+    and conversion links rather than duplicates. `converted_party_id` remains the
+    record of *which* party this lead produced or landed on.
+
+    Won leads also produce delivery, so `converted_project_id` records the
+    project the lead became, and `item_id` is the service it is for — declared
+    while the lead is still open, then carried into that project.
+
     The lead is never deleted on conversion — the funnel history is the point.
     """
 
@@ -265,6 +278,15 @@ class Lead(Base):
     contact_name = Column(String(150))
     phone = Column(String(40))
     email = Column(String(150))
+
+    # Who this lead is for, when we already know them. Set on a lead raised
+    # against an existing customer or prospect; left null for a genuine stranger
+    # until conversion resolves one.
+    party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # The service this lead is for, so a won lead knows what kind of project to
+    # open. Mirrors `Project.item_id`.
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
 
     source_id = Column(Integer, ForeignKey("lead_sources.id", ondelete="SET NULL"), nullable=True, index=True)
     pipeline_id = Column(Integer, ForeignKey("pipelines.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -280,6 +302,7 @@ class Lead(Base):
     status = Column(String(20), default="open", nullable=False, index=True)  # open | won | lost
     lost_reason_id = Column(Integer, ForeignKey("lost_reasons.id", ondelete="SET NULL"), nullable=True)
     converted_party_id = Column(Integer, ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
+    converted_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     converted_at = Column(DateTime)
 
     # The Notion board's operating pattern: every row carries its next move.
@@ -299,7 +322,9 @@ class Lead(Base):
     pipeline = relationship("Pipeline")
     stage = relationship("PipelineStage")
     owner = relationship("User", foreign_keys=[owner_id])
+    party = relationship("Party", foreign_keys=[party_id])
     converted_party = relationship("Party", foreign_keys=[converted_party_id])
+    converted_project = relationship("Project", foreign_keys=[converted_project_id])
 
 
 # ────────────────────────────────────────────────────────────────────────────

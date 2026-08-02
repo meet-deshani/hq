@@ -29,7 +29,9 @@ from sqlalchemy.orm import Session
 
 from backend import audit, crm_hooks, permissions, registry
 from backend.auth import get_current_user
-from backend.crm_models import Activity, Attachment, AuditLog, Comment, Lead, Party
+from backend.crm_models import (
+    Activity, Attachment, AuditLog, Comment, Lead, Party, Project, Task,
+)
 from backend.database import get_db
 from backend.models import User
 
@@ -813,62 +815,68 @@ def _audit_list(db, entity_type, entity_id=None, limit=100, offset=0, since=None
 
 
 # ── lead conversion ─────────────────────────────────────────────────────────
+#
+# Leads, customers and projects are one web, not three lists. A lead is a piece
+# of business being won; the company it is for may already be in the book, and
+# winning it produces delivery. So conversion has three jobs — resolve the
+# party, promote it, open the project — and every one of them is find-or-create,
+# never blind-create.
+#
+# `resolve_party` used to 409 when a party of the same name existed, which is
+# exactly backwards: a name match is the strongest evidence that this lead is
+# for a company we already know. It links now.
+#
+# Everything here is written to be *total* — it does not raise. `_run_hook`
+# swallows exceptions (see its docstring), so a conversion that could fail
+# half-way would leave a lead marked won with no customer and nothing said about
+# it. Idempotence carries the safety instead: re-running converges.
 
-@router.post("/api/leads/{lead_id}/convert")
-def convert_lead(
-    lead_id: int,
-    request: Request,
-    payload: dict = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Turn a won lead into a customer.
 
-    The lead is kept and stamped, never deleted — the funnel history is the
-    reason the lead existed. Converting twice returns the existing customer
-    rather than creating a second one.
+def _party_for_lead(db, lead, user, payload=None):
+    """The party this lead belongs to: the linked one, the matching one, or a new one.
+
+    Preference runs from most to least certain — an explicit `party_id` beats a
+    name match, and a name match beats minting a second row for a company that
+    is already in the book.
     """
-    permissions.require(current_user, "leads", "update")
-    permissions.require(current_user, "customers", "create")
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead %s not found" % lead_id)
-
-    if lead.converted_party_id:
-        existing = db.query(Party).filter(Party.id == lead.converted_party_id).first()
-        if existing:
-            ent = registry.BY_KEY["customers"]
-            return {
-                "detail": "Lead already converted",
-                "already_converted": True,
-                "customer": serialize(existing, ent, _resolve_refs(db, ent, [existing])),
-            }
-
     payload = payload or {}
+
+    if lead.party_id:
+        linked = db.query(Party).filter(Party.id == lead.party_id).first()
+        if linked:
+            return linked, False
+    if lead.converted_party_id:
+        linked = db.query(Party).filter(Party.id == lead.converted_party_id).first()
+        if linked:
+            return linked, False
+
     name = (payload.get("display_name") or lead.company_name or lead.title or "").strip()
     if not name:
-        raise HTTPException(status_code=400, detail="Lead has no company name — pass display_name")
+        return None, False
 
-    clash = db.query(Party).filter(
-        Party.display_name == name, Party.organisation_id == lead.organisation_id
+    match = db.query(Party).filter(
+        Party.organisation_id == lead.organisation_id,
+        Party.display_name == name,
     ).first()
-    if clash:
-        raise HTTPException(
-            status_code=409,
-            detail="A customer named '%s' already exists (id %s). Link it manually or rename." % (name, clash.id),
-        )
+    if match:
+        return match, False
 
+    # A company we have not won is a prospect, not a customer. Creating every
+    # party as a customer made "lost" unrepresentable: the outcome branch below
+    # only ever demotes a prospect, so a lost lead's company stayed Active and
+    # looked exactly like one still being worked.
+    default_kind = "customer" if (lead.status or "").lower() == "won" else "prospect"
     party = Party(
-        organisation_id=lead.organisation_id or current_user.organisation_id,
-        kind=payload.get("kind") or "customer",
+        organisation_id=lead.organisation_id or user.organisation_id,
+        kind=payload.get("kind") or default_kind,
         display_name=name,
         phone=lead.phone,
         email=lead.email,
-        owner_id=lead.owner_id or current_user.id,
+        owner_id=lead.owner_id or user.id,
         status="Active",
         summary=lead.notes,
-        created_by_id=current_user.id,
-        updated_by_id=current_user.id,
+        created_by_id=user.id,
+        updated_by_id=user.id,
     )
     db.add(party)
     db.flush()
@@ -879,12 +887,165 @@ def convert_lead(
         db.add(PartyContact(
             organisation_id=party.organisation_id, party_id=party.id, name=lead.contact_name,
             phone=lead.phone, email=lead.email, is_primary=True,
-            created_by_id=current_user.id, updated_by_id=current_user.id,
+            created_by_id=user.id, updated_by_id=user.id,
         ))
+    return party, True
 
-    lead.converted_party_id = party.id
-    lead.converted_at = datetime.utcnow()
+
+def _project_for_lead(db, lead, party, user, payload=None):
+    """The project a won lead opens, created once.
+
+    The lead already carries everything a project needs to start — who it is for,
+    which service, what it is worth, who owns it and what the next move is — so
+    re-typing it is both work and a chance to disagree with the funnel.
+    """
+    payload = payload or {}
+    if lead.converted_project_id:
+        existing = db.query(Project).filter(Project.id == lead.converted_project_id).first()
+        if existing:
+            return existing, False
+    if payload.get("create_project") is False:
+        return None, False
+
+    project = Project(
+        organisation_id=lead.organisation_id or user.organisation_id,
+        name=(payload.get("project_name") or lead.title or "").strip() or lead.title,
+        description=lead.notes,
+        party_id=party.id if party else None,
+        item_id=lead.item_id,
+        manager_id=lead.owner_id or user.id,
+        stage="Not started",
+        status="active",
+        one_time_amount=lead.estimated_value,
+        monthly_amount=lead.monthly_value,
+        currency=lead.currency or "INR",
+        next_action=lead.next_action,
+        next_action_date=lead.next_action_date,
+        next_action_owner_id=lead.next_action_owner_id,
+        created_by_id=user.id,
+        updated_by_id=user.id,
+    )
+    db.add(project)
+    db.flush()
+    return project, True
+
+
+def _adopt_lead_tasks(db, lead, party, project):
+    """Move a won lead's tasks onto the project it opened.
+
+    Work booked against a lead is the same work once the lead is a project —
+    "draft the SOW" does not stop existing because the deal closed. Without this
+    the tasks stay behind on a won lead and the new project opens empty, which is
+    how a delivery board ends up disagreeing with the funnel that fed it.
+
+    `lead_id` is deliberately left in place: it is the record of where the work
+    came from, and clearing it would lose the funnel history the lead exists for.
+    A task already pointed at some other project is never moved — an explicit
+    assignment outranks an inferred one.
+    """
+    if project is None:
+        return 0
+    moved = 0
+    for task in db.query(Task).filter(Task.lead_id == lead.id).all():
+        if task.project_id is None:
+            task.project_id = project.id
+            moved += 1
+        if task.party_id is None and party is not None:
+            task.party_id = party.id
+    return moved
+
+
+def sync_lead_outcome(db, lead, user, payload=None):
+    """Make the customer and the project agree with the lead's outcome.
+
+    The three states Meet runs the funnel on:
+
+      ``won``   the company is a customer, and the work it bought is a project
+      ``lost``  it stays a prospect, marked Inactive — the record of a company
+                we chased and did not land
+      ``open``  still in play: a prospect, still Active
+
+    Losing a lead never demotes a company that is already a customer for other
+    work, because one lost project is not the end of a relationship.
+
+    Returns a dict describing what it changed, for the caller to audit.
+    """
+    payload = payload or {}
+    result = {"party": None, "project": None, "party_created": False,
+              "project_created": False, "tasks_moved": 0}
+    status = (lead.status or "open").lower()
+
+    party, party_created = _party_for_lead(db, lead, user, payload)
+    if party is None:
+        return result
+
+    # A lead always knows who it is for once we can name them, whatever the
+    # outcome — that link is what stops one company appearing twice.
+    if lead.party_id != party.id:
+        lead.party_id = party.id
+    result["party"] = party
+    result["party_created"] = party_created
+
+    if status == "won":
+        if (party.kind or "").lower() in ("prospect", ""):
+            party.kind = "customer"
+        party.status = "Active"
+        lead.converted_party_id = party.id
+        lead.converted_at = lead.converted_at or datetime.utcnow()
+
+        project, project_created = _project_for_lead(db, lead, party, user, payload)
+        if project is not None:
+            lead.converted_project_id = project.id
+            result["project"] = project
+            result["project_created"] = project_created
+            result["tasks_moved"] = _adopt_lead_tasks(db, lead, party, project)
+
+    elif status == "lost":
+        # Only a company we never landed goes Inactive. A real customer who lost
+        # one bid is still a customer.
+        if (party.kind or "").lower() == "prospect" and not party.projects:
+            party.status = "Inactive"
+
+    else:  # open — still being worked
+        if (party.kind or "").lower() == "prospect":
+            party.status = "Active"
+
+    return result
+
+
+@router.post("/api/leads/{lead_id}/convert")
+def convert_lead(
+    lead_id: int,
+    request: Request,
+    payload: dict = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Turn a won lead into a customer, and open the project it bought.
+
+    The lead is kept and stamped, never deleted — the funnel history is the
+    reason the lead existed. Converting twice returns what already exists rather
+    than creating a second copy of it.
+
+    Pass ``create_project: false`` to convert the customer without opening a
+    project, or ``project_name`` to name it something other than the lead.
+    """
+    permissions.require(current_user, "leads", "update")
+    permissions.require(current_user, "customers", "create")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead %s not found" % lead_id)
+
+    payload = payload or {}
+    already = bool(lead.converted_party_id)
+
+    was_status = lead.status
     lead.status = "won"
+    outcome = sync_lead_outcome(db, lead, current_user, payload)
+    party = outcome["party"]
+    if party is None:
+        raise HTTPException(status_code=400, detail="Lead has no company name — pass display_name")
+
     lead.updated_by_id = current_user.id
     db.commit()
     db.refresh(party)
@@ -892,23 +1053,40 @@ def convert_lead(
     audit.record(
         db, action="convert", entity_type="leads", entity_id=lead.id, entity_label=lead.title,
         actor=current_user, request=request,
-        changes={"converted_party_id": {"from": None, "to": party.id}, "status": {"from": "open", "to": "won"}},
+        changes={
+            "converted_party_id": {"from": None if not already else party.id, "to": party.id},
+            "converted_project_id": {"from": None, "to": lead.converted_project_id},
+            "status": {"from": was_status, "to": "won"},
+        },
         organisation_id=lead.organisation_id,
     )
-    audit.record(
-        db, action="create", entity_type="parties", entity_id=party.id, entity_label=party.display_name,
-        actor=current_user, request=request,
-        changes={"converted_from_lead": {"from": None, "to": lead.id}},
-        organisation_id=party.organisation_id, commit=True,
-    )
+    if outcome["party_created"]:
+        audit.record(
+            db, action="create", entity_type="parties", entity_id=party.id, entity_label=party.display_name,
+            actor=current_user, request=request,
+            changes={"converted_from_lead": {"from": None, "to": lead.id}},
+            organisation_id=party.organisation_id,
+        )
+    if outcome["project_created"] and outcome["project"] is not None:
+        audit.record(
+            db, action="create", entity_type="projects", entity_id=outcome["project"].id,
+            entity_label=outcome["project"].name, actor=current_user, request=request,
+            changes={"opened_from_lead": {"from": None, "to": lead.id}},
+            organisation_id=party.organisation_id,
+        )
+    db.commit()
 
     ent = registry.BY_KEY["customers"]
-    return {
-        "detail": "Lead converted",
-        "already_converted": False,
+    body = {
+        "detail": "Lead already converted" if already else "Lead converted",
+        "already_converted": already,
         "lead_id": lead.id,
         "customer": serialize(party, ent, _resolve_refs(db, ent, [party])),
     }
+    if outcome["project"] is not None:
+        pent = registry.BY_KEY["projects"]
+        body["project"] = serialize(outcome["project"], pent, _resolve_refs(db, pent, [outcome["project"]]))
+    return body
 
 
 # ── self-documentation ──────────────────────────────────────────────────────

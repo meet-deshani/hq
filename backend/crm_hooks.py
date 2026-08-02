@@ -95,6 +95,27 @@ def on_ticket_write(db, obj, ent, action, user):
     stamp_ticket_sla(db, obj, ent, action, user)
 
 
+def on_lead_write(db, obj, ent, action, user):
+    """Keep the customer, the project and the tasks in step with the lead.
+
+    Marking a lead won is the whole decision — it should not also require
+    remembering to press Convert, then to open a project, then to move the tasks
+    across. Any write that leaves the lead won does all four, and a lead saved
+    against an existing customer links to them instead of minting a second copy
+    of a company already in the book.
+
+    Delegates to `crud.sync_lead_outcome`, which is written to be total and
+    idempotent, because `_run_hook` swallows what this raises: a conversion that
+    could half-fail would leave a lead marked won with no customer and say
+    nothing about it. Imported here rather than at module scope — crud imports
+    this module, and the cycle is real.
+    """
+    from backend.crud import sync_lead_outcome
+
+    sync_lead_outcome(db, obj, user)
+
+
 HOOKS = {
     "tickets": on_ticket_write,
+    "leads": on_lead_write,
 }

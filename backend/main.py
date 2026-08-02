@@ -48,6 +48,13 @@ logger = logging.getLogger("main_app")
 # Create database tables (no-op if they already exist)
 Base.metadata.create_all(bind=engine)
 
+# ...and add columns to the tables it skipped. create_all only ever creates a
+# whole missing table, so a new column on an existing one reaches a fresh
+# developer database and never reaches production. See backend/schema_sync.py.
+from backend import schema_sync  # noqa: E402
+
+schema_sync.sync(engine, Base)
+
 app = FastAPI(
     title="Z9S-AI HQ Portal API",
     description="Backend API endpoints for managing the HQ workspace, Config (Users & Roles), and User accounts",

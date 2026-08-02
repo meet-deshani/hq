@@ -129,6 +129,7 @@ entity(
     key_facts=["owner_id", "outstanding_amount", "party_group_id", "credit_limit", "credit_days", "industry"],
     relations=[
         {"key": "contacts", "label": "Contacts", "entity": "contacts", "fk": "party_id"},
+        {"key": "leads", "label": "Leads", "entity": "leads", "fk": "party_id"},
         {"key": "projects", "label": "Projects", "entity": "projects", "fk": "party_id"},
         {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "party_id"},
         {"key": "work_streams", "label": "Work streams", "entity": "work-streams", "fk": "party_id"},
@@ -236,7 +237,7 @@ entity(
     title_field="title",
     columns=[
         {"k": "title", "label": "Lead", "type": "text", "width": "2.2fr", "primary": True},
-        {"k": "company_name", "label": "Company", "type": "text", "width": "1.6fr"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "width": "1.6fr"},
         {"k": "stage_id", "label": "Stage", "type": "ref", "ref": "pipeline-stages", "width": "1.2fr"},
         {"k": "estimated_value", "label": "One-time", "type": "money", "width": "1.1fr", "align": "right"},
         {"k": "monthly_value", "label": "Monthly", "type": "money", "width": "1fr", "align": "right"},
@@ -246,7 +247,14 @@ entity(
     ],
     fields=[
         {"k": "title", "label": "Lead title", "type": "text", "required": True, "group": "Lead"},
-        {"k": "company_name", "label": "Company", "type": "text", "group": "Lead"},
+        {"k": "party_id", "label": "Customer", "type": "ref", "ref": "customers", "group": "Lead",
+         "hint": "Set this when the lead is for a company already in the book — a "
+                 "second project for an existing customer is still a lead. Leave "
+                 "empty for a company we do not know yet; winning it creates one."},
+        {"k": "company_name", "label": "Company", "type": "text", "group": "Lead",
+         "hint": "Only used when no customer is linked above."},
+        {"k": "item_id", "label": "Service", "type": "ref", "ref": "catalog-products", "group": "Lead",
+         "hint": "What this lead is for. Carried into the project when it is won."},
         {"k": "source_id", "label": "Source", "type": "ref", "ref": "lead-sources", "group": "Lead"},
         {"k": "pipeline_id", "label": "Pipeline", "type": "ref", "ref": "pipelines", "group": "Lead"},
         {"k": "stage_id", "label": "Stage", "type": "ref", "ref": "pipeline-stages", "group": "Lead"},
@@ -265,11 +273,21 @@ entity(
         {"k": "next_action_owner_id", "label": "Next action owner", "type": "ref", "ref": "users", "group": "Next move"},
 
         {"k": "status", "label": "Status", "type": "select", "options": ["open", "won", "lost"],
-         "default": "open", "group": "Outcome", "readonly_hint": "Use Convert to mark a lead won."},
+         "default": "open", "group": "Outcome",
+         "hint": "Setting this to won converts the customer, opens the project and "
+                 "moves this lead's tasks onto it."},
         {"k": "lost_reason_id", "label": "Lost reason", "type": "ref", "ref": "lost-reasons", "group": "Outcome"},
+        # Left editable on purpose: pointing a lead at a project that already
+        # exists is exactly how an existing customer's second piece of work gets
+        # attached to the delivery it belongs to.
+        {"k": "converted_project_id", "label": "Project", "type": "ref", "ref": "projects",
+         "group": "Outcome",
+         "hint": "Opened automatically when this lead is won. Point it at an "
+                 "existing project to attach the lead to work already running."},
         {"k": "notes", "label": "Notes", "type": "textarea", "group": "Outcome"},
     ],
-    key_facts=["stage_id", "owner_id", "estimated_value", "monthly_value", "expected_close_date", "source_id"],
+    key_facts=["party_id", "stage_id", "owner_id", "estimated_value", "monthly_value",
+               "expected_close_date", "source_id"],
     relations=[
         {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "lead_id"},
     ],
@@ -488,6 +506,7 @@ entity(
         {"key": "milestones", "label": "Milestones", "entity": "milestones", "fk": "project_id"},
         {"key": "tasks", "label": "Tasks", "entity": "tasks", "fk": "project_id"},
         {"key": "members", "label": "Team", "entity": "project-members", "fk": "project_id"},
+        {"key": "leads", "label": "Won from", "entity": "leads", "fk": "converted_project_id"},
     ],
     saved_views=[
         {"name": "Ongoing", "filters": {"status": "active"}},
