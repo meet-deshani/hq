@@ -154,17 +154,25 @@ def send_email(to, subject, body, reply_to=None):
     except ValueError:
         data = {}
 
-    if response.status_code in (401, 403):
+    if response.status_code == 401:
         raise EmailError(
             "Resend rejected HQ's API key. Check RESEND_API_KEY is current and "
             "has send permission."
         )
-    if response.status_code == 422:
-        # Nearly always an unverified sending domain, and the raw message says
-        # so much better than anything invented here.
+    if response.status_code == 403:
+        # NOT a key problem, and saying it was sent an operator hunting a
+        # perfectly good key for an afternoon. 403 is authorisation of the
+        # *message*, overwhelmingly an unverified sending domain, and Resend's
+        # own wording names the fix better than anything invented here.
         raise EmailError(
-            "Resend refused the message: %s (is %s on a domain verified in "
-            "Resend?)" % (data.get("message") or "unprocessable", config["from"])
+            "Resend refused the message: %s"
+            % (data.get("message")
+               or "%s is not allowed as a sender." % config["from"])
+        )
+    if response.status_code == 422:
+        raise EmailError(
+            "Resend could not process the message: %s"
+            % (data.get("message") or "unprocessable")
         )
     if response.status_code == 429:
         raise EmailError("Resend is rate-limiting HQ. The message was not sent — try again shortly.")
@@ -221,11 +229,23 @@ def status():
                 timeout=_TIMEOUT,
             )
             if probe.status_code == 422:
-                out["state"] = "connected"
+                # Auth is confirmed and delivery is NOT. Resend validates the
+                # recipient before the sending domain, so a probe that names
+                # nobody can never reach the domain check — and a send-only key
+                # cannot list domains either. There is genuinely no way to know
+                # from here without sending a real message to a real person.
+                #
+                # So this reports "unverified", not "connected". A green light on
+                # an integration that 403s every send is the same lie as a red
+                # one on a working key, just in the other direction.
+                out["state"] = "unverified"
                 out["detail"] = (
-                    "Send-only API key — HQ can send, but cannot check that %s is "
-                    "a verified domain from here. If mail is refused, verify the "
-                    "domain in Resend." % (config["from"] or "").split("@")[-1]
+                    "Send-only API key: it authenticates, but HQ cannot check "
+                    "from here whether %s is a verified sending domain in this "
+                    "Resend account — and every send fails with a 403 until it "
+                    "is. Verify it at https://resend.com/domains, or send the "
+                    "first message and read what comes back."
+                    % (config["from"] or "").split("@")[-1]
                 )
             else:
                 out["state"] = "error"
