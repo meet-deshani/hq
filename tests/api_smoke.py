@@ -597,11 +597,32 @@ def run(base, email, password):
     check("the lead contact is carried across", contacts["total"] == 1
           and contacts["rows"][0]["name"] == "A Person", str(contacts)[:200])
 
-    # A conversion that would collide with an existing customer must not
-    # silently merge into it.
+    # A second lead for a company already in the book LINKS to it.
+    #
+    # This check used to assert 409, on the reasoning that conversion "must not
+    # silently merge" two customers. The contract changed deliberately: a second
+    # project for an existing customer is still a lead, and refusing it is what
+    # put the same company in the book twice.
+    #
+    # It is not a silent merge of two distinct companies, because it cannot be —
+    # `uq_parties_org_name` makes display_name unique per organisation, so two
+    # different customers can never share one name. A name match therefore *is*
+    # the same company, and linking to it is the only correct answer.
     _, lead2 = api.call("POST", "/api/leads", {"title": "Dup lead", "company_name": "Smoke Lead Co"}, expect=200)
-    st, _ = api.call("POST", "/api/leads/%s/convert" % lead2["id"], {})
-    check("a colliding conversion is refused with 409", st == 409, "got %s" % st)
+    st, conv3 = api.call("POST", "/api/leads/%s/convert" % lead2["id"], {}, expect=200)
+    check("a second lead for a known company links to it, not a duplicate",
+          st == 200 and conv3["customer"]["id"] == new_party_id,
+          "got %s / customer=%s want %s" % (st, conv3.get("customer", {}).get("id"), new_party_id))
+
+    _, lead2_after = api.call("GET", "/api/leads/%s" % lead2["id"], expect=200)
+    check("the second lead is stamped with that same customer",
+          lead2_after["converted_party_id"] == new_party_id, str(lead2_after)[:200])
+    check("winning the second lead opened its own project",
+          bool(lead2_after["converted_project_id"]), str(lead2_after)[:200])
+
+    _, all_projects = api.call("GET", "/api/projects?party_id=%s" % new_party_id, expect=200)
+    check("one customer now carries two projects, one per lead",
+          all_projects["total"] == 2, "total=%s" % all_projects["total"])
 
     # ── audit trail ─────────────────────────────────────────────────────────
     section("Audit trail")
