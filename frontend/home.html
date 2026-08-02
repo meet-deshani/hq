@@ -1574,13 +1574,20 @@ const PRODUCT_WS_TABS = {
     // The registry stays the data contract — the API, the CLI and any agent
     // reading /api/meta/entities keep seeing Customers as a CRM entity. Only the
     // sidebar's grouping changed, and grouping is presentation.
+    // Ordered the way the business actually flows, on Meet's instruction:
+    // Dashboard, Leads, Customers, Projects, Work, Catalog. A lead becomes a
+    // customer, a customer has projects, a project is delivered as work; the
+    // catalogue is reference data the others point at, so it sits last rather
+    // than in the middle of the funnel.
+    //
+    // The sidebar renders modules in the order they FIRST appear here, so
+    // reordering means moving whole module blocks — a module's tabs must stay
+    // contiguous or it is drawn twice.
     HQ: [
       { tab: 'Dashboard', kind: 'dashboard', ws: 'HQ' },
+      { module: 'Leads', tab: 'Leads', kind: 'table', ws: 'CRM' },
       { module: 'Customers', tab: 'Customers', kind: 'table', ws: 'CRM' },
       { module: 'Customers', tab: 'People', kind: 'table', ws: 'CRM' },
-      { module: 'Leads', tab: 'Leads', kind: 'table', ws: 'CRM' },
-      { module: 'Catalog', tab: 'Services', kind: 'table', ws: 'CRM' },
-      { module: 'Catalog', tab: 'Products', kind: 'table', ws: 'CRM' },
       { module: 'Projects', tab: 'Projects', kind: 'table', ws: 'CRM' },
       { module: 'Projects', tab: 'Milestones', kind: 'table', ws: 'CRM' },
       { module: 'Projects', tab: 'Team', kind: 'table', ws: 'CRM' },
@@ -1589,7 +1596,9 @@ const PRODUCT_WS_TABS = {
       // same thing here, so the job type belongs to the task. `ws` stays
       // 'Tickets' because that is where the REGISTRY files this entity and it is
       // what the entity resolves against; only where it is SHOWN changed.
-      { module: 'Work', tab: 'Job types', kind: 'table', ws: 'Tickets' }
+      { module: 'Work', tab: 'Job types', kind: 'table', ws: 'Tickets' },
+      { module: 'Catalog', tab: 'Services', kind: 'table', ws: 'CRM' },
+      { module: 'Catalog', tab: 'Products', kind: 'table', ws: 'CRM' }
       // Helpdesk (Tickets / SLA policies), Inbox (Conversations / Channels),
       // Contracts (Contracts / Billing schedule), Invoices and Work streams were
       // removed from the sidebar on Meet's instruction.
