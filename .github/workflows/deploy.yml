@@ -70,9 +70,12 @@ jobs:
                        tests/zoho_client_test.py \
                        tests/zoho_sync_test.py \
                        tests/whatsapp_send_test.py \
+                       tests/email_send_test.py \
                        tests/comms_ingest_test.py \
                        tests/tabdesk_test.py \
-                       tests/permissions_matrix_test.py; do
+                       tests/permissions_matrix_test.py \
+                       tests/lead_web_test.py \
+                       tests/schema_sync_test.py; do
             echo "── $suite"
             python "$suite"
           done

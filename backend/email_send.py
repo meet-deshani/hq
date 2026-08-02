@@ -196,17 +196,41 @@ def status():
         out["detail"] = SETUP_HINT
         return out
     try:
-        # Listing domains is the cheapest authenticated call that proves both
-        # that the key works and that a sending domain exists. It sends nothing.
+        # Listing domains proves both that the key works and that the sending
+        # domain is verified. It sends nothing.
         response = _SESSION.get(
             config["url"] + "/domains",
             headers={"Authorization": "Bearer %s" % config["key"]},
             timeout=_TIMEOUT,
         )
         if response.status_code in (401, 403):
-            out["state"] = "error"
-            out["detail"] = ("Resend rejected HQ's API key. Check RESEND_API_KEY is "
-                             "current and has send permission.")
+            # NOT necessarily a bad key. Resend issues "sending access" keys that
+            # can post an email and are refused everything else, including this
+            # call — and that is the correct key for HQ to hold. Treating the
+            # refusal as a dead integration would put a red light next to a key
+            # that works, which is the failure this whole module exists to avoid.
+            #
+            # So ask the one question a send-only key CAN answer: post an email
+            # with no recipient. Auth is checked before the body, so 422 means
+            # the key is good and 401 means it is not. Nothing can be delivered
+            # by a request that names nobody.
+            probe = _SESSION.post(
+                config["url"] + "/emails",
+                headers={"Authorization": "Bearer %s" % config["key"]},
+                json={},
+                timeout=_TIMEOUT,
+            )
+            if probe.status_code == 422:
+                out["state"] = "connected"
+                out["detail"] = (
+                    "Send-only API key — HQ can send, but cannot check that %s is "
+                    "a verified domain from here. If mail is refused, verify the "
+                    "domain in Resend." % (config["from"] or "").split("@")[-1]
+                )
+            else:
+                out["state"] = "error"
+                out["detail"] = ("Resend rejected HQ's API key. Check RESEND_API_KEY "
+                                 "is current and has send permission.")
             return out
         if not response.ok:
             out["state"] = "error"
