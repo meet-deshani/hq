@@ -1736,6 +1736,20 @@ def comms_status(current_user: User = Depends(get_current_user)):
     return {"whatsapp": whatsapp.status(), "email": email_send.status()}
 
 
+@app.get("/api/storage/status")
+def storage_status(current_user: User = Depends(get_current_user)):
+    """Whether HQ can put a file in Drive right now.
+
+    The UI asks before drawing an upload control, because an upload button on a
+    server that cannot store anything accepts a file and loses it — worse than
+    no button at all. Any authenticated user may ask: it describes the SERVER's
+    capability and returns no folder contents, no credentials and no file names.
+    """
+    from backend import drive
+
+    return drive.status()
+
+
 # ── ZOHO BOOKS ──
 # One-directional: HQ reads Zoho and mirrors it. There is deliberately no route
 # here that writes anything back — Zoho Books is where an invoice is raised.
@@ -2158,6 +2172,17 @@ API_CATALOG = [
                  "  -d '{\"subject\":\"Intro call\",\"duration_minutes\":25,\"outcome\":\"positive\"}'",
         "response": "{\n  \"id\": 7, \"detail\": \"Call logged\", \"activity_type\": \"call\",\n"
                     "  \"subject\": \"Intro call\", \"occurred_at\": \"...Z\"\n}",
+    },
+    {
+        "method": "GET", "path": "/api/storage/status", "auth": "Bearer / Cookie",
+        "summary": "Whether HQ can put a file in Google Drive right now. state is connected, "
+                   "error or not configured, and detail says what to do — including the one that "
+                   "catches everybody: a service account has no storage of its own, so the target "
+                   "folder must live in a SHARED DRIVE. Returns no folder contents and no "
+                   "credentials, only the server's capability.",
+        "usage": "curl __BASE__/api/storage/status -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"configured\": true, \"state\": \"connected\",\n"
+                    "  \"folder\": \"1AbC...\", \"detail\": \"Uploading into 'ZeroOne Files'.\"\n}",
     },
     {
         "method": "GET", "path": "/api/comms/status", "auth": "Bearer / Cookie",

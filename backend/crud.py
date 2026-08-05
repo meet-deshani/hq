@@ -22,7 +22,7 @@ forgotten on a new entity.
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -807,7 +807,23 @@ def add_attachment(
     if len(url) > 600:
         raise HTTPException(status_code=400, detail="That link is too long to store (600 characters max).")
 
-    filename = ((payload or {}).get("filename") or "").strip() or _link_kind(url)
+    filename = ((payload or {}).get("filename") or "").strip()
+    mime = (payload or {}).get("mime") or None
+    size = (payload or {}).get("size")
+    if not filename:
+        # Ask Drive what the link actually is, when HQ has credentials and the
+        # file is one it can see. That turns "Google Sheet" into the sheet's
+        # real name. It returns None for every ordinary reason — not a Drive
+        # link, not shared with us, Drive unreachable — and the shape-derived
+        # label is the honest fallback rather than a failure.
+        from backend import drive
+
+        described = drive.describe(url)
+        if described and described.get("filename"):
+            filename = described["filename"]
+            mime = mime or described.get("mime")
+            size = size if size is not None else described.get("size")
+    filename = filename or _link_kind(url)
 
     row = Attachment(
         # Taken from the record, falling back to the caller — the same order
@@ -818,8 +834,8 @@ def add_attachment(
         entity_id=row_id,
         filename=filename[:300],
         storage_url=url,
-        mime=((payload or {}).get("mime") or None),
-        size=(payload or {}).get("size"),
+        mime=mime,
+        size=size,
         created_by_id=current_user.id,
     )
     db.add(row)
@@ -830,6 +846,71 @@ def add_attachment(
         entity_label=registry.label_for(obj, ent),
         actor=current_user, request=request,
         changes={"attachment": {"from": None, "to": filename}},
+        organisation_id=row.organisation_id, commit=True,
+    )
+    return {
+        "id": row.id, "filename": row.filename, "url": row.storage_url,
+        "kind": _link_kind(row.storage_url), "mime": row.mime, "size": row.size,
+        "created_at": _iso(row.created_at), "created_by_id": row.created_by_id,
+    }
+
+
+@router.post("/api/{key}/{row_id}/attachments/upload")
+async def upload_attachment(
+    key: str,
+    row_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a file to Drive and attach the link to this record.
+
+    The bytes go straight from the browser to Google and are never written to
+    HQ's filesystem, which does not survive a deploy. What HQ keeps is what it
+    has always kept: a link.
+
+    Refused with a 400 that names the fix when Drive is not configured — an
+    upload button that accepts a file and silently loses it is worse than one
+    that says it cannot take it yet.
+    """
+    from backend import drive
+
+    ent = _get_entity(key)
+    permissions.require(current_user, key, "update")
+    obj = _get_row(db, ent, row_id)
+
+    if not drive.is_configured():
+        raise HTTPException(status_code=400, detail=(
+            "Uploading is not configured on this server, so the file was not "
+            "stored. Paste a link instead, or " + drive.SETUP_HINT[0].lower()
+            + drive.SETUP_HINT[1:]))
+
+    content = await file.read()
+    try:
+        stored = drive.upload(file.filename, content, file.content_type)
+    except drive.DriveError as exc:
+        # The reason is Google's or this module's, and both are written to be
+        # actionable. Passing it through beats replacing it with "upload failed".
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    row = Attachment(
+        organisation_id=getattr(obj, "organisation_id", None) or current_user.organisation_id,
+        entity_type=ent["entity_type"],
+        entity_id=row_id,
+        filename=(stored["filename"] or "Untitled")[:300],
+        storage_url=stored["url"],
+        mime=stored.get("mime"),
+        size=stored.get("size"),
+        created_by_id=current_user.id,
+    )
+    db.add(row)
+    db.commit()
+
+    audit.record(
+        db, action="attach", entity_type=ent["entity_type"], entity_id=row_id,
+        entity_label=registry.label_for(obj, ent), actor=current_user, request=request,
+        changes={"uploaded": {"from": None, "to": row.filename}},
         organisation_id=row.organisation_id, commit=True,
     )
     return {
@@ -1383,6 +1464,19 @@ def catalog_entries(base="__BASE__"):
                      "  -d '{\"url\":\"https://docs.google.com/document/d/abc/edit\",\"filename\":\"Scope\"}'"
                      % (base, path),
             "response": "{ \"id\": 3, \"filename\": \"Scope\", \"kind\": \"Google Doc\" }",
+        })
+        out.append({
+            "method": "POST", "path": path + "/{id}/attachments/upload", "auth": "Bearer / Cookie",
+            "summary": "Upload a file to Google Drive and attach the link to this %s. multipart/"
+                       "form-data, field `file`. The bytes go straight to Drive and are never "
+                       "written to HQ's filesystem, which does not survive a deploy. 400 with the "
+                       "setup instructions when Drive is not configured — an upload button that "
+                       "accepts a file and loses it is worse than one that says it cannot take it. "
+                       "Needs `%s:update`." % (label.lower(), key),
+            "usage": "curl -X POST %s%s/1/attachments/upload \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                     "  -F 'file=@scope.pdf'" % (base, path),
+            "response": "{ \"id\": 4, \"filename\": \"scope.pdf\", \"kind\": \"Drive file\","
+                        " \"url\": \"https://drive.google.com/file/d/.../view\" }",
         })
         out.append({
             "method": "DELETE", "path": path + "/{id}/attachments/{attachment_id}", "auth": "Bearer / Cookie",
