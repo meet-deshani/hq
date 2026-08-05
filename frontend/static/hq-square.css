@@ -1,0 +1,107 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   HQ · squared edges and bifurcated sections
+   ══════════════════════════════════════════════════════════════════════════
+
+   Two instructions from Meet, one layer.
+
+   1. NOTHING IS ROUNDED. Every corner in the app is square.
+
+   2. SECTIONS ARE VISIBLY SEPARATE. A record page used to be six identical
+      white cards in a column — you had to read a heading to know which one you
+      were in. Each section now carries its own colour, so the page is legible
+      as shapes before it is read as text.
+
+   ── why a stylesheet and not 210 edits ────────────────────────────────────
+
+   The components style everything inline: 210 `border-radius` declarations
+   across home.html, the .dc.html components and login.html. Editing each one
+   is 210 chances to miss one, and the next component anybody writes brings its
+   own rounded corners back.
+
+   An inline style beats a stylesheet rule, so this layer uses `!important` —
+   the same instrument, and for the same reason, as the mobile grid rule in
+   hq-responsive.css. One rule holds the whole app to the decision, including
+   code not yet written.
+
+   Loaded AFTER hq-responsive.css so the two never argue: that file decides
+   layout, this one decides shape and colour, and they touch different
+   properties.                                                              */
+
+/* ── 1 · square everything ────────────────────────────────────────────────
+   `*` deliberately. A pill badge (border-radius:999px), an avatar circle, a
+   modal, an input, a button — the instruction was "no rounded things", and a
+   selector list would only be a list of the ones we remembered.
+
+   ::before/::after are included because decorative dots are drawn that way.  */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* The one deliberate exception: a status dot is a DOT. Squaring a 6px dot
+   makes it read as a stray pixel rather than a state, and it is not a "rounded
+   thing" in the sense meant — it is punctuation. Opt in explicitly, never by
+   accident, and only at this size. */
+.hq-dot,
+[data-hq-dot] {
+  border-radius: 50% !important;
+}
+
+/* ── 2 · bifurcated sections ──────────────────────────────────────────────
+   Each section of a record page gets a colour from the ZeroOne palette —
+   lavender, mint, peach, sky — carried on a heavy left edge and a tinted
+   header. The card body stays white so the DATA is never tinted; only the
+   chrome is. Reading a phone number against a coloured wash is worse than not
+   colouring at all.
+
+   The left edge does the work at a glance; the header tint confirms it. Both
+   are needed: on a narrow screen the edges of two stacked cards nearly touch,
+   and the tint is what still separates them.                                */
+
+.hq-section {
+  border: 1px solid #E4E2DB !important;
+  border-left-width: 4px !important;
+  background: #fff !important;
+}
+
+.hq-section > .hq-section-head {
+  border-bottom: 1px solid #EEEDE8 !important;
+  padding: 12px 20px !important;
+  margin: 0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 1.6px !important;
+  text-transform: uppercase !important;
+  color: #3A3A44 !important;
+}
+
+/* Identity, and the record's own facts. Sky. */
+.hq-section--basics            { border-left-color: #A2D2FF !important; }
+.hq-section--basics  > .hq-section-head { background: rgba(162,210,255,.20) !important; }
+
+/* Things attached to the record — files. Peach. */
+.hq-section--files             { border-left-color: #FFCDB2 !important; }
+.hq-section--files   > .hq-section-head { background: rgba(255,205,178,.24) !important; }
+
+/* What people said. Mint. */
+.hq-section--remarks           { border-left-color: #B8E0D2 !important; }
+.hq-section--remarks > .hq-section-head { background: rgba(184,224,210,.26) !important; }
+
+/* Other records that hang off this one. Lavender. */
+.hq-section--related           { border-left-color: #C8B6FF !important; }
+.hq-section--related > .hq-section-head { background: rgba(200,182,255,.20) !important; }
+
+/* The right rail: the numbers you came for, and the ledger of changes. */
+.hq-section--facts             { border-left-color: #A2D2FF !important; }
+.hq-section--facts   > .hq-section-head { background: rgba(162,210,255,.20) !important; }
+.hq-section--activity          { border-left-color: #FFB5C2 !important; }
+.hq-section--activity > .hq-section-head { background: rgba(255,181,194,.20) !important; }
+
+/* ── 3 · the seam between rows ────────────────────────────────────────────
+   With square corners and hard edges, the old hairline row rules read as noise
+   against the section border. Softened so the SECTION is the strongest line on
+   the page and the rows sit quietly inside it.                              */
+.hq-section .hq-row-sep {
+  border-bottom: 1px solid #F5F4F0 !important;
+}

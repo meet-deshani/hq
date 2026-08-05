@@ -185,6 +185,129 @@ def _platform(db, user):
     ]
 
 
+# ── the funnel ──────────────────────────────────────────────────────────────
+#
+# Six counters told you the size of the database, not the state of the business.
+# Half of them — Team, Roles, Workspaces — were platform plumbing on the page
+# somebody opens to decide what to do today. A number that never changes and
+# never prompts an action is decoration.
+#
+# What replaces them is the shape the business actually runs in, which is the
+# same shape the data model was rebuilt into earlier: a lead becomes a customer,
+# a customer has projects, a project is delivered as work. So the dashboard is
+# that pipeline, stage by stage, with the money at each stage and the drop
+# between them — and then, separately, the list of things that have stopped
+# moving. Those two answer "how are we doing" and "what do I do now", which are
+# the only two questions a dashboard is for.
+
+
+def _pct(part, whole):
+    return "—" if not whole else "%d%%" % round(100.0 * part / whole)
+
+
+def _funnel(db, user):
+    """Stage-by-stage, with what it is worth and what leaks."""
+    open_leads = _count(db, c.Lead, c.Lead.status == "open")
+    won_leads = _count(db, c.Lead, c.Lead.status == "won")
+    lost_leads = _count(db, c.Lead, c.Lead.status == "lost")
+    decided = won_leads + lost_leads
+
+    pipeline_value = _sum(db, c.Lead.estimated_value, c.Lead.status == "open")
+    won_value = _sum(db, c.Lead.estimated_value, c.Lead.status == "won")
+
+    prospects = _count(db, c.Party, c.Party.kind == "prospect")
+    customers = _count(db, c.Party, c.Party.kind.in_(["customer", "both"]))
+
+    active_projects = _count(db, c.Project, c.Project.status == "active")
+    done_projects = _count(db, c.Project, c.Project.status == "completed")
+    project_value = _sum(db, c.Project.one_time_amount, c.Project.status == "active")
+    monthly_value = _sum(db, c.Project.monthly_amount, c.Project.status == "active")
+
+    open_tasks = _count(db, c.Task, c.Task.status.in_(["open", "in_progress", "blocked"]))
+    blocked = _count(db, c.Task, c.Task.status == "blocked")
+
+    return [
+        {"stage": "Leads open", "count": open_leads, "value": _money(pipeline_value),
+         "note": "in play", "rate": "—", "accent": "#FFCDB2",
+         "entity": "leads", "filters": {"status": "open"}},
+        {"stage": "Won", "count": won_leads, "value": _money(won_value),
+         "note": "%d decided, %d lost" % (decided, lost_leads),
+         "rate": _pct(won_leads, decided), "accent": "#B8E0D2",
+         "entity": "leads", "filters": {"status": "won"}},
+        {"stage": "Prospects", "count": prospects, "value": "—",
+         "note": "not yet customers", "rate": "—", "accent": "#FFF3B0",
+         "entity": "customers", "filters": {"kind": "prospect"}},
+        {"stage": "Customers", "count": customers, "value": "—",
+         "note": "on the books", "rate": _pct(customers, customers + prospects),
+         "accent": "#A2D2FF", "entity": "customers", "filters": {"kind": "customer"}},
+        {"stage": "Projects running", "count": active_projects, "value": _money(project_value),
+         "note": "%s / month recurring" % _money(monthly_value),
+         "rate": "—", "accent": "#C8B6FF",
+         "entity": "projects", "filters": {"status": "active"}},
+        {"stage": "Delivered", "count": done_projects, "value": "—",
+         "note": "completed", "rate": _pct(done_projects, done_projects + active_projects),
+         "accent": "#B8E0D2", "entity": "projects", "filters": {"status": "completed"}},
+        {"stage": "Work open", "count": open_tasks, "value": "—",
+         "note": "%d blocked" % blocked, "rate": "—", "accent": "#FFB5C2",
+         "entity": "tasks", "filters": {"status": "open"}},
+    ]
+
+
+def _attention(db, user):
+    """What has stopped moving. Overdue first, because that is the order to fix it in.
+
+    Deliberately not a count — a tile saying "3 overdue" makes you go and find
+    which three. The rows ARE the answer, and each one carries the id needed to
+    open it.
+    """
+    from datetime import date
+
+    today = date.today()
+    out = []
+
+    for lead in (db.query(c.Lead)
+                 .filter(c.Lead.status == "open",
+                         c.Lead.next_action_date != None,  # noqa: E711
+                         c.Lead.next_action_date < today)
+                 .order_by(c.Lead.next_action_date.asc()).limit(8).all()):
+        out.append({
+            "what": lead.title, "kind": "Lead", "entity": "leads", "id": lead.id,
+            "due": lead.next_action_date.isoformat(),
+            "days": (today - lead.next_action_date).days,
+            "action": lead.next_action or "no next action set", "accent": "#FFCDB2",
+        })
+
+    for proj in (db.query(c.Project)
+                 .filter(c.Project.status == "active",
+                         c.Project.next_action_date != None,  # noqa: E711
+                         c.Project.next_action_date < today)
+                 .order_by(c.Project.next_action_date.asc()).limit(8).all()):
+        out.append({
+            "what": proj.name, "kind": "Project", "entity": "projects", "id": proj.id,
+            "due": proj.next_action_date.isoformat(),
+            "days": (today - proj.next_action_date).days,
+            "action": proj.next_action or "no next action set", "accent": "#C8B6FF",
+        })
+
+    for task in (db.query(c.Task)
+                 .filter(c.Task.status.in_(["open", "in_progress", "blocked"]),
+                         c.Task.due_date != None,  # noqa: E711
+                         c.Task.due_date < today)
+                 .order_by(c.Task.due_date.asc()).limit(8).all()):
+        out.append({
+            "what": task.title, "kind": "Task", "entity": "tasks", "id": task.id,
+            "due": task.due_date.isoformat(),
+            "days": (today - task.due_date).days,
+            "action": ("blocked" if task.status == "blocked" else task.status.replace("_", " ")),
+            "accent": "#FFB5C2",
+        })
+
+    # Most overdue first — the thing that has been waiting longest is the thing
+    # that has been ignored hardest.
+    out.sort(key=lambda r: -r["days"])
+    return out[:12]
+
+
 BUILDERS = {
     "crm": _crm,
     "work": _work,

@@ -380,8 +380,9 @@
         <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;width:100%">
           <!-- sections column -->
           <div style="flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:16px">
-            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:14px">Basic details</div>
+            <div class="hq-section hq-section--basics" style="box-sizing:border-box">
+              <div class="hq-section-head">Basic details</div>
+              <div style="padding:6px 22px 14px">
               <sc-for list="{{ detailBasics }}" as="b" hint-placeholder-count="5">
                 <div style="display:flex;align-items:flex-start;gap:16px;padding:9px 0;border-bottom:1px solid #F3F2EE">
                   <div style="flex:0 0 40%;font-family:'Satoshi',sans-serif;font-size:12.5px;color:#918D82">{{ b.l }}</div>
@@ -393,10 +394,11 @@
                   </div>
                 </div>
               </sc-for>
+              </div>
             </div>
 
             <sc-for list="{{ detailRelated }}" as="rel" hint-placeholder-count="2">
-              <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;overflow:hidden;box-sizing:border-box">
+              <div class="hq-section hq-section--related" style="overflow:hidden;box-sizing:border-box">
                 <div style="display:flex;align-items:center;gap:9px;padding:13px 20px;border-bottom:1px solid #EEEDE8;background:#F8F7F4">
                   <span style="width:6px;height:6px;border-radius:50%;background:{{ accent }}"></span>
                   <span style="flex:1;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4A4842">{{ rel.label }}</span>
@@ -419,8 +421,9 @@
                  that survives a deploy — so the card says what the link IS
                  (Google Doc, Drive folder) rather than pretending to know a
                  filename it never read. -->
-            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:6px">Files</div>
+            <div class="hq-section hq-section--files" style="box-sizing:border-box">
+              <div class="hq-section-head">Files</div>
+              <div style="padding:14px 22px 18px">
               <div style="font-family:'Satoshi',sans-serif;font-size:12px;color:#A7A399;margin-bottom:14px">Paste a Google Drive, Docs, Sheets or Slides link — or any URL — to file it here.</div>
               <sc-for list="{{ detailFiles }}" as="fl" hint-placeholder-count="2">
                 <div style="display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #F3F2EE">
@@ -443,11 +446,13 @@
                   <button sc-camel-on-click="{{ onFileSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px">{{ fileLabel }}</button>
                 </div>
               </sc-if>
+              </div>
             </div>
 
             <!-- append-only remark history -->
-            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;box-sizing:border-box">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:6px">Remarks</div>
+            <div class="hq-section hq-section--remarks" style="box-sizing:border-box">
+              <div class="hq-section-head">Remarks</div>
+              <div style="padding:14px 22px 18px">
               <div style="font-family:'Satoshi',sans-serif;font-size:12px;color:#A7A399;margin-bottom:14px">Append-only. A correction is a new remark — nothing is ever rewritten.</div>
               <sc-for list="{{ detailRemarks }}" as="rm" hint-placeholder-count="2">
                 <div style="padding:11px 0;border-bottom:1px solid #F3F2EE">
@@ -466,26 +471,30 @@
                 <input value="{{ remarkDraft }}" sc-camel-on-change="{{ onRemarkInput }}" placeholder="Add a remark…" style="flex:1;min-width:180px;box-sizing:border-box;padding:10px 14px;border-radius:11px;background:#FDFCFA;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;outline:none">
                 <button sc-camel-on-click="{{ onRemarkSubmit }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;border-radius:999px">{{ remarkLabel }}</button>
               </div>
+              </div>
             </div>
           </div>
 
           <!-- key facts rail -->
           <div style="flex:0 1 300px;min-width:min(280px,100%);display:flex;flex-direction:column;gap:16px">
-            <div style="background:#fff;border:1px solid #E8E6E0;border-left:3px solid {{ accent }};border-radius:16px;padding:18px 20px;box-sizing:border-box">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:13px">Key facts</div>
+            <div class="hq-section hq-section--facts" style="box-sizing:border-box">
+              <div class="hq-section-head">Key facts</div>
+              <div style="padding:10px 20px 14px">
               <sc-for list="{{ detailFacts }}" as="k" hint-placeholder-count="4">
                 <div style="padding:8px 0;border-bottom:1px solid #F3F2EE">
                   <div style="font-family:'Satoshi',sans-serif;font-size:11.5px;color:#918D82">{{ k.l }}</div>
                   <div style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;color:#191924;margin-top:3px;word-break:break-word">{{ k.v }}</div>
                 </div>
               </sc-for>
+              </div>
             </div>
 
-            <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:18px 20px;box-sizing:border-box">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82;margin-bottom:13px">Activity</div>
+            <div class="hq-section hq-section--activity" style="box-sizing:border-box">
+              <div class="hq-section-head">Activity</div>
+              <div style="padding:10px 20px 14px">
               <sc-for list="{{ detailAudit }}" as="a" hint-placeholder-count="4">
                 <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #F3F2EE">
-                  <span style="width:6px;height:6px;border-radius:50%;background:{{ a.dot }};margin-top:6px;flex:none"></span>
+                  <span class="hq-dot" style="width:6px;height:6px;background:{{ a.dot }};margin-top:6px;flex:none"></span>
                   <div style="flex:1;min-width:0">
                     <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#191924;word-break:break-word">{{ a.what }}</div>
                     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82;margin-top:2px">{{ a.who }}</div>
@@ -495,6 +504,7 @@
               <sc-if value="{{ noAudit }}">
                 <div style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#A7A399">No recorded changes.</div>
               </sc-if>
+              </div>
             </div>
           </div>
         </div>
@@ -503,15 +513,60 @@
 
     <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
       <div style="width:100%">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%">
-          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
-            <div style="background:#fff;border:1px solid #E8E6E0;border-left:3px solid {{ accent }};border-radius:16px;padding:18px 20px">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">{{ s.l }}</div>
-              <div style="font-family:'Chubbo','Georgia',serif;font-weight:800;font-size:34px;line-height:1;letter-spacing:-0.03em;margin-top:9px;color:#191924">{{ s.v }}</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#1a8a5a;margin-top:6px">{{ s.d }}</div>
+        <!-- The pipeline, stage by stage. A table rather than tiles because the
+             stages are a SEQUENCE — the number that matters is not any one of
+             them, it is what happens between two, and only rows in order show
+             that. -->
+        <sc-if value="{{ hasFunnel }}">
+          <div class="hq-section hq-section--basics" style="width:100%;box-sizing:border-box;margin-bottom:16px">
+            <div class="hq-section-head">Funnel · lead to delivered</div>
+            <div class="hq-datagrid" style="width:100%">
+              <div style="display:grid;grid-template-columns:2fr 0.8fr 1.2fr 0.8fr 2fr;padding:9px 20px;border-bottom:1px solid #EEEDE8;background:#FBFAF7">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82">Stage</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;text-align:right">Count</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;text-align:right">Value</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;text-align:right">Rate</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#918D82;padding-left:14px">Detail</span>
+              </div>
+              <sc-for list="{{ funnelRows }}" as="fr" hint-placeholder-count="5">
+                <div sc-camel-on-click="{{ fr.onOpen }}" style="display:grid;grid-template-columns:2fr 0.8fr 1.2fr 0.8fr 2fr;align-items:center;padding:12px 20px;border-bottom:1px solid #F5F4F0;cursor:pointer">
+                  <span style="display:flex;align-items:center;gap:10px;min-width:0">
+                    <span style="flex:0 0 auto;width:4px;height:20px;background:{{ fr.accent }}"></span>
+                    <span style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ fr.stage }}</span>
+                  </span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#191924;text-align:right;font-variant-numeric:tabular-nums">{{ fr.count }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#3A3A44;text-align:right;font-variant-numeric:tabular-nums">{{ fr.value }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#6E6B62;text-align:right">{{ fr.rate }}</span>
+                  <span style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#918D82;padding-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ fr.note }}</span>
+                </div>
+              </sc-for>
             </div>
-          </sc-for>
-        </div>
+          </div>
+        </sc-if>
+
+        <!-- What has stopped moving. A LIST, not a count: "3 overdue" only
+             tells you to go and find which three. -->
+        <sc-if value="{{ hasAttention }}">
+          <div class="hq-section hq-section--activity" style="width:100%;box-sizing:border-box;margin-bottom:16px">
+            <div class="hq-section-head">Needs attention · {{ attentionCount }} overdue</div>
+            <div class="hq-datagrid" style="width:100%">
+              <sc-for list="{{ attentionRows }}" as="ar" hint-placeholder-count="3">
+                <div sc-camel-on-click="{{ ar.onOpen }}" style="display:grid;grid-template-columns:0.7fr 2.4fr 2fr 0.9fr;align-items:center;padding:11px 20px;border-bottom:1px solid #F5F4F0;cursor:pointer">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:#4A4842;background:{{ ar.tint }};padding:3px 8px;justify-self:start">{{ ar.kind }}</span>
+                  <span style="font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:12px">{{ ar.what }}</span>
+                  <span style="font-family:'Satoshi',sans-serif;font-size:12.5px;color:#6E6B62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:12px">{{ ar.action }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#a3324c;text-align:right">{{ ar.late }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ nothingOverdue }}">
+          <div class="hq-section hq-section--remarks" style="width:100%;box-sizing:border-box;margin-bottom:16px">
+            <div class="hq-section-head">Needs attention</div>
+            <div style="padding:16px 20px;font-family:'Satoshi',sans-serif;font-size:13px;color:#6E6B62">Nothing is overdue.</div>
+          </div>
+        </sc-if>
         <div style="background:#fff;border:1px solid #E8E6E0;border-radius:16px;padding:20px 22px;margin-top:16px;width:100%;box-sizing:border-box">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#918D82">Trend · {{ trendLabel }}, last 6 months</div>
           <div style="height:150px;margin-top:12px;background:linear-gradient(180deg,{{ accentSoft }},transparent);border-radius:12px;overflow:hidden;width:100%">
@@ -851,6 +906,8 @@ class Component extends DCLogic {
     fileErr: '',
     remarkBusy: false,
     stats: [],
+    funnel: [],
+    attention: [],
     trendPath: 'M0,140 L600,140',
     apis: [],
     cmds: [],
@@ -1091,8 +1148,14 @@ class Component extends DCLogic {
       fetch('/api/dashboard/stats?workspace=' + encodeURIComponent(ws))
         .then(r => { if(!this._authed(r)) return { stats: [] }; return r.json(); }),
       fetch('/api/dashboard/trend?workspace=' + encodeURIComponent(ws))
-        .then(r => r.ok ? r.json() : { points: [] }).catch(() => ({ points: [] }))
-    ]).then(([s, t]) => {
+        .then(r => r.ok ? r.json() : { points: [] }).catch(() => ({ points: [] })),
+      // The funnel is the same for every workspace — it is the business, not a
+      // view of it. A 403 (a role that cannot read leads) degrades to no
+      // funnel rather than an error: the rest of the page is still useful.
+      fetch('/api/dashboard/funnel')
+        .then(r => r.ok ? r.json() : { funnel: [], attention: [] })
+        .catch(() => ({ funnel: [], attention: [] }))
+    ]).then(([s, t, f]) => {
       const pts = (t && t.points) || [];
       const max = Math.max(1, ...pts.map(p => p.value));
       const n = Math.max(1, pts.length - 1);
@@ -1102,7 +1165,10 @@ class Component extends DCLogic {
         return (i === 0 ? 'M' : 'L') + x + ',' + y;
       }).join(' ') : 'M0,140 L600,140';
       this.setState({ stats: s.stats || [], trendPath: path,
-                      trendLabel: (t && t.label) || 'Records', loading: false });
+                      trendLabel: (t && t.label) || 'Records',
+                      funnel: (f && f.funnel) || [],
+                      attention: (f && f.attention) || [],
+                      loading: false });
     }).catch(e => { console.error('dashboard failed', e); this.setState({ loading: false }); });
   }
 
@@ -1142,6 +1208,39 @@ class Component extends DCLogic {
   }
 
   // ── remarks ───────────────────────────────────────────────────────────────
+  // ── dashboard funnel ──────────────────────────────────────────────────────
+  _funnelVals(){
+    const TINT = { Lead:'rgba(255,205,178,.45)', Project:'rgba(200,182,255,.35)',
+                   Task:'rgba(255,181,194,.35)' };
+    const go = (entity, id) => {
+      // The workspace segment the router expects for a CRM entity under HQ.
+      const base = '/z9s-ai/hq/hq/';
+      const seg = { leads:'hq/leads', customers:'customers/customers',
+                    projects:'projects/projects', tasks:'work/tasks' }[entity];
+      if(!seg) return;
+      window.location.href = base + seg + (id ? ('?id=' + id) : '');
+    };
+    const funnel = (this.state.funnel || []).map(r => ({
+      stage: r.stage, count: String(r.count), value: r.value || '—',
+      rate: r.rate || '—', note: r.note || '', accent: r.accent || '#E8E6E0',
+      onOpen: () => go(r.entity, null),
+    }));
+    const attention = (this.state.attention || []).map(r => ({
+      kind: r.kind, what: r.what, action: r.action || '',
+      late: r.days + 'd late', tint: TINT[r.kind] || 'rgba(232,230,224,.7)',
+      onOpen: () => go(r.entity, r.id),
+    }));
+    return {
+      funnelRows: funnel, hasFunnel: funnel.length > 0,
+      attentionRows: attention, hasAttention: attention.length > 0,
+      attentionCount: String(attention.length),
+      // Only claim "nothing overdue" once the funnel has actually answered —
+      // before that we do not know, and an empty page that says "all clear" is
+      // a lie told during loading.
+      nothingOverdue: funnel.length > 0 && attention.length === 0,
+    };
+  }
+
   // ── files ─────────────────────────────────────────────────────────────────
   _fileVals(ent, detail){
     const list = (detail && detail._attachments) || [];
@@ -1982,6 +2081,7 @@ class Component extends DCLogic {
       isDashboard: kind === 'dashboard', isReport: kind === 'report', isDesign: kind === 'design',
       isApi: kind === 'api', isCli: kind === 'cli',
       fields: [], columns, rows, gridCols, gridColsX, tableCount,
+      ...this._funnelVals(),
       stats: this.state.stats || [], trendPath: this.state.trendPath,
       trendLabel: this.state.trendLabel || 'Records', reportLines: [],
       views, searchValue: this.state.search,

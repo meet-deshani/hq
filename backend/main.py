@@ -1070,6 +1070,25 @@ def dashboard_trend(
     return dashboards.trend_for(db, workspace)
 
 
+@app.get("/api/dashboard/funnel")
+def dashboard_funnel(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The business as a pipeline, plus what has stopped moving in it.
+
+    Two tables rather than six counters. `funnel` is stage by stage with the
+    money at each and the drop between them; `attention` is the rows that are
+    overdue, most overdue first — a list, not a count, because "3 overdue" only
+    tells you to go and find which three.
+    """
+    permissions.require(current_user, "leads", "read")
+    return {
+        "funnel": dashboards._funnel(db, current_user),
+        "attention": dashboards._attention(db, current_user),
+    }
+
+
 # Feedback
 @app.post("/api/feedback", response_model=FeedbackResponse)
 def create_feedback(
@@ -2008,6 +2027,20 @@ API_CATALOG = [
         "response": "{\n  \"results\": [\n    { \"type\": \"User\", \"label\": \"Meet Deshani\", \"sub\": \"meet@dotsai.in\" }\n  ]\n}",
     },
     {
+        "method": "GET", "path": "/api/dashboard/funnel", "auth": "Bearer / Cookie",
+        "summary": "The business as a pipeline, plus what has stopped moving in it. `funnel` is "
+                   "stage by stage — leads open, won, prospects, customers, projects running, "
+                   "delivered, work open — each with its count, its money and the conversion into "
+                   "it. `attention` is every overdue lead, project and task, most overdue first: a "
+                   "list rather than a count, because \"3 overdue\" only tells you to go and find "
+                   "which three. Needs leads:read.",
+        "usage": "curl __BASE__/api/dashboard/funnel \\\n  -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"funnel\": [ { \"stage\": \"Leads open\", \"count\": 4,\n"
+                    "    \"value\": \"\u20b92.50L\", \"rate\": \"\u2014\" } ],\n"
+                    "  \"attention\": [ { \"kind\": \"Project\", \"what\": \"...\",\n"
+                    "    \"days\": 11, \"entity\": \"projects\", \"id\": 3 } ]\n}",
+    },
+    {
         "method": "GET", "path": "/api/dashboard/trend", "auth": "Bearer / Cookie",
         "summary": "Cumulative record growth over the last 6 months, derived from created_at.",
         "usage": "curl __BASE__/api/dashboard/trend \\\n  -H \"Authorization: Bearer $TOKEN\"",
@@ -2627,7 +2660,7 @@ def render_shell(path):
     with open(path, "r", encoding="utf-8") as handle:
         html = handle.read()
     for name in ("PortalPage.dc.html", "TabDeskPage.dc.html", "PermissionsPage.dc.html",
-                 "hq-responsive.css", "hq-responsive.js"):
+                 "hq-responsive.css", "hq-responsive.js", "hq-square.css"):
         html = html.replace('"/static/%s"' % name, '"%s"' % asset_url(name))
     return html
 
