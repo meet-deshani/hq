@@ -262,15 +262,35 @@
       <div sc-camel-on-click="{{ onReachClose }}" style="position:fixed;inset:0;background:rgba(25,25,36,.34);z-index:90"></div>
       <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:91;width:min(560px,92vw);max-height:88vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 26px 70px rgba(25,25,36,.28);padding:24px 26px;box-sizing:border-box">
         <div style="font-family:'Instrument Serif',serif;font-size:24px;color:#191924;margin-bottom:4px">{{ reachTitle }}</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#918D82;margin-bottom:16px">to {{ reachTo }}</div>
-        <!-- An <input>, not a <textarea>: every other field in this component
-             is one, and the dc runtime is only proven against that. -->
-        <input value="{{ reachBody }}" sc-camel-on-change="{{ onReachBody }}" placeholder="Type your message…" style="width:100%;box-sizing:border-box;padding:13px 15px;border-radius:12px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+        <sc-if value="{{ reachNeeding }}">
+          <div style="font-family:'Satoshi',sans-serif;font-size:13px;line-height:1.5;color:#6E6B62;margin-bottom:12px">{{ reachNeedLabel }} Add it here and HQ will carry on.</div>
+          <input value="{{ reachNewValue }}" sc-camel-on-change="{{ onReachNewValue }}" placeholder="{{ reachNeedPlaceholder }}" style="width:100%;box-sizing:border-box;padding:13px 15px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+        </sc-if>
+        <sc-if value="{{ reachPicking }}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#918D82;margin-bottom:14px">Where should this go?</div>
+          <sc-for list="{{ reachChoiceRows }}" as="c" hint-placeholder-count="2">
+            <button sc-camel-on-click="{{ c.onPick }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1.5px solid #E8E6E0;cursor:pointer;background:#fff;padding:11px 14px;margin-bottom:8px">
+              <span style="flex:1;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;color:#191924">{{ c.label }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#918D82">{{ c.hint }}</span>
+            </button>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ reachComposing }}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#918D82;margin-bottom:16px">to {{ reachTo }}</div>
+          <!-- An <input>, not a <textarea>: every other field in this component
+               is one, and the dc runtime is only proven against that. -->
+          <input value="{{ reachBody }}" sc-camel-on-change="{{ onReachBody }}" placeholder="Type your message…" style="width:100%;box-sizing:border-box;padding:13px 15px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
+        </sc-if>
         <sc-if value="{{ hasReachErr }}">
-          <div style="margin-top:12px;font-family:'Satoshi',sans-serif;font-size:12.5px;line-height:1.45;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);border-radius:9px;padding:9px 12px">{{ reachErr }}</div>
+          <div style="margin-top:12px;font-family:'Satoshi',sans-serif;font-size:12.5px;line-height:1.45;color:#a3324c;background:rgba(255,181,194,.2);border:1px solid rgba(255,181,194,.5);padding:9px 12px">{{ reachErr }}</div>
         </sc-if>
         <div style="display:flex;gap:10px;margin-top:18px">
-          <button sc-camel-on-click="{{ onReachSend }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px">{{ reachSendLabel }}</button>
+          <sc-if value="{{ reachComposing }}">
+            <button sc-camel-on-click="{{ onReachSend }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px">{{ reachSendLabel }}</button>
+          </sc-if>
+          <sc-if value="{{ reachNeeding }}">
+            <button sc-camel-on-click="{{ onReachSaveContact }}" style="border:none;cursor:pointer;background:#191924;color:#fff;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:600;padding:11px 20px">{{ reachSaveLabel }}</button>
+          </sc-if>
           <button sc-camel-on-click="{{ onReachClose }}" style="border:1.5px solid #E8E6E0;cursor:pointer;background:transparent;color:#4A4842;font-family:'Satoshi',sans-serif;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:999px">Cancel</button>
         </div>
       </div>
@@ -988,6 +1008,9 @@ class Component extends DCLogic {
     reachChannel: 'whatsapp',
     reachDetail: null,
     reachConvo: null,
+    reachChoices: [],
+    reachNeeds: null,
+    reachNewValue: '',
     reachBody: '',
     reachErr: '',
     reachBusy: false,
@@ -1637,22 +1660,27 @@ class Component extends DCLogic {
     const isCustomer = !!(ent && ent.key === 'customers' && detail && detail.id);
     const phone = isCustomer ? this._reachPhone(detail) : '';
     const email = isCustomer ? String((detail && detail.email) || '').trim() : '';
-    const off = { cursor:'not-allowed', color:'#B4B0A6', opacity:'.55' };
-    const on  = { cursor:'pointer',     color:'#4A4842', opacity:'1' };
-    const p = phone ? on : off, e = email ? on : off;
+    // Always clickable, even with nothing on file. 16 of 18 customers here have
+    // no phone, so a greyed button was the normal case rather than the
+    // exception — it read as broken, and the explanation was hidden behind a
+    // hover nobody would think to try. A missing number is now something the
+    // dialog helps you FIX rather than a dead end it refuses at.
+    const on  = { cursor:'pointer', color:'#4A4842', opacity:'1' };
+    const dim = { cursor:'pointer', color:'#8A867E', opacity:'.75' };
+    const p = phone ? on : dim, e = email ? on : dim;
     return {
       canReach: isCustomer,
       callHref: phone ? ('tel:' + phone) : '#',
       callTitle: phone ? ('Call ' + phone + ' — logged against this customer')
-                       : 'No phone number on this customer. Add one to call from here.',
+                       : 'No phone number yet — click to add one.',
       callCursor: p.cursor, callColor: p.color, callOpacity: p.opacity,
-      waTitle: phone ? 'Message on WhatsApp' : 'No phone number on this customer.',
+      waTitle: phone ? 'Message on WhatsApp' : 'No WhatsApp number yet — click to add one.',
       waCursor: p.cursor, waColor: p.color, waOpacity: p.opacity,
-      emailTitle: email ? ('Email ' + email) : 'No email address on this customer.',
+      emailTitle: email ? ('Email ' + email) : 'No email address yet — click to add one.',
       emailCursor: e.cursor, emailColor: e.color, emailOpacity: e.opacity,
-      onCall: () => { if(phone) this.logCall(detail); },
-      onWhatsApp: () => { if(phone) this.openReach('whatsapp', detail); },
-      onEmail: () => { if(email) this.openReach('email', detail); },
+      onCall: () => phone ? this.logCall(detail) : this.openReach('call', detail),
+      onWhatsApp: () => this.openReach('whatsapp', detail),
+      onEmail: () => this.openReach('email', detail),
       ...this._reachDialogVals(detail),
     };
   }
@@ -1673,10 +1701,81 @@ class Component extends DCLogic {
   openReach(channel, detail){
     this.setState({ reachOpen:true, reachChannel:channel, reachDetail:detail,
                     reachSubject:'', reachBody:'', reachErr:'', reachBusy:false,
-                    reachConvo:null });
+                    reachConvo:null, reachChoices:[], reachNeeds:null, reachNewValue:'' });
+
+    // Nothing on file? Ask for it here rather than sending the user away to the
+    // Edit form and back. This is the common case, not the edge one.
+    const wantsEmail = channel === 'email';
+    const have = wantsEmail ? String(detail.email || '').trim()
+                            : this._reachPhone(detail);
+    if(!have){
+      this.setState({ reachNeeds: wantsEmail ? 'email' : 'phone' });
+      return;
+    }
+    if(channel === 'call'){ this.logCall(detail); this.setState({ reachOpen:false }); return; }
+    // Email has one destination. WhatsApp may not: the client has a personal
+    // thread AND however many groups we share with them, and the group is
+    // usually where the work actually happens. Ask before assuming — but only
+    // when there is something to ask about, so a customer with no shared groups
+    // still goes straight to their DM in one click.
+    if(channel !== 'whatsapp'){ this._openThread(channel, detail, null); return; }
+
+    fetch('/api/customers/' + detail.id + '/whatsapp-groups')
+      .then(r => r.ok ? r.json() : { groups: [] })
+      .catch(() => ({ groups: [] }))
+      .then(d => {
+        const groups = (d && d.groups) || [];
+        if(!groups.length){ this._openThread(channel, detail, null); return; }
+        this.setState({ reachChoices: [
+          { id:null, label: 'Personal', hint: d.number || 'direct message' },
+        ].concat(groups.map(g => ({ id:g.id, label:g.subject, hint:'group' }))) });
+      });
+  }
+
+  saveReachContact(){
+    const s = this.state;
+    const detail = s.reachDetail;
+    const value = (s.reachNewValue || '').trim();
+    if(!detail || !value || s.reachBusy) return;
+    const field = s.reachNeeds === 'email' ? 'email' : 'phone';
+    if(field === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)){
+      this.setState({ reachErr: 'That does not look like an email address.' }); return;
+    }
+    if(field === 'phone' && String(value).replace(/\D/g,'').length < 10){
+      this.setState({ reachErr: 'A phone number needs at least 10 digits, with the country code.' });
+      return;
+    }
+    this.setState({ reachBusy:true, reachErr:'' });
+    const ent = this._entity();
+    fetch('/api/customers/' + detail.id, {
+      method:'PATCH', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ [field]: value })
+    })
+      .then(async r => { const d = await r.json().catch(() => ({}));
+                         if(!r.ok) throw new Error(d.detail || ('HTTP ' + r.status)); return d; })
+      .then(saved => {
+        // The record on screen is now stale, so refresh it — and carry straight
+        // on to what the user actually clicked, rather than making them click
+        // the same button a second time.
+        this.setState({ reachBusy:false, reachNeeds:null, reachNewValue:'' });
+        if(ent) this._fetchDetail(ent);
+        const channel = this.state.reachChannel;
+        if(channel === 'call'){
+          this.setState({ reachOpen:false });
+          this.logCall(saved && saved.id ? saved : detail);
+        } else {
+          this.openReach(channel, { ...detail, [field]: value });
+        }
+      })
+      .catch(e => this.setState({ reachBusy:false, reachErr: e.message || String(e) }));
+  }
+
+  _openThread(channel, detail, groupId){
+    this.setState({ reachChoices:[], reachErr:'' });
     fetch('/api/customers/' + detail.id + '/conversations', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ channel_type: channel })
+      body: JSON.stringify(groupId ? { channel_type: channel, group_id: groupId }
+                                   : { channel_type: channel })
     })
       .then(async r => { const d = await r.json().catch(()=>({}));
                          if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status)); return d; })
@@ -1715,9 +1814,30 @@ class Component extends DCLogic {
   _reachDialogVals(){
     const s = this.state;
     const ch = s.reachChannel || 'whatsapp';
+    const choices = s.reachChoices || [];
+    const needs = s.reachNeeds;
+    const picking = !needs && choices.length > 0;
     return {
       reachOpen: !!s.reachOpen,
-      reachTitle: (ch === 'email' ? 'Email ' : 'WhatsApp ')
+      // Two states in one dialog: choose where, then write. Both bindings are
+      // always set so neither sc-if branch renders its placeholder.
+      reachPicking: picking,
+      reachComposing: !picking && !needs,
+      reachNeeding: !!needs,
+      reachNeedLabel: needs === 'email'
+        ? 'No email address on file for this customer yet.'
+        : 'No phone number on file for this customer yet.',
+      reachNeedPlaceholder: needs === 'email' ? 'name@company.com' : '+91 98765 43210',
+      reachNewValue: s.reachNewValue || '',
+      reachSaveLabel: s.reachBusy ? 'Saving…' : 'Save and continue',
+      onReachNewValue: (e) => this.setState({ reachNewValue: e && e.target ? e.target.value : '',
+                                              reachErr:'' }),
+      onReachSaveContact: () => this.saveReachContact(),
+      reachChoiceRows: choices.map(c => ({
+        label: c.label, hint: c.hint,
+        onPick: () => this._openThread(ch, s.reachDetail, c.id),
+      })),
+      reachTitle: (ch === 'email' ? 'Email ' : ch === 'call' ? 'Call ' : 'WhatsApp ')
                   + ((s.reachDetail && s.reachDetail.display_name) || 'customer'),
       reachTo: (s.reachConvo && s.reachConvo.address) || '…',
       reachBody: s.reachBody || '',
