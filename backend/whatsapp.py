@@ -25,6 +25,7 @@ share their subscriber number is not a recoverable mistake.
 import logging
 import os
 import re
+import time
 
 import requests
 
@@ -106,6 +107,16 @@ def dial_address(db, conversation):
     here. With no country code configured the answer is None, and the caller
     declines to send rather than dial a number it invented.
     """
+    # A group thread is addressed by the group. Falling through to the walk
+    # below would find the linked CONTACT's number and deliver a message meant
+    # for a group of people privately to one of them — the same class of mistake
+    # as dialling a stranger who shares a subscriber number, and just as
+    # unrecoverable once sent.
+    from backend import comms
+
+    if comms.is_group(conversation.contact_identifier):
+        return conversation.contact_identifier
+
     candidates = []
     if conversation.party_contact_id:
         contact = db.query(PartyContact).filter(
@@ -180,6 +191,99 @@ def send_text(number, body):
         # the same message, so it is worth a line in the log.
         logger.warning("Bot accepted a message but returned no messageId")
     return message_id
+
+
+# ── groups ──────────────────────────────────────────────────────────────────
+#
+# A client is rarely only a DM. The work usually happens in a group with their
+# people and ours in it, and until now HQ could not see those at all — so the
+# WhatsApp button could only ever open a personal thread, and the conversation
+# that actually mattered lived somewhere HQ had never heard of.
+#
+# Finding which groups a given customer is in costs one call to list the groups
+# and one per group to read its members — 30-odd requests. Far too slow to do
+# while somebody waits, and completely wasted when the answer is the same for
+# every customer on the page. So the whole roster is fetched once and cached,
+# and every customer is answered from memory.
+
+_ROSTER_TTL = 600          # ten minutes; group membership is not volatile
+_ROSTER = {"at": 0, "groups": None}
+
+
+def _member_digits(participant):
+    """The last ten digits of a participant's number, or None.
+
+    The bot reports members as {"id": "...@lid", "phoneNumber":
+    "917567838028@s.whatsapp.net"}. The `id` is a WhatsApp-internal identifier
+    that is NOT a phone number, so matching on it would silently never hit —
+    only `phoneNumber` is comparable to what HQ holds.
+    """
+    if not isinstance(participant, dict):
+        return _digits(participant)[-10:] if _digits(participant) else None
+    raw = participant.get("phoneNumber") or ""
+    digits = _digits(raw.split("@")[0])
+    return digits[-10:] if len(digits) >= 10 else None
+
+
+def _fetch_roster():
+    """Every group the bot is in, with its members' last-ten-digits."""
+    config = _config()
+    headers = {"Authorization": "Bearer %s" % config["token"]}
+    response = _SESSION.get(config["url"] + "/api/group/list", headers=headers, timeout=_TIMEOUT)
+    if not response.ok:
+        raise WhatsAppError("The WhatsApp bot would not list groups: HTTP %s" % response.status_code)
+    groups = (response.json() or {}).get("groups") or []
+
+    roster = []
+    for group in groups:
+        jid = group.get("id")
+        if not jid:
+            continue
+        members = set()
+        try:
+            info = _SESSION.get(
+                "%s/api/group/info/%s" % (config["url"], jid),
+                headers=headers, timeout=_TIMEOUT,
+            )
+            if info.ok:
+                detail = (info.json() or {}).get("group") or {}
+                for participant in detail.get("participants") or []:
+                    got = _member_digits(participant)
+                    if got:
+                        members.add(got)
+        except (requests.RequestException, ValueError) as exc:
+            # One unreadable group is not a reason to lose the other thirty.
+            logger.info("Could not read members of %s: %s", jid, exc)
+        roster.append({"id": jid, "subject": group.get("subject") or jid, "members": members})
+    return roster
+
+
+def groups_for(number, refresh=False):
+    """The groups this number is in. Empty when WhatsApp is not configured.
+
+    Never raises: a customer page must still render when the bot is down, and
+    "no groups" is a survivable answer where a 500 is not.
+    """
+    if not is_configured():
+        return []
+    now = time.time()
+    if refresh or _ROSTER["groups"] is None or now - _ROSTER["at"] > _ROSTER_TTL:
+        try:
+            _ROSTER["groups"] = _fetch_roster()
+            _ROSTER["at"] = now
+        except (requests.RequestException, ValueError, WhatsAppError) as exc:
+            logger.warning("Could not refresh the WhatsApp group roster: %s", exc)
+            if _ROSTER["groups"] is None:
+                return []
+
+    wanted = _digits(number)
+    wanted = wanted[-10:] if len(wanted or "") >= 10 else None
+    if not wanted:
+        return []
+    return [
+        {"id": g["id"], "subject": g["subject"]}
+        for g in (_ROSTER["groups"] or []) if wanted in g["members"]
+    ]
 
 
 def status():

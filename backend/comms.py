@@ -68,9 +68,21 @@ def _digits(value):
     return only[-10:] if len(only) >= 10 else (only or None)
 
 
+def is_group(identifier):
+    """WhatsApp group ids end in @g.us. They are not phone numbers."""
+    return str(identifier or "").strip().lower().endswith("@g.us")
+
+
 def _normalise(identifier, channel_type):
     if channel_type == "email":
         return (identifier or "").strip().lower()
+    # A group id must survive whole. Run "120363428659623387@g.us" through
+    # _digits and it becomes "3659623387" — a ten-digit string that looks
+    # exactly like a phone number, threads the group under a fake contact, and
+    # could collide with a real subscriber number. The suffix is what tells the
+    # two apart, so it is checked before anything strips it.
+    if is_group(identifier):
+        return str(identifier).strip().lower()
     return _digits(identifier) or (identifier or "").strip()
 
 

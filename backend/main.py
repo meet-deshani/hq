@@ -1589,7 +1589,19 @@ def customer_open_thread(
             crm_models.PartyContact.is_primary == True,  # noqa: E712
         ).first()
 
-    identifier, raw = _reach_identifier(party, contact, channel_type)
+    # A group thread is addressed by its own id, not by anybody's number. It is
+    # taken verbatim: comms._normalise keeps @g.us ids whole precisely so a
+    # group cannot be filed under a ten-digit string that looks like a phone.
+    group_id = (payload.get("group_id") or "").strip()
+    if group_id:
+        if not comms.is_group(group_id):
+            raise HTTPException(status_code=400,
+                                detail="group_id must be a WhatsApp group id ending in @g.us")
+        if channel_type != "whatsapp":
+            raise HTTPException(status_code=400, detail="Groups exist on WhatsApp only")
+        identifier, raw = comms._normalise(group_id, "whatsapp"), group_id
+    else:
+        identifier, raw = _reach_identifier(party, contact, channel_type)
     if not identifier:
         raise HTTPException(
             status_code=400,
@@ -1656,6 +1668,40 @@ def customer_open_thread(
             else False
         ),
     }
+
+
+@app.get("/api/customers/{party_id}/whatsapp-groups")
+def customer_whatsapp_groups(
+    party_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The WhatsApp groups this customer is in, alongside their personal thread.
+
+    A client is rarely only a DM — the work usually happens in a group with
+    their people and ours in it, and HQ could not see those at all. Answered
+    from a cached roster, because finding them costs one request per group and
+    the answer is identical for every customer on the page.
+
+    An empty list is a normal answer: no groups, no phone on file, or a bot that
+    is down. The personal thread still works in all three cases.
+    """
+    permissions.require(current_user, "customers", "read")
+    party = db.query(crm_models.Party).filter(
+        crm_models.Party.organisation_id == current_user.organisation_id,
+        crm_models.Party.id == party_id,
+    ).first()
+    if party is None:
+        raise HTTPException(status_code=404, detail="Customer %s not found" % party_id)
+
+    contact = db.query(crm_models.PartyContact).filter(
+        crm_models.PartyContact.party_id == party.id,
+        crm_models.PartyContact.is_primary == True,  # noqa: E712
+    ).first()
+    number = (contact.whatsapp if contact else None) or (contact.phone if contact else None) \
+        or party.phone
+    return {"party_id": party.id, "number": number,
+            "groups": whatsapp.groups_for(number) if number else []}
 
 
 @app.post("/api/customers/{party_id}/calls")
@@ -2161,6 +2207,17 @@ API_CATALOG = [
         "response": "{\n  \"conversation_id\": 4, \"created\": true, \"channel_type\": \"whatsapp\",\n"
                     "  \"contact_identifier\": \"9825115308\", \"address\": \"+91-9825115308\",\n"
                     "  \"sending_enabled\": true\n}",
+    },
+    {
+        "method": "GET", "path": "/api/customers/{party_id}/whatsapp-groups", "auth": "Bearer / Cookie",
+        "summary": "The WhatsApp groups this customer is in. A client is rarely only a DM — the "
+                   "work usually happens in a group with their people and ours in it. Answered "
+                   "from a roster cached for ten minutes, because finding them costs one request "
+                   "per group. An empty list is normal: no groups, no phone on file, or the bot "
+                   "is down; the personal thread still works in all three cases.",
+        "usage": "curl __BASE__/api/customers/1/whatsapp-groups -H \"Authorization: Bearer $TOKEN\"",
+        "response": "{\n  \"party_id\": 1, \"number\": \"+91-9825115308\",\n"
+                    "  \"groups\": [ { \"id\": \"1203...@g.us\", \"subject\": \"NeoNir x ZeroOne\" } ]\n}",
     },
     {
         "method": "POST", "path": "/api/customers/{party_id}/calls", "auth": "Bearer / Cookie",
