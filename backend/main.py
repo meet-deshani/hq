@@ -2145,6 +2145,27 @@ API_CATALOG = [
                     "  \"customer\": { \"id\": 18, \"display_name\": \"...\" }\n}",
     },
     {
+        "method": "POST", "path": "/api/tasks/{task_id}/claim", "auth": "Bearer / Cookie",
+        "summary": "Take ownership of an open, unowned task and move it to in_progress. "
+                   "One conditional UPDATE, so concurrent claims cannot both succeed — the "
+                   "loser gets a 409 naming the holder and nothing is changed. Use this "
+                   "instead of PATCH owner_id, which is a read-then-write and loses races "
+                   "silently.",
+        "usage": "curl -X POST __BASE__/api/tasks/1/claim \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -d '{}'",
+        "response": "{\n  \"claimed\": true,\n"
+                    "  \"task\": { \"id\": 1, \"status\": \"in_progress\", \"owner_id\": 4 }\n}",
+    },
+    {
+        "method": "POST", "path": "/api/tasks/{task_id}/release", "auth": "Bearer / Cookie",
+        "summary": "Hand a claimed task back so it can be picked up again — the counterpart "
+                   "to claim, without which a crashed agent holds its task for ever. Only the "
+                   "holder can release it; an optional 'reason' is recorded in the audit trail.",
+        "usage": "curl -X POST __BASE__/api/tasks/1/release \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"
+                 "  -d '{\"reason\":\"blocked on credentials\"}'",
+        "response": "{\n  \"released\": true,\n"
+                    "  \"task\": { \"id\": 1, \"status\": \"open\", \"owner_id\": null }\n}",
+    },
+    {
         "method": "POST", "path": "/api/users/{user_id}/password", "auth": "Bearer / Cookie",
         "summary": "Set a user's password. Admin only.",
         "usage": "curl -X POST __BASE__/api/users/2/password \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n"

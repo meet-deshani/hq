@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import threading
 import urllib.error
 import urllib.request
 from datetime import date, datetime
@@ -492,6 +493,73 @@ def run(base, email, password):
     _, page = api.call("GET", "/api/projects?limit=5&offset=0", expect=200)
     check("pagination caps the page", page["count"] == 5 and page["total"] > 5,
           "count=%s total=%s" % (page["count"], page["total"]))
+
+    # ── claiming work ───────────────────────────────────────────────────────
+    # The whole point of a claim endpoint is that PATCH cannot do this safely:
+    # two agents both read owner_id IS NULL, both write themselves in, and the
+    # second silently wins. Asserting a single sequential 409 would NOT catch
+    # that — the read-then-write bug only appears under real concurrency, so
+    # this fires N claims at one task simultaneously and demands one winner.
+    section("Claiming a task is race-free")
+    _, task = api.call("POST", "/api/tasks",
+                       {"title": "Smoke — claim race", "priority": "high"}, expect=200)
+    tid = task["id"]
+    check("a new task starts unowned and open",
+          task["owner_id"] is None and task["status"] == "open",
+          "owner=%s status=%s" % (task["owner_id"], task["status"]))
+
+    RACERS = 12
+    codes = []
+    lock = threading.Lock()
+    gate = threading.Barrier(RACERS)
+
+    def _race():
+        gate.wait()   # every thread fires at the same instant, not in sequence
+        st, _body = api.call("POST", "/api/tasks/%s/claim" % tid, {})
+        with lock:
+            codes.append(st)
+
+    threads = [threading.Thread(target=_race) for _ in range(RACERS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    check("exactly one of %d concurrent claims wins" % RACERS,
+          codes.count(200) == 1, "codes=%s" % sorted(codes))
+    check("every loser is told 409, not a silent no-op",
+          codes.count(409) == RACERS - 1, "codes=%s" % sorted(codes))
+
+    _, held = api.call("GET", "/api/tasks/%s" % tid, expect=200)
+    check("the winner owns it and it moved to in_progress",
+          held["owner_id"] is not None and held["status"] == "in_progress",
+          "owner=%s status=%s" % (held["owner_id"], held["status"]))
+
+    st, _ = api.call("POST", "/api/tasks/%s/claim" % tid, {})
+    check("claiming your own task again is refused", st == 409, "got %s" % st)
+
+    # Without release a crashed agent holds its task forever.
+    _, rel = api.call("POST", "/api/tasks/%s/release" % tid, {"reason": "smoke"}, expect=200)
+    check("release hands the task back", rel["task"]["owner_id"] is None
+          and rel["task"]["status"] == "open", str(rel["task"]["status"]))
+    st, _ = api.call("POST", "/api/tasks/%s/release" % tid, {})
+    check("releasing a task you do not hold is refused", st == 409, "got %s" % st)
+
+    # Attachments are how an agent reads the PRD behind its task.
+    section("Files on a record")
+    _, att = api.call("POST", "/api/tasks/%s/attachments" % tid,
+                      {"url": "https://docs.google.com/document/d/smoke/edit",
+                       "filename": "Smoke PRD"}, expect=200)
+    check("a link attaches and is typed by its shape", att["kind"] == "Google Doc",
+          "kind=%s" % att["kind"])
+    _, files = api.call("GET", "/api/tasks/%s/attachments" % tid, expect=200)
+    check("the attachment lists back", [f["id"] for f in files["attachments"]] == [att["id"]],
+          str(files["attachments"]))
+    api.call("DELETE", "/api/tasks/%s/attachments/%s" % (tid, att["id"]), expect=200)
+    _, gone = api.call("GET", "/api/tasks/%s/attachments" % tid, expect=200)
+    check("unlinking removes it", gone["attachments"] == [], str(gone["attachments"]))
+
+    api.call("DELETE", "/api/tasks/%s" % tid, expect=200)
 
     # A silently-ignored filter is the sharpest edge for an agent: a typo'd
     # "does this exist?" check would come back with the whole unfiltered list.

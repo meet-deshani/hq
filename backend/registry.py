@@ -636,6 +636,13 @@ entity(
         {"key": "remark", "label": "Add remark", "method": "POST", "path": "/api/tasks/{id}/remarks",
          "description": "Append an Owner Remark. Append-only: remarks are never edited or deleted, "
                         "a correction is a new remark."},
+        {"key": "claim", "label": "Claim", "method": "POST", "path": "/api/tasks/{id}/claim",
+         "description": "Take ownership of an open, unowned task. One conditional UPDATE, so two "
+                        "agents racing for the same task cannot both win — the loser gets a 409 "
+                        "naming the holder and changes nothing."},
+        {"key": "release", "label": "Release", "method": "POST", "path": "/api/tasks/{id}/release",
+         "description": "Give a claimed task back so it can be picked up again. Without this a "
+                        "crashed agent holds its task forever and the work silently stops."},
     ],
 )
 
