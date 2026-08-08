@@ -14,7 +14,7 @@ echo "── offline suites ──"
 for t in tests/permissions_seed_test.py tests/zoho_client_test.py tests/zoho_sync_test.py \
          tests/whatsapp_send_test.py tests/email_send_test.py tests/drive_test.py tests/whatsapp_groups_test.py tests/comms_ingest_test.py \
          tests/tabdesk_test.py tests/permissions_matrix_test.py \
-         tests/lead_web_test.py tests/schema_sync_test.py; do
+         tests/lead_web_test.py tests/schema_sync_test.py tests/portal_cells_test.py; do
   printf "  %-34s " "$(basename "$t")"
   if venv/bin/python "$t" >/dev/null 2>&1; then echo "OK"; else echo "FAILED"; fail=1; fi
 done

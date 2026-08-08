@@ -233,6 +233,37 @@ def run(base, email, password):
     check("Nishant has an account", "nishant@neonir.com" in emails, str(sorted(emails)))
     check("Hemish has an account", "hemish@neonir.com" in emails, str(sorted(emails)))
 
+    # ── person vs agent ─────────────────────────────────────────────────────
+    # Two kinds of account share this table, and an account created before the
+    # column existed carries NULL — which has to read as 'person' everywhere,
+    # not as an empty cell in the Users list.
+    section("Accounts: people and agents")
+    check("a seeded account is a person",
+          all(u.get("kind") == "person" for u in users),
+          str([(u["email"], u.get("kind")) for u in users]))
+
+    _, bot = api.call("POST", "/api/users",
+                      {"email": "smoke-agent@dotsai.in", "name": "Smoke Agent",
+                       "kind": "agent", "role_name": "Operator"}, expect=200)
+    check("an agent account is created as an agent", bot["kind"] == "agent", "kind=%s" % bot["kind"])
+
+    _, agents = api.call("GET", "/api/users?kind=agent", expect=200)
+    check("agents are filterable", {u["email"] for u in agents} == {"smoke-agent@dotsai.in"},
+          str(sorted(u["email"] for u in agents)))
+    _, people = api.call("GET", "/api/users?kind=person", expect=200)
+    check("people are filterable, and an agent is not one",
+          "smoke-agent@dotsai.in" not in {u["email"] for u in people} and len(people) >= 3,
+          "%d people" % len(people))
+
+    # A typo must land on 'person'. Silently promoting an unrecognised value to
+    # 'agent' is the one direction that matters.
+    _, typo = api.call("PATCH", "/api/users/%s" % bot["id"], {"kind": "roboto"}, expect=200)
+    check("an unrecognised kind falls back to person", typo["kind"] == "person",
+          "kind=%s" % typo["kind"])
+    _, back = api.call("PATCH", "/api/users/%s" % bot["id"], {"kind": "AGENT"}, expect=200)
+    check("kind is normalised, not case-sensitive", back["kind"] == "agent", "kind=%s" % back["kind"])
+    api.call("DELETE", "/api/users/%s" % bot["id"], expect=200)
+
     # Ref labels must resolve, or the UI shows bare integers.
     a_project = next((r for r in projects["rows"] if r.get("party_id")), None)
     check("ref columns resolve to labels",
