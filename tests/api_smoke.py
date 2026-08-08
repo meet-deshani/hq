@@ -536,7 +536,40 @@ def run(base, email, password):
           "owner=%s status=%s" % (held["owner_id"], held["status"]))
 
     st, _ = api.call("POST", "/api/tasks/%s/claim" % tid, {})
-    check("claiming your own task again is refused", st == 409, "got %s" % st)
+    check("claiming an in_progress task is refused", st == 409, "got %s" % st)
+
+    # The state a human creates by ASSIGNING work: owner set, still open. With
+    # claim gated on `owner_id IS NULL` this was an absorbing dead end — claim
+    # refused it as owned, release refused it as not started, and an agent sat
+    # idle on a task addressed to it by name while `next` reported no work.
+    _, mine = api.call("POST", "/api/tasks",
+                       {"title": "Smoke — assigned, not started",
+                        "owner_id": me["id"], "status": "open"}, expect=200)
+    check("an assigned-but-open task starts in that exact state",
+          mine["owner_id"] == me["id"] and mine["status"] == "open",
+          "owner=%s status=%s" % (mine["owner_id"], mine["status"]))
+    _, started = api.call("POST", "/api/tasks/%s/claim" % mine["id"], {}, expect=200)
+    check("work assigned to you can be started, not just unowned work",
+          started["task"]["status"] == "in_progress", str(started["task"]["status"]))
+
+    # And the mirror: an assignment can be declined, not only an in-flight task
+    # abandoned.
+    _, mine2 = api.call("POST", "/api/tasks",
+                        {"title": "Smoke — declined", "owner_id": me["id"], "status": "open"},
+                        expect=200)
+    _, declined = api.call("POST", "/api/tasks/%s/release" % mine2["id"], {}, expect=200)
+    check("an assignment can be declined", declined["task"]["owner_id"] is None,
+          str(declined["task"]["owner_id"]))
+
+    # The audit trail must say what actually happened, not what usually happens.
+    _, trail = api.call("GET", "/api/audit?entity_type=tasks&entity_id=%s" % mine2["id"], expect=200)
+    releases = [e for e in trail["entries"] if e.get("action") == "release"]
+    from_status = (releases[0].get("changes", {}).get("status", {}) or {}).get("from") if releases else None
+    check("release records the status it actually released from",
+          from_status == "open", "recorded from=%s (task was open, not in_progress)" % from_status)
+
+    api.call("DELETE", "/api/tasks/%s" % mine["id"], expect=200)
+    api.call("DELETE", "/api/tasks/%s" % mine2["id"], expect=200)
 
     # Without release a crashed agent holds its task forever.
     _, rel = api.call("POST", "/api/tasks/%s/release" % tid, {"reason": "smoke"}, expect=200)

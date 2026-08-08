@@ -1305,10 +1305,20 @@ def claim_task(
     """
     permissions.require(current_user, "tasks", "update")
 
+    # `owner_id IS NULL OR owner_id = me`, not `IS NULL` alone. Assigning work
+    # in the UI produces owner_id set + status 'open', which is the ordinary way
+    # a human hands an agent a job. With `IS NULL` alone that state was a dead
+    # end: claim refused it because it was owned, release refused it because it
+    # had not started, and the agent sat idle on work addressed to it by name.
+    #
+    # Still one conditional UPDATE, and still race-free: two agents can only
+    # both match through the NULL branch, and exactly one of them wins that.
+    prior = db.query(Task.status, Task.owner_id).filter(Task.id == task_id).first()
     now = datetime.utcnow()
     result = db.execute(
         sa_update(Task)
-        .where(Task.id == task_id, Task.owner_id.is_(None), Task.status == "open")
+        .where(Task.id == task_id, Task.status == "open",
+               or_(Task.owner_id.is_(None), Task.owner_id == current_user.id))
         .values(owner_id=current_user.id, status="in_progress",
                 updated_by_id=current_user.id, updated_at=now)
         .execution_options(synchronize_session=False)
@@ -1320,8 +1330,10 @@ def claim_task(
         audit.record(
             db, action="claim", entity_type="tasks", entity_id=task_id,
             entity_label=task.title, actor=current_user, request=request,
-            changes={"owner_id": {"from": None, "to": current_user.id},
-                     "status": {"from": "open", "to": "in_progress"}},
+            # The real prior values, read before the write. Recording a assumed
+            # "from" is how an audit trail starts lying about what happened.
+            changes={"owner_id": {"from": prior.owner_id if prior else None, "to": current_user.id},
+                     "status": {"from": prior.status if prior else None, "to": "in_progress"}},
             organisation_id=task.organisation_id, commit=True,
         )
         return {"claimed": True, "task": serialize(task, _get_entity("tasks"))}
@@ -1335,10 +1347,6 @@ def claim_task(
         raise HTTPException(status_code=409, detail=(
             "Task %s is already held by %s. Nothing was changed."
             % (task_id, (holder.name if holder else "user %s" % task.owner_id))))
-    if task.owner_id == current_user.id:
-        raise HTTPException(status_code=409, detail=(
-            "Task %s is already yours — claiming twice is not a way to restart it."
-            % task_id))
     raise HTTPException(status_code=409, detail=(
         "Task %s is '%s', and only an open task can be claimed." % (task_id, task.status)))
 
@@ -1360,11 +1368,14 @@ def release_task(
     """
     permissions.require(current_user, "tasks", "update")
 
+    # 'open' is in the list so an assignment can be declined, not just an
+    # in-flight task abandoned — the mirror of claim accepting owner+open.
+    prior = db.query(Task.status, Task.owner_id).filter(Task.id == task_id).first()
     now = datetime.utcnow()
     result = db.execute(
         sa_update(Task)
         .where(Task.id == task_id, Task.owner_id == current_user.id,
-               Task.status.in_(["in_progress", "blocked"]))
+               Task.status.in_(["open", "in_progress", "blocked"]))
         .values(owner_id=None, status="open", updated_by_id=current_user.id, updated_at=now)
         .execution_options(synchronize_session=False)
     )
@@ -1376,8 +1387,10 @@ def release_task(
         audit.record(
             db, action="release", entity_type="tasks", entity_id=task_id,
             entity_label=task.title, actor=current_user, request=request,
+            # `prior.status`, not a hardcoded "in_progress" — releasing from
+            # 'blocked' used to record a transition that never happened.
             changes={"owner_id": {"from": current_user.id, "to": None},
-                     "status": {"from": "in_progress", "to": "open"},
+                     "status": {"from": prior.status if prior else None, "to": "open"},
                      **({"reason": {"from": None, "to": reason}} if reason else {})},
             organisation_id=task.organisation_id, commit=True,
         )
@@ -1390,7 +1403,7 @@ def release_task(
         raise HTTPException(status_code=409, detail=(
             "Task %s is not yours to release." % task_id))
     raise HTTPException(status_code=409, detail=(
-        "Task %s is '%s' — only a task you are working on can be released." % (task_id, task.status)))
+        "Task %s is '%s' — a finished task cannot be released." % (task_id, task.status)))
 
 
 @router.post("/api/leads/{lead_id}/convert")

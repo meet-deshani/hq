@@ -75,13 +75,21 @@ def login(email, password):
         )
         if res.status_code == 200:
             token = res.json()["access_token"]
-            with open(TOKEN_FILE, "w") as f:
+            # 0600: the token is a bearer credential, and the default umask made
+            # it world-readable on a shared host.
+            fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
                 f.write(token)
             click.echo("Successfully logged in! Token saved to ~/.hq_token")
         else:
+            # Exit 1, not 0. `hq-cli login … && do-work` is the idiomatic agent
+            # bootstrap, and exiting 0 on a failed login let the second half run
+            # unauthenticated — `set -e` never fired either.
             click.echo(f"Login failed: {res.json().get('detail', 'Unknown error')}", err=True)
+            sys.exit(1)
     except Exception as e:
         click.echo(f"Connection error: {e}", err=True)
+        sys.exit(1)
 
 @cli.command()
 def logout():
@@ -433,8 +441,18 @@ def api(method, path, auth=True, **kwargs):
             return res.json()
         except ValueError:
             fail(f"Server returned a non-JSON response ({res.status_code}).")
-    if res.status_code in (401, 403):
-        fail("Not authorised - your token is missing or expired. Run 'hq-cli login'.")
+    # 401 and 403 mean opposite things to an agent and must not share a message.
+    # 401 is "who are you" — logging in again fixes it. 403 is "you, specifically,
+    # may not do this" — logging in again changes nothing, and an unattended agent
+    # told to re-authenticate will do it forever instead of reporting the real
+    # problem or asking for the permission it needs.
+    if res.status_code == 401:
+        fail("Not authenticated - your token is missing or expired. "
+             "Run 'hq-cli login', or set HQ_TOKEN.")
+    if res.status_code == 403:
+        fail(f"Refused: {error_detail(res)} "
+             "(This is a permissions problem, not a login problem — "
+             "re-authenticating will not help.)")
     if res.status_code == 404:
         fail(f"Not found: {error_detail(res)}")
     fail(error_detail(res))
@@ -807,6 +825,28 @@ def _action_path(entity, key, row_id):
     return ent, action.get("method", "POST"), action["path"].format(id=row_id)
 
 
+@cli.command(name="whoami")
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def whoami(as_json):
+    """Who this token belongs to, and what it is allowed to do.
+
+    Without this an agent discovers every permission boundary by attempting the
+    action and reading the refusal, which is a slow and noisy way to find out
+    something the server will state directly.
+    """
+    data = api("GET", "/api/auth/me")
+    if as_json:
+        emit_json(data)
+        return
+    role = (data.get("role") or {}).get("name") or "—"
+    click.echo(f"{data.get('name')} <{data.get('email')}>")
+    click.echo(f"  id {data.get('id')}   role {role}   kind {data.get('kind') or 'person'}")
+    can = data.get("can") or {}
+    denied = sorted(k for k, v in can.items() if v is False)
+    click.echo(f"  permissions: {len(data.get('permissions') or [])}"
+               + (f"   cannot: {', '.join(denied)}" if denied else ""))
+
+
 @cli.group(name="task")
 def task_group():
     """Claiming work — the commands an agent needs to take a task and give it back."""
@@ -856,20 +896,25 @@ def next_task(project, tries, as_json):
     the same on SQLite and Postgres.
     """
     ent = entity_or_fail("tasks")
+    me = api("GET", "/api/auth/me").get("id")
     params = {"status": "open", "limit": 100}
     if project:
         params["project_id"] = project
     rows = api("GET", f"/api/{ent['key']}", params=params).get("rows", [])
 
-    free = [r for r in rows if not r.get("owner_id")]
+    # Unowned OR already assigned to me. Filtering to unowned alone meant work a
+    # human had assigned to this account by name was invisible to the very loop
+    # meant to pick it up — the agent reported "nothing to do" and idled while
+    # its name was on the task.
+    free = [r for r in rows if not r.get("owner_id") or r.get("owner_id") == me]
     free.sort(key=lambda r: (
         _PRIORITY_RANK.get(r.get("priority"), 9),
         r.get("due_date") or "9999-99-99",
         r.get("id"),
     ))
     if not free:
-        click.echo("No unclaimed open tasks." if not project
-                   else f"No unclaimed open tasks on project #{project}.")
+        click.echo("No open tasks available to you." if not project
+                   else f"No open tasks available to you on project #{project}.")
         sys.exit(0)
 
     for row in free[:tries]:
