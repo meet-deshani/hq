@@ -881,8 +881,19 @@ function linkInfo(url){
   // A repo is identified by owner/name, not by its host. Falling through to the
   // hostname rule below would label every project's repo "github.com", which is
   // exactly as useful as no label on a list of twenty projects.
-  const gh = s.match(/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?(?:[/?#]|$)/i);
-  if(gh) return { kind:'repo', label: gh[1], href:s, id:gh[1], invalid:false };
+  //
+  // Matched against the parsed HOST, never the raw string: a substring match
+  // would let https://evil.example.com/github.com/owner/repo render a link
+  // reading "owner/repo" and pointing somewhere else entirely. The label is the
+  // only thing most people read before clicking.
+  let ghHost = '';
+  try { ghHost = new URL(s).hostname.toLowerCase().replace(/^www\./, ''); } catch(_) {}
+  if(ghHost === 'github.com'){
+    let path = '';
+    try { path = new URL(s).pathname; } catch(_) {}
+    const gh = path.match(/^\/([\w.-]+\/[\w.-]+?)(?:\.git)?(?:\/|$)/);
+    if(gh) return { kind:'repo', label: gh[1], href:s, id:gh[1], invalid:false };
+  }
   let host = '';
   try { host = new URL(s).hostname.replace(/^www\./, ''); } catch(_) { host = ''; }
   return { kind:'link', label: host || 'Link', href:s, id:null, invalid:false };
