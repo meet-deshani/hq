@@ -184,14 +184,6 @@
               </sc-if>
               <!-- A short list is quicker to click than to search, so it stays a
                    native select. Long lists become a searchable dropdown. -->
-              <sc-if value="{{ f.isSelect }}">
-                <select value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
-                  <option value="">—</option>
-                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="2">
-                    <option value="{{ o.v }}">{{ o.label }}</option>
-                  </sc-for>
-                </select>
-              </sc-if>
               <sc-if value="{{ f.isCombo }}">
                 <!-- Reads as a dropdown, not a search box: closed it shows the
                      picked value and a chevron, exactly like the select it
@@ -202,10 +194,15 @@
                 </button>
                 <sc-if value="{{ f.comboOpen }}">
                   <div style="position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:120;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);overflow:hidden">
-                    <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #EEEDE8">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-                      <input value="{{ f.comboQuery }}" sc-camel-on-change="{{ f.onComboSearch }}" sc-camel-on-key-down="{{ f.onComboKey }}" placeholder="Search…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924">
-                    </div>
+                    <!-- The panel is the same everywhere; only whether it carries
+                         a search box depends on the list being long enough to
+                         be worth searching. -->
+                    <sc-if value="{{ f.comboSearchable }}">
+                      <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #EEEDE8">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                        <input value="{{ f.comboQuery }}" sc-camel-on-change="{{ f.onComboSearch }}" sc-camel-on-key-down="{{ f.onComboKey }}" placeholder="Search…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924">
+                      </div>
+                    </sc-if>
                     <div style="max-height:230px;overflow:auto;padding:5px 0">
                       <sc-for list="{{ f.comboRows }}" as="o" hint-placeholder-count="3">
                         <div sc-camel-on-mouse-down="{{ o.onPick }}" style="cursor:pointer;padding:8px 13px;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;background:{{ o.bg }}">{{ o.label }}</div>
@@ -2258,18 +2255,25 @@ class Component extends DCLogic {
           if(f.roleSelect) opts = (this.state.roleOptions || []).map(o => ({ v:o, label:o }));
           else if(f.select) opts = f.select.map(o => ({ v:o, label:o }));
         }
-        // A ref field draws from a list that grows; give it search (and, when the
-        // entity allows it, the ability to add a name that is not there yet) once
-        // the list is long enough that scanning it costs more than typing.
-        // Below SEARCHABLE_MIN a search box is friction, so the native select
-        // stays. A ref field that CAN be added to is searchable at any length —
-        // otherwise a brand-new list would have no way to get its first entry.
+        // ONE dropdown, everywhere. Every field with options renders the same
+        // control — same trigger, same panel, same keyboard behaviour — instead
+        // of a native <select> here and a search panel there depending on the
+        // field's type and how many options it happened to have. Which control
+        // you got used to depend on facts about the data, which is exactly the
+        // kind of inconsistency a person notices and cannot explain.
+        //
+        // What still varies is the SEARCH INPUT inside the panel, and only that:
+        // a box to search four options is friction, not a feature. Past
+        // SEARCHABLE_MIN it appears. A list that can be added to is searchable
+        // at any length — otherwise a brand-new list has no way to get its
+        // first entry.
         const SEARCHABLE_MIN = 5;
         const isRef = !!(ent && f.type === 'ref' && f.ref);
         const canAddTo = isRef && this._canAddTo(f.ref);
         if(isRef) opts = this._optionsFor(f.ref);
-        const isCombo = isRef && ((opts || []).length >= SEARCHABLE_MIN || canAddTo);
-        const isSelect = !isCombo && !!opts;
+        const isCombo = !!opts;
+        const isSelect = false;
+        const searchable = (opts || []).length >= SEARCHABLE_MIN || canAddTo;
         const hint = f.hint || '';
 
         const open = this.state.comboKey === f.k;
@@ -2281,9 +2285,18 @@ class Component extends DCLogic {
         const active = this.state.comboActive || 0;
         const picked = all.find(o => o.v === val);
         const target = isRef ? this._refTarget(f.ref) : null;
-        const noun = (target && target.label) || 'entry';
+        // "Select customer…" for a ref, "Select status…" for a plain select —
+        // rather than the old generic "entry", which was only ever right for refs.
+        const noun = (target && target.label) || String(f.label || 'entry').toLowerCase();
 
-        const rows = shown.map((o, i) => {
+        // The native select carried `<option value="">—</option>`, which was the
+        // only way to empty an optional field. Replacing the select without
+        // carrying that over would have quietly made every optional dropdown
+        // one-way: settable, never clearable.
+        const clearable = !(f.required || f.req) && !q;
+        const choices = clearable ? [{ v:'', label:'—' }].concat(shown) : shown;
+
+        const rows = choices.map((o, i) => {
           const pick = () => this.setState(st => {
             const form = Object.assign({}, st.form); form[f.k] = o.v;
             return { form, comboKey:null, comboQuery:'', comboErr:'' };
@@ -2303,6 +2316,8 @@ class Component extends DCLogic {
           // missing renders the placeholder text instead of nothing.
           hint, hasHint: !!hint,
           comboOpen: open,
+          // The one thing that still varies between dropdowns, and only this.
+          comboSearchable: searchable,
           comboLabel: picked ? picked.label : ('Select ' + noun + '…'),
           comboColor: picked ? '#191924' : '#B4B0A6',
           comboBorder: open ? '#C8B6FF' : '#E8E6E0',
