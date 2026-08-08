@@ -23,7 +23,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from sqlalchemy import or_
+from sqlalchemy import or_, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1282,6 +1282,128 @@ def sync_lead_outcome(db, lead, user, payload=None):
             party.status = "Active"
 
     return result
+
+
+@router.post("/api/tasks/{task_id}/claim")
+def claim_task(
+    task_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Take ownership of an unclaimed task, or fail.
+
+    This exists because ``PATCH /api/tasks/{id}`` cannot be used safely for
+    this. That path reads the row, changes it in Python and writes it back, so
+    two agents polling for work both read ``owner_id IS NULL``, both write
+    themselves in, and the second silently wins. Nothing errors. You find out
+    when the same work has been done twice.
+
+    So the claim is ONE conditional UPDATE and the winner is decided by the
+    number of rows the database says it changed — never by a SELECT beforehand,
+    which is the same race in a different shape. The loser is told who holds it.
+    """
+    permissions.require(current_user, "tasks", "update")
+
+    # `owner_id IS NULL OR owner_id = me`, not `IS NULL` alone. Assigning work
+    # in the UI produces owner_id set + status 'open', which is the ordinary way
+    # a human hands an agent a job. With `IS NULL` alone that state was a dead
+    # end: claim refused it because it was owned, release refused it because it
+    # had not started, and the agent sat idle on work addressed to it by name.
+    #
+    # Still one conditional UPDATE, and still race-free: two agents can only
+    # both match through the NULL branch, and exactly one of them wins that.
+    prior = db.query(Task.status, Task.owner_id).filter(Task.id == task_id).first()
+    now = datetime.utcnow()
+    result = db.execute(
+        sa_update(Task)
+        .where(Task.id == task_id, Task.status == "open",
+               or_(Task.owner_id.is_(None), Task.owner_id == current_user.id))
+        .values(owner_id=current_user.id, status="in_progress",
+                updated_by_id=current_user.id, updated_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+
+    if result.rowcount == 1:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        audit.record(
+            db, action="claim", entity_type="tasks", entity_id=task_id,
+            entity_label=task.title, actor=current_user, request=request,
+            # The real prior values, read before the write. Recording a assumed
+            # "from" is how an audit trail starts lying about what happened.
+            changes={"owner_id": {"from": prior.owner_id if prior else None, "to": current_user.id},
+                     "status": {"from": prior.status if prior else None, "to": "in_progress"}},
+            organisation_id=task.organisation_id, commit=True,
+        )
+        return {"claimed": True, "task": serialize(task, _get_entity("tasks"))}
+
+    # Lost, or never eligible. Read the row only NOW — to explain, not to decide.
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task %s not found" % task_id)
+    if task.owner_id and task.owner_id != current_user.id:
+        holder = db.query(User).filter(User.id == task.owner_id).first()
+        raise HTTPException(status_code=409, detail=(
+            "Task %s is already held by %s. Nothing was changed."
+            % (task_id, (holder.name if holder else "user %s" % task.owner_id))))
+    raise HTTPException(status_code=409, detail=(
+        "Task %s is '%s', and only an open task can be claimed." % (task_id, task.status)))
+
+
+@router.post("/api/tasks/{task_id}/release")
+def release_task(
+    task_id: int,
+    request: Request,
+    payload: dict = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Give a claimed task back, so a crashed agent does not hold it forever.
+
+    Without this, claiming is a one-way door: an agent that dies mid-task keeps
+    the row locked to itself and the work silently stops being picked up. The
+    same conditional-update discipline applies, so releasing a task somebody
+    else has since taken changes nothing rather than stealing it back.
+    """
+    permissions.require(current_user, "tasks", "update")
+
+    # 'open' is in the list so an assignment can be declined, not just an
+    # in-flight task abandoned — the mirror of claim accepting owner+open.
+    prior = db.query(Task.status, Task.owner_id).filter(Task.id == task_id).first()
+    now = datetime.utcnow()
+    result = db.execute(
+        sa_update(Task)
+        .where(Task.id == task_id, Task.owner_id == current_user.id,
+               Task.status.in_(["open", "in_progress", "blocked"]))
+        .values(owner_id=None, status="open", updated_by_id=current_user.id, updated_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+
+    if result.rowcount == 1:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        reason = ((payload or {}).get("reason") or "").strip()
+        audit.record(
+            db, action="release", entity_type="tasks", entity_id=task_id,
+            entity_label=task.title, actor=current_user, request=request,
+            # `prior.status`, not a hardcoded "in_progress" — releasing from
+            # 'blocked' used to record a transition that never happened.
+            changes={"owner_id": {"from": current_user.id, "to": None},
+                     "status": {"from": prior.status if prior else None, "to": "open"},
+                     **({"reason": {"from": None, "to": reason}} if reason else {})},
+            organisation_id=task.organisation_id, commit=True,
+        )
+        return {"released": True, "task": serialize(task, _get_entity("tasks"))}
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task %s not found" % task_id)
+    if task.owner_id != current_user.id:
+        raise HTTPException(status_code=409, detail=(
+            "Task %s is not yours to release." % task_id))
+    raise HTTPException(status_code=409, detail=(
+        "Task %s is '%s' — a finished task cannot be released." % (task_id, task.status)))
 
 
 @router.post("/api/leads/{lead_id}/convert")

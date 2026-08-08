@@ -13,6 +13,16 @@ TOKEN_FILE = os.path.expanduser("~/.hq_token")
 CLIENT_TAG = "cli"
 
 def get_token():
+    """The bearer token: HQ_TOKEN if set, else the file `login` wrote.
+
+    The env var comes first because `login` is an interactive prompt writing to
+    a home directory, and an agent in a container has neither. Without this the
+    CLI is only usable by a human who has typed a password on that machine,
+    which is most of the way to not being usable by an agent at all.
+    """
+    env = (os.getenv("HQ_TOKEN") or "").strip()
+    if env:
+        return env
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, "r") as f:
             return f.read().strip()
@@ -65,13 +75,21 @@ def login(email, password):
         )
         if res.status_code == 200:
             token = res.json()["access_token"]
-            with open(TOKEN_FILE, "w") as f:
+            # 0600: the token is a bearer credential, and the default umask made
+            # it world-readable on a shared host.
+            fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
                 f.write(token)
             click.echo("Successfully logged in! Token saved to ~/.hq_token")
         else:
+            # Exit 1, not 0. `hq-cli login … && do-work` is the idiomatic agent
+            # bootstrap, and exiting 0 on a failed login let the second half run
+            # unauthenticated — `set -e` never fired either.
             click.echo(f"Login failed: {res.json().get('detail', 'Unknown error')}", err=True)
+            sys.exit(1)
     except Exception as e:
         click.echo(f"Connection error: {e}", err=True)
+        sys.exit(1)
 
 @cli.command()
 def logout():
@@ -423,8 +441,18 @@ def api(method, path, auth=True, **kwargs):
             return res.json()
         except ValueError:
             fail(f"Server returned a non-JSON response ({res.status_code}).")
-    if res.status_code in (401, 403):
-        fail("Not authorised - your token is missing or expired. Run 'hq-cli login'.")
+    # 401 and 403 mean opposite things to an agent and must not share a message.
+    # 401 is "who are you" — logging in again fixes it. 403 is "you, specifically,
+    # may not do this" — logging in again changes nothing, and an unattended agent
+    # told to re-authenticate will do it forever instead of reporting the real
+    # problem or asking for the permission it needs.
+    if res.status_code == 401:
+        fail("Not authenticated - your token is missing or expired. "
+             "Run 'hq-cli login', or set HQ_TOKEN.")
+    if res.status_code == 403:
+        fail(f"Refused: {error_detail(res)} "
+             "(This is a permissions problem, not a login problem — "
+             "re-authenticating will not help.)")
     if res.status_code == 404:
         fail(f"Not found: {error_detail(res)}")
     fail(error_detail(res))
@@ -778,6 +806,226 @@ def list_remarks(entity, row_id, as_json):
     else:
         click.echo("(no remarks)")
     click.echo("")
+
+
+_PRIORITY_RANK = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _action_path(entity, key, row_id):
+    """The declared path for an entity action, from the registry — not a constant.
+
+    Same discipline as convert-lead: if the backend moves an action, the CLI
+    follows without an edit, and if it removes one the CLI says so plainly
+    instead of 404ing against a hardcoded URL.
+    """
+    ent = entity_or_fail(entity)
+    action = next((a for a in ent.get("actions", []) if a["key"] == key), None)
+    if not action:
+        fail(f"The registry declares no '{key}' action on {ent['key']}.")
+    return ent, action.get("method", "POST"), action["path"].format(id=row_id)
+
+
+@cli.command(name="whoami")
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def whoami(as_json):
+    """Who this token belongs to, and what it is allowed to do.
+
+    Without this an agent discovers every permission boundary by attempting the
+    action and reading the refusal, which is a slow and noisy way to find out
+    something the server will state directly.
+    """
+    data = api("GET", "/api/auth/me")
+    if as_json:
+        emit_json(data)
+        return
+    role = (data.get("role") or {}).get("name") or "—"
+    click.echo(f"{data.get('name')} <{data.get('email')}>")
+    click.echo(f"  id {data.get('id')}   role {role}   kind {data.get('kind') or 'person'}")
+    can = data.get("can") or {}
+    denied = sorted(k for k, v in can.items() if v is False)
+    click.echo(f"  permissions: {len(data.get('permissions') or [])}"
+               + (f"   cannot: {', '.join(denied)}" if denied else ""))
+
+
+@cli.group(name="task")
+def task_group():
+    """Claiming work — the commands an agent needs to take a task and give it back."""
+    pass
+
+
+@task_group.command(name="claim")
+@click.argument("task_id", type=int)
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def claim_task(task_id, as_json):
+    """Take ownership of an open task. Fails if somebody already holds it."""
+    ent, method, path = _action_path("tasks", "claim", task_id)
+    data = api(method, path, json={})
+    if as_json:
+        emit_json(data)
+        return
+    task = data.get("task") or {}
+    click.echo(f"Claimed task #{task_id}: {task.get('title')}")
+    click.echo(f"  status: {task.get('status')}")
+
+
+@task_group.command(name="release")
+@click.argument("task_id", type=int)
+@click.option("--reason", help="Why you are handing it back (recorded in the audit trail)")
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def release_task(task_id, reason, as_json):
+    """Give a claimed task back so something else can pick it up."""
+    ent, method, path = _action_path("tasks", "release", task_id)
+    data = api(method, path, json={"reason": reason} if reason else {})
+    if as_json:
+        emit_json(data)
+        return
+    click.echo(f"Released task #{task_id} — back to open.")
+
+
+@task_group.command(name="next")
+@click.option("--project", type=int, help="Only consider tasks on this project")
+@click.option("--tries", type=int, default=5, show_default=True,
+              help="How many candidates to attempt before giving up")
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def next_task(project, tries, as_json):
+    """Claim the next available task: highest priority, then earliest due.
+
+    Deliberately a loop of single claims rather than one clever query. Each
+    claim is atomic on its own, so losing a race just means trying the next
+    candidate — which is exactly what a second agent should do, and it behaves
+    the same on SQLite and Postgres.
+    """
+    ent = entity_or_fail("tasks")
+    me = api("GET", "/api/auth/me").get("id")
+    params = {"status": "open", "limit": 100}
+    if project:
+        params["project_id"] = project
+    rows = api("GET", f"/api/{ent['key']}", params=params).get("rows", [])
+
+    # Unowned OR already assigned to me. Filtering to unowned alone meant work a
+    # human had assigned to this account by name was invisible to the very loop
+    # meant to pick it up — the agent reported "nothing to do" and idled while
+    # its name was on the task.
+    free = [r for r in rows if not r.get("owner_id") or r.get("owner_id") == me]
+    free.sort(key=lambda r: (
+        _PRIORITY_RANK.get(r.get("priority"), 9),
+        r.get("due_date") or "9999-99-99",
+        r.get("id"),
+    ))
+    if not free:
+        click.echo("No open tasks available to you." if not project
+                   else f"No open tasks available to you on project #{project}.")
+        sys.exit(0)
+
+    for row in free[:tries]:
+        res = requests.post(f"{API_URL}/api/tasks/{row['id']}/claim",
+                            headers=get_headers(), json={})
+        if res.status_code in (200, 201):
+            data = res.json()
+            if as_json:
+                emit_json(data)
+                return
+            task = data.get("task") or {}
+            click.echo(f"Claimed task #{task.get('id')}: {task.get('title')}")
+            click.echo(f"  priority: {task.get('priority')}   due: {task.get('due_date') or '—'}")
+            return
+        if res.status_code != 409:
+            fail(error_detail(res))
+        click.echo(f"(task #{row['id']} was taken, trying the next one)", err=True)
+
+    fail(f"Tried {min(tries, len(free))} candidates and lost every race. "
+         "Something else is claiming faster — retry, or raise --tries.")
+
+
+@cli.group(name="files")
+def files_group():
+    """Files attached to a record — the PRD, the spec, the signed contract.
+
+    The backend has carried attachments on every entity for a while; without
+    these commands an agent could read a task but not the document describing
+    what the task is for, which is most of what it needs to do the work.
+    """
+    pass
+
+
+@files_group.command(name="ls")
+@click.argument("entity")
+@click.argument("row_id", type=int)
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def list_files(entity, row_id, as_json):
+    """List the files attached to a row."""
+    ent = entity_or_fail(entity)
+    data = api("GET", f"/api/{ent['key']}/{row_id}/attachments")
+    if as_json:
+        emit_json(data)
+        return
+    items = data.get("attachments", [])
+    click.echo(f"\n--- Files on {ent['label']} #{row_id} ({len(items)}) ---")
+    if items:
+        format_table(
+            ["ID", "Name", "Kind", "Added", "URL"],
+            [[a["id"], (a.get("filename") or "")[:40], a.get("kind") or "",
+              (a.get("created_at") or "")[:10], a.get("url") or ""] for a in items],
+        )
+    else:
+        click.echo("(no files)")
+    click.echo("")
+
+
+@files_group.command(name="add")
+@click.argument("entity")
+@click.argument("row_id", type=int)
+@click.argument("url")
+@click.option("--name", "filename", help="Display name (defaults to the link's own kind)")
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def add_file(entity, row_id, url, filename, as_json):
+    """Attach a link to a row. Any URL; Drive and Docs links are typed."""
+    ent = entity_or_fail(entity)
+    payload = {"url": url}
+    if filename:
+        payload["filename"] = filename
+    data = api("POST", f"/api/{ent['key']}/{row_id}/attachments", json=payload)
+    if as_json:
+        emit_json(data)
+        return
+    click.echo(f"Attached #{data['id']} '{data.get('filename')}' "
+               f"({data.get('kind')}) to {ent['label']} #{row_id}.")
+
+
+@files_group.command(name="upload")
+@click.argument("entity")
+@click.argument("row_id", type=int)
+@click.argument("path", type=click.Path(exists=True, dir_okay=False, readable=True))
+@click.option("--json", "as_json", is_flag=True, help="Print raw JSON")
+def upload_file(entity, row_id, path, as_json):
+    """Upload a local file to Drive and attach it.
+
+    Needs Drive configured on the server; without it the server refuses with a
+    message naming the fix, rather than accepting the bytes and losing them.
+    """
+    ent = entity_or_fail(entity)
+    with open(path, "rb") as fh:
+        data = api("POST", f"/api/{ent['key']}/{row_id}/attachments/upload",
+                   files={"file": (os.path.basename(path), fh)})
+    if as_json:
+        emit_json(data)
+        return
+    click.echo(f"Uploaded #{data['id']} '{data.get('filename')}' to {ent['label']} #{row_id}.")
+    click.echo(f"  {data.get('url')}")
+
+
+@files_group.command(name="rm")
+@click.argument("entity")
+@click.argument("row_id", type=int)
+@click.argument("attachment_id", type=int)
+@click.option("--yes", is_flag=True, help="Skip the confirmation prompt")
+def remove_file(entity, row_id, attachment_id, yes):
+    """Unlink a file from a row. HQ's reference goes; the file itself does not."""
+    ent = entity_or_fail(entity)
+    if not yes:
+        click.confirm(f"Unlink file #{attachment_id} from {ent['label']} #{row_id}?", abort=True)
+    api("DELETE", f"/api/{ent['key']}/{row_id}/attachments/{attachment_id}")
+    click.echo(f"File #{attachment_id} unlinked from {ent['label']} #{row_id}.")
 
 
 @cli.command(name="convert-lead")
