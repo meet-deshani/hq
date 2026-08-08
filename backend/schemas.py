@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import List, Optional
 from datetime import datetime
 
@@ -105,11 +105,24 @@ class RoleResponse(RoleBase):
         from_attributes = True
 
 # User Schemas
+# The two things an account can be. An agent is an automation account — same
+# login, same roles, but nobody is reading its notifications.
+USER_KINDS = ("person", "agent")
+
 class UserBase(BaseModel):
     email: EmailStr
     name: str
     status: Optional[str] = "Active"
     organisation_id: Optional[int] = None
+    # Accounts created before this field existed carry NULL, which reads as
+    # 'person' — normalised here so no consumer has to know that.
+    kind: Optional[str] = "person"
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _default_kind(cls, v):
+        v = (v or "").strip().lower()
+        return v if v in USER_KINDS else "person"
 
 class UserCreate(UserBase):
     # Optional — if omitted (or blank) the server mints a strong random password
@@ -123,6 +136,7 @@ class UserUpdate(BaseModel):
     role_name: Optional[str] = None
     organisation_id: Optional[int] = None
     status: Optional[str] = None
+    kind: Optional[str] = None
 
 class PasswordSet(BaseModel):
     password: str
