@@ -13,6 +13,16 @@ TOKEN_FILE = os.path.expanduser("~/.hq_token")
 CLIENT_TAG = "cli"
 
 def get_token():
+    """The bearer token: HQ_TOKEN if set, else the file `login` wrote.
+
+    The env var comes first because `login` is an interactive prompt writing to
+    a home directory, and an agent in a container has neither. Without this the
+    CLI is only usable by a human who has typed a password on that machine,
+    which is most of the way to not being usable by an agent at all.
+    """
+    env = (os.getenv("HQ_TOKEN") or "").strip()
+    if env:
+        return env
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, "r") as f:
             return f.read().strip()
