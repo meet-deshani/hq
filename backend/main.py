@@ -27,6 +27,7 @@ from backend import (
 from sqlalchemy import or_
 from backend.schemas import (
     LoginRequest, Token, UserResponse, UserCreate, UserCreateResponse, UserUpdate, PasswordSet,
+    USER_KINDS,
     RoleResponse, RoleCreate, RoleUpdate, PermissionResponse, DashboardStatsResponse, StatItem,
     OrganisationResponse, OrganisationCreate, OrganisationUpdate,
     ProductResponse, ProductCreate, ProductUpdate,
@@ -276,9 +277,21 @@ def get_me(current_user: User = Depends(get_current_user)):
     return data
 
 # Users
+def _clean_kind(value):
+    """'person' or 'agent', whatever the caller typed. Anything else is a person.
+
+    An unrecognised value must not become one: `kind` decides how an account is
+    presented and, in time, what it is allowed to be handed, so the safe landing
+    spot for a typo is the ordinary human account, not the automation one.
+    """
+    v = (value or "").strip().lower()
+    return v if v in USER_KINDS else "person"
+
+
 @app.get("/api/users", response_model=List[UserResponse])
 def list_users(
     role: Optional[str] = None,
+    kind: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -286,6 +299,12 @@ def list_users(
     query = db.query(User)
     if role:
         query = query.join(Role).filter(Role.name == role)
+    if kind:
+        want = _clean_kind(kind)
+        # NULL predates the column and means 'person', so asking for people has
+        # to reach the rows that were created before anyone was asking.
+        query = (query.filter(User.kind == "agent") if want == "agent"
+                 else query.filter((User.kind == None) | (User.kind != "agent")))  # noqa: E711
     return query.all()
 
 @app.post("/api/users", response_model=UserCreateResponse)
@@ -320,7 +339,8 @@ def create_user(
         password_hash=get_password_hash(raw_password),
         role_id=role.id if role else None,
         organisation_id=user_data.organisation_id,
-        status=user_data.status
+        status=user_data.status,
+        kind=_clean_kind(user_data.kind),
     )
     db.add(db_user)
     db.commit()
@@ -353,6 +373,8 @@ def update_user(
         user.status = user_data.status
     if user_data.organisation_id is not None:
         user.organisation_id = user_data.organisation_id
+    if user_data.kind is not None:
+        user.kind = _clean_kind(user_data.kind)
     if user_data.role_name is not None:
         role = db.query(Role).filter(Role.name == user_data.role_name).first()
         if not role:

@@ -184,14 +184,6 @@
               </sc-if>
               <!-- A short list is quicker to click than to search, so it stays a
                    native select. Long lists become a searchable dropdown. -->
-              <sc-if value="{{ f.isSelect }}">
-                <select value="{{ f.value }}" sc-camel-on-change="{{ f.onInput }}" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:11px;background:#fff;border:1.5px solid #E8E6E0;font-family:'Satoshi',sans-serif;font-size:14px;color:#191924;outline:none">
-                  <option value="">—</option>
-                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="2">
-                    <option value="{{ o.v }}">{{ o.label }}</option>
-                  </sc-for>
-                </select>
-              </sc-if>
               <sc-if value="{{ f.isCombo }}">
                 <!-- Reads as a dropdown, not a search box: closed it shows the
                      picked value and a chevron, exactly like the select it
@@ -202,10 +194,15 @@
                 </button>
                 <sc-if value="{{ f.comboOpen }}">
                   <div style="position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:120;background:#fff;border:1px solid #E4E2DB;border-radius:12px;box-shadow:0 18px 46px rgba(25,25,36,.20);overflow:hidden">
-                    <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #EEEDE8">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-                      <input value="{{ f.comboQuery }}" sc-camel-on-change="{{ f.onComboSearch }}" sc-camel-on-key-down="{{ f.onComboKey }}" placeholder="Search…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924">
-                    </div>
+                    <!-- The panel is the same everywhere; only whether it carries
+                         a search box depends on the list being long enough to
+                         be worth searching. -->
+                    <sc-if value="{{ f.comboSearchable }}">
+                      <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #EEEDE8">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#918D82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                        <input value="{{ f.comboQuery }}" sc-camel-on-change="{{ f.onComboSearch }}" sc-camel-on-key-down="{{ f.onComboKey }}" placeholder="Search…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924">
+                      </div>
+                    </sc-if>
                     <div style="max-height:230px;overflow:auto;padding:5px 0">
                       <sc-for list="{{ f.comboRows }}" as="o" hint-placeholder-count="3">
                         <div sc-camel-on-mouse-down="{{ o.onPick }}" style="cursor:pointer;padding:8px 13px;font-family:'Satoshi',sans-serif;font-size:13.5px;color:#191924;background:{{ o.bg }}">{{ o.label }}</div>
@@ -770,10 +767,18 @@ const LEGACY = {
     fields:[{k:'name',label:'Name',req:true},{k:'slug',label:'Slug'},{k:'icon',label:'Icon',ph:'grid'},
             {k:'organisation_id',label:'Organisation ID',num:true},{k:'product_id',label:'Product ID',num:true},
             {k:'status',label:'Status',ph:'Active'}] },
+  // Two kinds of account share this table: people, and the agents that run work
+  // on the platform unattended. They hold the same roles and log in the same
+  // way, so the only thing that tells them apart is `kind` — which makes it a
+  // column, not a detail buried in the edit form.
   Users: { path:'/api/users', label:'User',
-    cols:['Name','Email','Role','Status'],
-    cells: u => [u.name, u.email, u.role ? u.role.name : 'None', u.status],
+    cols:['Name','Email','Type','Role','Status'],
+    cells: u => [u.name, u.email, { badge: u.kind === 'agent' ? 'Agent' : 'Person' },
+                 u.role ? u.role.name : 'None', u.status],
+    filterKey: 'kind',
+    filters: [{ name:'All' }, { name:'People', value:'person' }, { name:'Agents', value:'agent' }],
     fields:[{k:'name',label:'Name',req:true},{k:'email',label:'Email',req:true,createOnly:true},
+            {k:'kind',label:'Type',select:[{v:'person',label:'Person'},{v:'agent',label:'Agent'}]},
             {k:'role_name',label:'Role',roleSelect:true},{k:'status',label:'Status',select:['Active','Invited','Disabled']}] },
   Roles: { path:'/api/roles', label:'Role',
     cols:['Role','Description','Created'],
@@ -827,6 +832,9 @@ const BADGE = {
   'Not started':'#EEEDE8', 'Testing':'#FFF3B0', 'Training Completed':'#B8E0D2',
   'Onboarding Completed':'#B8E0D2', 'Project Completed':'#B8E0D2',
   pending:'#FFF3B0', invoiced:'#C8B6FF', closed:'#EEEDE8', Dormant:'#EEEDE8', Archived:'#EEEDE8',
+  // An account is a person or an agent. Lavender for the agents, so a table of
+  // mostly people shows the machines at a glance.
+  Person:'#EEEDE8', Agent:'#C8B6FF',
 };
 function badgeColor(v){ return BADGE[v] || '#EEEDE8'; }
 
@@ -865,6 +873,23 @@ function linkInfo(url){
   for(const [re, kind, label] of G){
     const m = s.match(re);
     if(m) return { kind, label, href:s, id:m[1], invalid:false };
+  }
+
+  // A repo is identified by owner/name, not by its host. Falling through to the
+  // hostname rule below would label every project's repo "github.com", which is
+  // exactly as useful as no label on a list of twenty projects.
+  //
+  // Matched against the parsed HOST, never the raw string: a substring match
+  // would let https://evil.example.com/github.com/owner/repo render a link
+  // reading "owner/repo" and pointing somewhere else entirely. The label is the
+  // only thing most people read before clicking.
+  let ghHost = '';
+  try { ghHost = new URL(s).hostname.toLowerCase().replace(/^www\./, ''); } catch(_) {}
+  if(ghHost === 'github.com'){
+    let path = '';
+    try { path = new URL(s).pathname; } catch(_) {}
+    const gh = path.match(/^\/([\w.-]+\/[\w.-]+?)(?:\.git)?(?:\/|$)/);
+    if(gh) return { kind:'repo', label: gh[1], href:s, id:gh[1], invalid:false };
   }
   let host = '';
   try { host = new URL(s).hostname.replace(/^www\./, ''); } catch(_) { host = ''; }
@@ -922,6 +947,34 @@ function renderCell(row, col){
     // A row opens its record on click; a link inside one must not do both.
     stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
     cellStyle: 'display:flex;align-items:center;justify-content:' + align + ';min-width:0;padding-right:12px;overflow:hidden;',
+    inkStyle: ink + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;',
+  };
+}
+
+/** One cell of a LEGACY (non-registry) table: Users, Roles, Organisations…
+ *
+ * These tables declare their cells as bare values, so they never went through
+ * renderCell() and never carried `isPlain`. The moment the row template grew an
+ * isLink/isPlain branch, every one of them rendered a row of empty divs — the
+ * table said "4 records" above four blank lines. Both flags are set here for the
+ * same reason renderCell sets them: a cell with neither is invisible.
+ *
+ * A value may also be `{ badge: 'agent' }`, which is how a legacy table asks for
+ * a chip instead of a line of text.
+ */
+function legacyCell(v){
+  const isBadge = !!(v && typeof v === 'object' && 'badge' in v);
+  const raw = isBadge ? v.badge : v;
+  const text = (raw === null || raw === undefined || raw === '') ? '—' : String(raw);
+  const ink = isBadge
+    ? 'display:inline-block;font-family:' + SANS + ';font-size:11.5px;font-weight:600;color:#2A2A32;'
+      + 'background:' + badgeColor(raw) + ';padding:3px 10px;border-radius:999px;white-space:nowrap;'
+    : 'font-family:' + SANS + ';font-size:13px;color:#3A3A44;';
+  return {
+    v: text,
+    isLink: false, isPlain: true, href: '',
+    stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
+    cellStyle: 'display:flex;align-items:center;min-width:0;padding-right:12px;overflow:hidden;',
     inkStyle: ink + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;',
   };
 }
@@ -1069,6 +1122,28 @@ class Component extends DCLogic {
     return LEGACY[name] ? name : null;
   }
 
+  /** The rows of a legacy table that survive its chip and its search box.
+   *
+   * Both are client-side because the table is fetched whole: /api/users is a
+   * handful of accounts, not a paged list. The chip reads one field off the
+   * record; the search box reads the text already on screen, so it matches
+   * exactly what the person can see.
+   */
+  _legacyVisible(name, rows){
+    if(!name) return rows;
+    const cfg = LEGACY[name];
+    let out = rows;
+
+    const chip = (cfg.filters || []).find(f => f.name === this.state.view);
+    if(chip && chip.value !== undefined && cfg.filterKey){
+      out = out.filter(r => (r.record || {})[cfg.filterKey] === chip.value);
+    }
+
+    const q = (this.state.search || '').trim().toLowerCase();
+    if(q) out = out.filter(r => (r.cells || []).some(c => String(c.v).toLowerCase().includes(q)));
+    return out;
+  }
+
   _authed(res){
     if(res.status === 401){ window.location.href = '/login'; return false; }
     return true;
@@ -1133,11 +1208,7 @@ class Component extends DCLogic {
         if(!data) return;
         const rows = (data || []).map(rec => ({
           id: rec.id, record: rec,
-          cells: cfg.cells(rec).map(v => ({
-            v: (v === null || v === undefined || v === '') ? '—' : String(v),
-            cellStyle: 'display:flex;align-items:center;min-width:0;padding-right:12px;overflow:hidden;',
-            inkStyle: 'font-family:' + SANS + ';font-size:13px;color:#3A3A44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;',
-          })),
+          cells: cfg.cells(rec).map(legacyCell),
         }));
         this.setState({ entity: null, rows, columns: cfg.cols.map(c => ({ label:c })),
                         total: rows.length, loading: false });
@@ -2092,7 +2163,14 @@ class Component extends DCLogic {
       + ';padding:0 18px;min-height:52px;border-bottom:1px solid #F3F2EE;align-items:center;'
       + (ent ? 'cursor:pointer;' : '');
 
-    const rows = (this.state.rows || []).map(r => {
+    // A registry list is filtered and searched by the server. A legacy one is
+    // not — it fetches the whole (small) table, so its chips and its search box
+    // do their work here rather than sending the user a control that does
+    // nothing.
+    const source = ent ? (this.state.rows || [])
+                       : this._legacyVisible(legacyName, this.state.rows || []);
+
+    const rows = source.map(r => {
       const record = ent ? r : (r.record || r);
       const cells = ent ? colSpecs.map(c => renderCell(r, c)) : r.cells;
       const wrapped = { id: r.id, record, cells, style: rowStyle };
@@ -2103,12 +2181,16 @@ class Component extends DCLogic {
       return wrapped;
     });
 
-    const total = this.state.total || rows.length;
+    const total = ent ? (this.state.total || rows.length) : rows.length;
     const tableCount = this.state.loading ? 'Loading…'
       : (total === 1 ? '1 record' : total.toLocaleString('en-IN') + ' records');
 
     // Saved-view chips. "All" is always present so a filtered view is escapable.
-    const savedViews = ent ? (ent.saved_views || []) : [];
+    // A legacy table declares its own chips (Users: All / People / Agents); they
+    // filter in the browser, but they are the same control to the person using
+    // them, so they render through the same row.
+    const savedViews = ent ? (ent.saved_views || [])
+                           : (legacyName ? (LEGACY[legacyName].filters || []) : []);
     const activeView = this.state.view || (savedViews.length ? savedViews[0].name : '');
     const views = savedViews.map(v => ({
       name: v.name,
@@ -2256,20 +2338,29 @@ class Component extends DCLogic {
           else if(f.type === 'boolean') opts = [{ v:'true', label:'Yes' }, { v:'false', label:'No' }];
         } else {
           if(f.roleSelect) opts = (this.state.roleOptions || []).map(o => ({ v:o, label:o }));
-          else if(f.select) opts = f.select.map(o => ({ v:o, label:o }));
+          // A legacy select is a list of stored values, or of {v,label} pairs
+          // when what is stored and what reads well are not the same word.
+          else if(f.select) opts = f.select.map(o => (o && typeof o === 'object') ? o : ({ v:o, label:o }));
         }
-        // A ref field draws from a list that grows; give it search (and, when the
-        // entity allows it, the ability to add a name that is not there yet) once
-        // the list is long enough that scanning it costs more than typing.
-        // Below SEARCHABLE_MIN a search box is friction, so the native select
-        // stays. A ref field that CAN be added to is searchable at any length —
-        // otherwise a brand-new list would have no way to get its first entry.
+        // ONE dropdown, everywhere. Every field with options renders the same
+        // control — same trigger, same panel, same keyboard behaviour — instead
+        // of a native <select> here and a search panel there depending on the
+        // field's type and how many options it happened to have. Which control
+        // you got used to depend on facts about the data, which is exactly the
+        // kind of inconsistency a person notices and cannot explain.
+        //
+        // What still varies is the SEARCH INPUT inside the panel, and only that:
+        // a box to search four options is friction, not a feature. Past
+        // SEARCHABLE_MIN it appears. A list that can be added to is searchable
+        // at any length — otherwise a brand-new list has no way to get its
+        // first entry.
         const SEARCHABLE_MIN = 5;
         const isRef = !!(ent && f.type === 'ref' && f.ref);
         const canAddTo = isRef && this._canAddTo(f.ref);
         if(isRef) opts = this._optionsFor(f.ref);
-        const isCombo = isRef && ((opts || []).length >= SEARCHABLE_MIN || canAddTo);
-        const isSelect = !isCombo && !!opts;
+        const isCombo = !!opts;
+        const isSelect = false;
+        const searchable = (opts || []).length >= SEARCHABLE_MIN || canAddTo;
         const hint = f.hint || '';
 
         const open = this.state.comboKey === f.k;
@@ -2281,9 +2372,18 @@ class Component extends DCLogic {
         const active = this.state.comboActive || 0;
         const picked = all.find(o => o.v === val);
         const target = isRef ? this._refTarget(f.ref) : null;
-        const noun = (target && target.label) || 'entry';
+        // "Select customer…" for a ref, "Select status…" for a plain select —
+        // rather than the old generic "entry", which was only ever right for refs.
+        const noun = (target && target.label) || String(f.label || 'entry').toLowerCase();
 
-        const rows = shown.map((o, i) => {
+        // The native select carried `<option value="">—</option>`, which was the
+        // only way to empty an optional field. Replacing the select without
+        // carrying that over would have quietly made every optional dropdown
+        // one-way: settable, never clearable.
+        const clearable = !(f.required || f.req) && !q;
+        const choices = clearable ? [{ v:'', label:'—' }].concat(shown) : shown;
+
+        const rows = choices.map((o, i) => {
           const pick = () => this.setState(st => {
             const form = Object.assign({}, st.form); form[f.k] = o.v;
             return { form, comboKey:null, comboQuery:'', comboErr:'' };
@@ -2303,6 +2403,8 @@ class Component extends DCLogic {
           // missing renders the placeholder text instead of nothing.
           hint, hasHint: !!hint,
           comboOpen: open,
+          // The one thing that still varies between dropdowns, and only this.
+          comboSearchable: searchable,
           comboLabel: picked ? picked.label : ('Select ' + noun + '…'),
           comboColor: picked ? '#191924' : '#B4B0A6',
           comboBorder: open ? '#C8B6FF' : '#E8E6E0',

@@ -86,6 +86,11 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id", ondelete="SET NULL"), nullable=True, index=True)
     organisation_id = Column(Integer, ForeignKey("organisations.id", ondelete="SET NULL"), nullable=True, index=True)
     status = Column(String(50), default="Active")
+    # 'person' or 'agent'. Both log in through the same auth and hold the same
+    # kind of role — an agent is an automation account (the Brain Task Agent and
+    # its successors), not a person. Nullable so schema_sync can add it to a
+    # live table; a NULL predates this column and means 'person'.
+    kind = Column(String(20), default="person", nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

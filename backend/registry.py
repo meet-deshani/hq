@@ -500,6 +500,16 @@ entity(
         {"k": "document_url", "label": "Document URL", "type": "url", "group": "Links"},
         {"k": "gdrive_url", "label": "Drive URL", "type": "url", "group": "Links"},
         {"k": "notes", "label": "Notes", "type": "textarea", "group": "Links"},
+
+        # The same code in the three places it lives. Answering "where is this
+        # project's code" used to mean asking Meet; now the record answers it,
+        # which is the difference between a person and an agent being able to.
+        {"k": "repo_url", "label": "GitHub repo", "type": "url", "group": "Code",
+         "help": "The repo URL. Which account it belongs to follows from the folder it sits in."},
+        {"k": "local_path", "label": "Local code path", "type": "text", "group": "Code",
+         "help": "Absolute path on the development machine, e.g. ~/dev/clients/Acme/app."},
+        {"k": "vps_path", "label": "VPS code path", "type": "text", "group": "Code",
+         "help": "Absolute path on the VPS, e.g. /opt/apps/<app>."},
     ],
     key_facts=["party_id", "manager_id", "stage", "one_time_amount", "monthly_amount", "start_date", "prod_url"],
     relations=[
