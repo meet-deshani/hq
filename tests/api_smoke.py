@@ -238,9 +238,15 @@ def run(base, email, password):
     # column existed carries NULL — which has to read as 'person' everywhere,
     # not as an empty cell in the Users list.
     section("Accounts: people and agents")
-    check("a seeded account is a person",
-          all(u.get("kind") == "person" for u in users),
-          str([(u["email"], u.get("kind")) for u in users]))
+    # Assert about the SEEDED three by name, not about every row in the table.
+    # A real database grows agent accounts, and a test that reads "no agents
+    # exist" passes on an empty database and then fails for the wrong reason
+    # the first time somebody adds one.
+    SEEDED = {"meet@dotsai.in", "nishant@neonir.com", "hemish@neonir.com"}
+    seeded = [u for u in users if u["email"] in SEEDED]
+    check("the seeded accounts are people",
+          len(seeded) == len(SEEDED) and all(u.get("kind") == "person" for u in seeded),
+          str([(u["email"], u.get("kind")) for u in seeded]))
 
     _, bot = api.call("POST", "/api/users",
                       {"email": "smoke-agent@dotsai.in", "name": "Smoke Agent",
@@ -248,8 +254,10 @@ def run(base, email, password):
     check("an agent account is created as an agent", bot["kind"] == "agent", "kind=%s" % bot["kind"])
 
     _, agents = api.call("GET", "/api/users?kind=agent", expect=200)
-    check("agents are filterable", {u["email"] for u in agents} == {"smoke-agent@dotsai.in"},
-          str(sorted(u["email"] for u in agents)))
+    agent_emails = {u["email"] for u in agents}
+    check("agents are filterable",
+          "smoke-agent@dotsai.in" in agent_emails and not (agent_emails & SEEDED),
+          str(sorted(agent_emails)))
     _, people = api.call("GET", "/api/users?kind=person", expect=200)
     check("people are filterable, and an agent is not one",
           "smoke-agent@dotsai.in" not in {u["email"] for u in people} and len(people) >= 3,
@@ -523,6 +531,48 @@ def run(base, email, password):
     _, page = api.call("GET", "/api/projects?limit=5&offset=0", expect=200)
     check("pagination caps the page", page["count"] == 5 and page["total"] > 5,
           "count=%s total=%s" % (page["count"], page["total"]))
+
+    # ── where the code lives ────────────────────────────────────────────────
+    # Three columns rather than tribal knowledge. The round-trip is the whole
+    # point: a field that saves but reads back empty is worse than no field,
+    # because an agent acting on it would check out nothing and report success.
+    section("Projects carry their code paths")
+    PATHS = {
+        "repo_url": "https://github.com/meet-deshani/hq",
+        "local_path": "/Users/meetdeshani/Desktop/HQ",
+        "vps_path": "/opt/apps/hq",
+    }
+    _, proj = api.call("POST", "/api/projects", dict({"name": "Smoke — code paths"}, **PATHS), expect=200)
+    check("code paths save on create",
+          {k: proj.get(k) for k in PATHS} == PATHS,
+          str({k: proj.get(k) for k in PATHS}))
+
+    _, fetched = api.call("GET", "/api/projects/%s" % proj["id"], expect=200)
+    check("code paths survive the round-trip",
+          {k: fetched.get(k) for k in PATHS} == PATHS,
+          str({k: fetched.get(k) for k in PATHS}))
+
+    _, moved = api.call("PATCH", "/api/projects/%s" % proj["id"],
+                        {"vps_path": "/opt/apps/hq-portal"}, expect=200)
+    check("a code path can be corrected", moved["vps_path"] == "/opt/apps/hq-portal",
+          "vps_path=%s" % moved["vps_path"])
+    check("correcting one path leaves the others alone",
+          moved["repo_url"] == PATHS["repo_url"] and moved["local_path"] == PATHS["local_path"],
+          str({k: moved.get(k) for k in ("repo_url", "local_path")}))
+
+    # The registry is what makes the UI render the repo as a link rather than
+    # dead text, so the declared type is worth asserting, not just the value.
+    _, reg = api.call("GET", "/api/meta/entities", expect=200)
+    p_ent = next((e for e in reg.get("entities", []) if e.get("key") == "projects"), None)
+    by_key = {f["k"]: f for f in ((p_ent or {}).get("fields") or [])}
+    check("the repo is declared a url, so it renders as a link",
+          by_key.get("repo_url", {}).get("type") == "url",
+          str(by_key.get("repo_url")))
+    check("all three code fields sit in one group",
+          {by_key.get(k, {}).get("group") for k in PATHS} == {"Code"},
+          str({k: by_key.get(k, {}).get("group") for k in PATHS}))
+
+    api.call("DELETE", "/api/projects/%s" % proj["id"], expect=200)
 
     # A silently-ignored filter is the sharpest edge for an agent: a typo'd
     # "does this exist?" check would come back with the whole unfiltered list.

@@ -424,6 +424,15 @@ class Project(Base):
     prod_url = Column(String(400))
     gdrive_url = Column(String(400))
 
+    # Where this project's code lives, in all three places it exists at once.
+    # A project is the right home for these rather than the customer: one
+    # customer runs several projects, and each has its own repo and checkout.
+    # Kept as three plain columns rather than one JSON blob because an agent
+    # asking "where is this checked out on the VPS" wants a column, not a parse.
+    repo_url = Column(String(400))
+    local_path = Column(String(400))
+    vps_path = Column(String(400))
+
     notes = Column(Text)
     custom_fields = Column(JSON, default=dict)
 
